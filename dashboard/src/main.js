@@ -421,8 +421,10 @@ function scramble(el, text, dur = .7) {
     onComplete() { el.textContent = text; } });
 }
 function countUp(el, to, dec = 0, sep = false, dur = 1.4) {
-  const n = { v: 0 };
-  return gsap.to(n, { v: to, duration: dur, ease: 'power3.out', onUpdate: () => { let s = n.v.toFixed(dec); if (sep) s = Number(s).toLocaleString('en-US'); el.textContent = s; } });
+  // Live values (data-live) may change while the intro counts: always aim at the element's current data-count.
+  const target = () => (el.dataset.live !== undefined && el.dataset.count !== undefined && Number.isFinite(parseFloat(el.dataset.count)) ? parseFloat(el.dataset.count) : to);
+  const n = { p: 0 };
+  return gsap.to(n, { p: 1, duration: dur, ease: 'power3.out', onUpdate: () => { let s = (target() * n.p).toFixed(dec); if (sep) s = Number(s).toLocaleString('en-US'); el.textContent = s; } });
 }
 function typeText(el, text, cps = 55) {
   const n = { i: 0 }; el.textContent = '';
