@@ -1,0 +1,11 @@
+# DEV ONLY: Mosquitto with an anonymous WebSocket listener (port 9001) for the dashboard.
+# Not for production: no password, no ACL, no TLS (Phase 1).
+#   docker compose -f infra/docker-compose.dev.yml up
+services:
+  mosquitto-dev:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto-dev/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
