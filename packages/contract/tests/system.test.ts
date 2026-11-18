@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest';
+import { netStats, piStats, systemCommand, systemEvent } from '../src';
+
+const ok = (schema: { safeParse: (x: unknown) => { success: boolean } }, v: unknown) => schema.safeParse(v).success;
+
+describe('systemEvent', () => {
+  it('accepts every event type', () => {
+    expect(ok(systemEvent, { v: 1, type: 'ci', repo: 'firmware-esp', failed: 1 })).toBe(true);
+    expect(ok(systemEvent, { v: 1, type: 'ci', repo: 'r', failed: 0, ts: '2026-11-18T09:26:00Z' })).toBe(true);
+    expect(ok(systemEvent, { v: 1, type: 'next_event', title: 'lab report', detail: 'networks', at: '2026-11-18T09:30:00Z' })).toBe(true);
+    expect(ok(systemEvent, { v: 1, type: 'co2_series', room: 'bedroom', values: [1, 2, 3] })).toBe(true);
+    expect(ok(systemEvent, { v: 1, type: 'command_result', id: 'a', result: 'done' })).toBe(true);
+  });
+  it.each([
+    ['unknown type', { v: 1, type: 'weather' }],
+    ['ci repo wrong type', { v: 1, type: 'ci', repo: 5, failed: 1 }],
+    ['ci negative', { v: 1, type: 'ci', repo: 'r', failed: -1 }],
+    ['ci fractional', { v: 1, type: 'ci', repo: 'r', failed: 1.5 }],
+    ['ci missing failed', { v: 1, type: 'ci', repo: 'r' }],
+    ['next_event bad date', { v: 1, type: 'next_event', title: 't', at: 'soon' }],
+    ['next_event missing title', { v: 1, type: 'next_event', at: '2026-11-18T09:30:00Z' }],
+    ['co2 empty', { v: 1, type: 'co2_series', room: 'r', values: [] }],
+    ['co2 non-number', { v: 1, type: 'co2_series', room: 'r', values: [1, 'x'] }],
+    ['co2 too long', { v: 1, type: 'co2_series', room: 'r', values: Array(97).fill(1) }],
+    ['command_result no id', { v: 1, type: 'command_result', result: 'x' }],
+    ['no version', { type: 'ci', repo: 'r', failed: 0 }],
+  ])('rejects %s', (_n, v) => expect(ok(systemEvent, v)).toBe(false));
+});
+
+describe('systemCommand / pi / net', () => {
+  it('systemCommand', () => {
+    expect(ok(systemCommand, { v: 1, id: 'a', text: 'hi', ts: '2026-11-18T09:30:00Z' })).toBe(true);
+    expect(ok(systemCommand, { v: 1, id: 'a', text: '', ts: '2026-11-18T09:30:00Z' })).toBe(false);
+    expect(ok(systemCommand, { v: 1, id: 'a', text: 'x' })).toBe(false);
+  });
+  it('piStats', () => {
+    expect(ok(piStats, { v: 1, cpu_pct: 23, temp_c: 52, mem_pct: 40, uptime_s: 500000 })).toBe(true);
+    expect(ok(piStats, { v: 1 })).toBe(true);
+    expect(ok(piStats, { v: 1, cpu_pct: 140 })).toBe(false);
+    expect(ok(piStats, { v: 1, temp_c: 'hot' })).toBe(false);
+  });
+  it('netStats', () => {
+    expect(ok(netStats, { v: 1, latency_ms: 38 })).toBe(true);
+    expect(ok(netStats, { v: 1 })).toBe(false);
+    expect(ok(netStats, { v: 1, latency_ms: -1 })).toBe(false);
+    expect(ok(netStats, { v: 1, latency_ms: '38' })).toBe(false);
+  });
+});

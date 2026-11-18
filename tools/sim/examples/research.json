@@ -1,0 +1,148 @@
+{
+  "v": 1,
+  "scene": "research",
+  "ttl": 600,
+  "id": "research-demo",
+  "data": {
+    "title": "Research: standing desk height for a 178 cm user",
+    "step": {
+      "current": 4,
+      "total": 5,
+      "label": "comparing sources"
+    },
+    "stat": {
+      "sources": 9,
+      "text": "ergonomics guides, two meta-analyses and a manufacturer sizing chart",
+      "ref": "vg-0207",
+      "progress": 0.8
+    },
+    "chart": {
+      "title": "room CO₂ · last 24h",
+      "values": [
+        620,
+        640,
+        700,
+        820,
+        1020,
+        1180,
+        1260,
+        1300,
+        1210,
+        1100,
+        980,
+        900,
+        860,
+        820,
+        780,
+        760,
+        740,
+        780,
+        860,
+        940,
+        1010,
+        1060,
+        1020,
+        980
+      ],
+      "thresholdPpm": 1000,
+      "maxPpm": 1500,
+      "summary": "Peak 1,300 ppm at 07:00 while you slept. Ventilate before bed.",
+      "footnote": "Above threshold 8 h"
+    },
+    "steps": [
+      {
+        "label": "Understand the question",
+        "state": "done"
+      },
+      {
+        "label": "Plan search queries",
+        "state": "done"
+      },
+      {
+        "label": "Read & extract · 9/9",
+        "state": "done"
+      },
+      {
+        "label": "Compare & synthesize",
+        "state": "run"
+      },
+      {
+        "label": "Answer with citations",
+        "state": "wait"
+      }
+    ],
+    "source": {
+      "title": "guide",
+      "caption": "Elbows at 90° when typing"
+    },
+    "compare": {
+      "title": "fixed vs electric",
+      "columns": [
+        "Criterion",
+        "Fixed",
+        "Electric"
+      ],
+      "rows": [
+        {
+          "label": "Height range",
+          "cells": [
+            {
+              "text": "One setting",
+              "tone": "warn"
+            },
+            {
+              "text": "62–128 cm",
+              "tone": "ok"
+            }
+          ]
+        },
+        {
+          "label": "Price",
+          "cells": [
+            {
+              "text": "Low",
+              "tone": "ok"
+            },
+            {
+              "text": "High",
+              "tone": "warn"
+            }
+          ]
+        },
+        {
+          "label": "Noise",
+          "cells": [
+            {
+              "text": "None"
+            },
+            {
+              "text": "~45 dB"
+            }
+          ]
+        }
+      ]
+    },
+    "note": {
+      "text": "Set the desk so your elbows sit at about 90° when typing. For 178 cm that is roughly 73–75 cm, which an electric desk can hold and a fixed one only if you pick the right size.",
+      "refs": "sources [2] [5] · verified"
+    },
+    "log": [
+      {
+        "tag": "agent",
+        "msg": "Parsed request → desk height for 178 cm"
+      },
+      {
+        "tag": "search",
+        "msg": "query: \"standing desk height formula\" · 7 hits"
+      },
+      {
+        "tag": "read",
+        "msg": "ergonomics guide · elbow angle rule"
+      },
+      {
+        "tag": "agent",
+        "msg": "cross-checking sources [2] [5]"
+      }
+    ]
+  }
+}

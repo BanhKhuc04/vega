@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "scene": "locate",
+  "ttl": 300,
+  "data": {
+    "title": "Locate: nearest pharmacy",
+    "status": "gps lock · 9 satellites",
+    "target": {
+      "name": "pharmacy",
+      "distanceKm": 0.8,
+      "detail": "≈ 4 min by bike · 10 min on foot · open until 22:00",
+      "coord": "10.7712° N · 106.6930° E"
+    },
+    "route": {
+      "title": "2 turns",
+      "steps": [
+        "Head north on Main St · 0.3 km",
+        "Turn right onto Park Ave · 0.5 km",
+        "Arrive · on the left"
+      ]
+    }
+  }
+}

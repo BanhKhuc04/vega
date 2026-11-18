@@ -1,0 +1,140 @@
+import { describe, expect, it, vi } from 'vitest';
+import { DASHBOARD_SUBSCRIPTIONS, SYSTEM_COMMAND } from '@vega/contract';
+import { MqttSource } from '../src/data/mqtt-source';
+import type { MqttLikeClient } from '../src/data/mqtt-source';
+
+class FakeClient implements MqttLikeClient {
+  h: Record<string, ((...a: never[]) => void)[]> = {};
+  subs: string[][] = [];
+  pubs: [string, string][] = [];
+  ended = false;
+  on(event: string, cb: (...a: never[]) => void) {
+    (this.h[event] ??= []).push(cb);
+    return this;
+  }
+  fire(event: string, ...args: unknown[]) {
+    for (const cb of this.h[event] ?? []) (cb as (...a: unknown[]) => void)(...args);
+  }
+  subscribe(t: readonly string[]) { this.subs.push([...t]); }
+  publish(t: string, p: string) { this.pubs.push([t, p]); }
+  end() { this.ended = true; }
+}
+
+const enc = new TextEncoder();
+async function setup(warn = vi.fn()) {
+  const client = new FakeClient();
+  const src = new MqttSource({ url: 'ws://x', factory: async () => client, now: () => 1_000, warn });
+  src.start();
+  await Promise.resolve();
+  await Promise.resolve();
+  return { client, src, warn };
+}
+const msg = (c: FakeClient, topic: string, payload: string) => c.fire('message', topic, enc.encode(payload));
+
+describe('MqttSource', () => {
+  it('starts empty, not sample, header says RECONNECTING while the first connect is pending', async () => {
+    const { src } = await setup();
+    const s = src.getSnapshot();
+    expect(s.conn).toBe('reconnecting');
+    expect(s.isSample).toBe(false);
+    expect(s.env).toBeNull();
+  });
+
+  it('subscribes on connect and applies messages', async () => {
+    const { client, src } = await setup();
+    client.fire('connect');
+    expect(client.subs[0]).toEqual([...DASHBOARD_SUBSCRIPTIONS]);
+    expect(src.getSnapshot().conn).toBe('live');
+    msg(client, 'vega/bedroom/env/state', JSON.stringify({ v: 1, temp_c: 27, humidity: 60, co2_ppm: 1500 }));
+    expect(src.getSnapshot().env).toMatchObject({ tempC: 27, co2Ppm: 1500 });
+    msg(client, 'vega/bedroom/env/availability', 'offline');
+    expect(src.getSnapshot().devices[0]).toMatchObject({ id: 'bedroom/env', online: false });
+  });
+
+  it('survives corrupt payloads and keeps previous data', async () => {
+    const { client, src } = await setup();
+    client.fire('connect');
+    msg(client, 'vega/bedroom/env/state', JSON.stringify({ v: 1, co2_ppm: 900 }));
+    const before = src.getSnapshot();
+    expect(() => {
+      msg(client, 'vega/bedroom/env/state', '{oops');
+      msg(client, 'vega/system/events', JSON.stringify({ v: 1, type: 'ci', repo: 1 }));
+      client.fire('message', 'vega/bedroom/env/state', new Uint8Array([0xff, 0xfe, 0x00]));
+    }).not.toThrow();
+    expect(src.getSnapshot().env).toEqual(before.env);
+  });
+
+  it('RECONNECTING after a drop, data kept, back to LIVE and re-subscribed after reconnect', async () => {
+    const { client, src } = await setup();
+    client.fire('connect');
+    msg(client, 'vega/bedroom/env/state', JSON.stringify({ v: 1, co2_ppm: 900 }));
+    client.fire('close');
+    expect(src.getSnapshot().conn).toBe('reconnecting');
+    expect(src.getSnapshot().env?.co2Ppm).toBe(900); // last scene/data kept, not blanked
+    client.fire('reconnect');
+    expect(src.getSnapshot().conn).toBe('reconnecting'); // no flapping while retrying
+    client.fire('connect');
+    expect(src.getSnapshot().conn).toBe('live');
+    expect(client.subs).toHaveLength(2);
+  });
+
+  it('OFFLINE when the broker was never reachable', async () => {
+    const { client, src } = await setup();
+    client.fire('close');
+    expect(src.getSnapshot().conn).toBe('offline');
+    client.fire('reconnect');
+    expect(src.getSnapshot().conn).toBe('offline');
+    client.fire('connect');
+    expect(src.getSnapshot().conn).toBe('live');
+  });
+
+  it('OFFLINE when the client cannot even be created', async () => {
+    const src = new MqttSource({ url: 'ws://x', factory: () => Promise.reject(new Error('no')) });
+    src.start();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(src.getSnapshot().conn).toBe('offline');
+  });
+
+  it('does not crash on client errors', async () => {
+    const { client } = await setup();
+    expect(() => client.fire('error', new Error('boom'))).not.toThrow();
+  });
+
+  it('delivers valid scenes, warns once for a run of invalid ones', async () => {
+    const { client, src, warn } = await setup();
+    client.fire('connect');
+    const got = vi.fn();
+    src.onScene(got);
+    msg(client, 'vega/ui/scene', JSON.stringify({ v: 1, scene: 'research', data: { title: 'T' } }));
+    expect(got).toHaveBeenCalledTimes(1);
+    expect(got.mock.calls[0]![0]).toMatchObject({ scene: 'research' });
+    msg(client, 'vega/ui/scene', '{broken');
+    msg(client, 'vega/ui/scene', JSON.stringify({ v: 1, scene: 'disco' }));
+    msg(client, 'vega/ui/scene', JSON.stringify({ v: 1, scene: 'idle', ttl: 'x' }));
+    expect(got).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1); // once
+    msg(client, 'vega/ui/scene', JSON.stringify({ v: 1, scene: 'idle' }));
+    msg(client, 'vega/ui/scene', '{broken again');
+    expect(warn).toHaveBeenCalledTimes(2); // a valid scene re-arms the warning
+  });
+
+  it('publishes typed commands only while connected', async () => {
+    const { client, src } = await setup();
+    expect(src.sendCommand('early')).toBe(false);
+    client.fire('connect');
+    expect(src.sendCommand(' turn off the light ')).toBe(true);
+    const [topic, payload] = client.pubs[0]!;
+    expect(topic).toBe(SYSTEM_COMMAND);
+    expect(JSON.parse(payload)).toMatchObject({ v: 1, text: 'turn off the light' });
+    expect(src.sendCommand('  ')).toBe(false);
+    client.fire('close');
+    expect(src.sendCommand('x')).toBe(false);
+    expect(client.pubs).toHaveLength(1);
+  });
+
+  it('stop() closes the client', async () => {
+    const { client, src } = await setup();
+    src.stop();
+    expect(client.ended).toBe(true);
+  });
+});

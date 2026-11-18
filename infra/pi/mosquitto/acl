@@ -1,0 +1,17 @@
+# Users are created by infra/pi/setup.sh (mosquitto_passwd). Topic structure: docs/contract.md.
+
+# the brain (M1) and the simulator/CLI tools may do everything under vega/
+user brain
+topic readwrite vega/#
+
+# the dashboard: read everything, and send commands. Nothing else.
+user ui
+topic read vega/#
+topic write vega/system/command
+
+# ESP devices: report their own topics and receive commands. (Per-device users and ACLs arrive with M2.)
+user device
+topic write vega/+/+/state
+topic write vega/+/+/meta
+topic write vega/+/+/availability
+topic read vega/+/+/set

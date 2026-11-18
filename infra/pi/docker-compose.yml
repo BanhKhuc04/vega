@@ -1,0 +1,45 @@
+# VEGA on a Raspberry Pi 3 (64-bit OS):  cd infra/pi && docker compose up -d
+# setup.sh prepares .env, mosquitto/passwd and everything else. Run it first.
+name: vega
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_WS_PORT:-9001}:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
+      - ./mosquitto/passwd:/mosquitto/config/passwd:ro
+      - mosquitto-data:/mosquitto/data
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u brain -P \"$$MQTT_BRAIN_PASS\" -t '$$SYS/broker/uptime' -C 1 -W 3 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    environment:
+      MQTT_BRAIN_PASS: ${MQTT_BRAIN_PASS:?run setup.sh first}
+
+  vega-ui:
+    build:
+      context: ../..
+      dockerfile: dashboard/Dockerfile
+    image: vega-ui:local
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-8080}:80"
+    environment:
+      VEGA_SOURCE: mqtt
+      # empty = ws://<host that served the page>:9001
+      VEGA_MQTT_URL: ""
+      VEGA_MQTT_USER: ui
+      VEGA_MQTT_PASS: ${MQTT_UI_PASS:?run setup.sh first}
+      VEGA_ROOM: ${VEGA_ROOM:-bedroom}
+    depends_on:
+      - mosquitto
+    mem_limit: 48m
+
+volumes:
+  mosquitto-data:

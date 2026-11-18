@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "scene": "sleep",
+  "ttl": 120,
+  "data": {
+    "title": "Good night.",
+    "lightsOffSeconds": 20,
+    "alarm": "06:45",
+    "dnd": true
+  }
+}

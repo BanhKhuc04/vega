@@ -1,0 +1,33 @@
+{
+  "v": 1,
+  "scene": "briefing",
+  "ttl": 900,
+  "level": "medium",
+  "data": {
+    "kicker": "Thu · 19 Nov · morning briefing",
+    "title": "Good morning.",
+    "summary": "2 events, 1 email that matters. The room is fresh after a night with the window open.",
+    "agenda": [
+      {
+        "time": "10:00",
+        "title": "Project stand-up"
+      },
+      {
+        "time": "15:30",
+        "title": "Dentist",
+        "hot": true
+      }
+    ],
+    "inbox": [
+      {
+        "from": "Faculty",
+        "subject": "Lab slot moved to Friday"
+      }
+    ],
+    "room": "CO₂ stayed under 900 ppm. Temperature held at 24–25°C.",
+    "builds": {
+      "passing": 3,
+      "failing": 0
+    }
+  }
+}

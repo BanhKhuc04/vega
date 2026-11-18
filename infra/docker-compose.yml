@@ -1,0 +1,13 @@
+# Dashboard only, SIM mode (no broker):  docker compose -f infra/docker-compose.yml up --build   ->  http://localhost:8080
+# The Raspberry Pi stack (broker + auth + dashboard) is infra/pi/docker-compose.yml.
+name: vega-ui
+services:
+  vega-ui:
+    build:
+      context: ..
+      dockerfile: dashboard/Dockerfile
+    image: vega-ui:local
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    mem_limit: 48m
