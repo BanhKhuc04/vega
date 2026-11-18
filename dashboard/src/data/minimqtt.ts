@@ -237,9 +237,8 @@ export class MiniMqttClient implements MqttLikeClient {
       if (!(ev.data instanceof ArrayBuffer)) return;
       for (const p of this.parser.push(new Uint8Array(ev.data))) this.onPacket(p);
     };
-    ws.onerror = () => this.emit('error', new Error('websocket error'));
-    ws.onclose = () => {
-      if (this.ws !== ws) return;
+    const down = () => {
+      if (this.ws !== ws) return; // already handled (some runtimes fire only 'error' for a failed connect, browsers fire both)
       const wasConnected = this.connected;
       this.connected = false;
       this.clearTimers();
@@ -248,6 +247,11 @@ export class MiniMqttClient implements MqttLikeClient {
       this.emit('close');
       this.scheduleRetry();
     };
+    ws.onerror = () => {
+      this.emit('error', new Error('websocket error'));
+      if (ws.readyState !== 1 /* OPEN */) down();
+    };
+    ws.onclose = down;
   }
 
   private onPacket(p: Packet): void {

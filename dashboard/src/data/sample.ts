@@ -41,10 +41,10 @@ export function emptySnapshot(kind: 'mock' | 'mqtt', primaryRoom = 'bedroom'): S
 export function sampleSnapshot(now: number): Snapshot {
   const kinds = [
     ['bedroom/env', 'esp8266'],
+    ['bedroom/radar', 'esp8266'],
     ['livingroom/light', 'esp8266'],
     ['kitchen/plug', 'esp8266'],
     ['balcony/env', 'esp8266'],
-    ['bedroom/fan', 'esp8266'],
     ['desk/core', 'esp32-s3'],
   ] as const;
   return {

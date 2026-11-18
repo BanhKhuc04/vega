@@ -61,6 +61,7 @@ class FakeWS {
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
   closed = false;
+  readyState = 0;
   constructor(public url: string, public protocol: string) { FakeWS.instances.push(this); }
   send(d: Uint8Array) { this.sent.push(d); }
   close() { this.closed = true; this.onclose?.(); }
@@ -152,6 +153,20 @@ describe('MiniMqttClient', () => {
     ws.onopen?.();
     ws.serve(Uint8Array.of(0x20, 2, 0, 5));
     expect(ev).toEqual(['connack refused: 5']);
+  });
+
+  it('treats an error before open as a failed connect even if no close event follows (Node/undici)', () => {
+    const c = new MiniMqttClient('ws://h', { clientId: 'id', reconnectMs: 1000, WebSocketImpl: fakeCtor });
+    const ev: string[] = [];
+    (['close', 'reconnect', 'offline'] as const).forEach((e) => c.on(e, () => ev.push(e)));
+    c.on('error', () => ev.push('error'));
+    FakeWS.instances[0]!.onerror?.();
+    expect(ev).toEqual(['error', 'close']);
+    vi.advanceTimersByTime(1000);
+    expect(ev.at(-1)).toBe('reconnect');
+    expect(FakeWS.instances).toHaveLength(2);
+    FakeWS.instances[0]!.onclose?.(); // a late close from the first socket must not double-count
+    expect(ev.filter((e) => e === 'close')).toHaveLength(1);
   });
 
   it('end() stops retrying', () => {
