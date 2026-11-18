@@ -310,3 +310,5 @@ svg text.zap{animation:zapsvg .5s steps(1) 1}
 @media (max-width:600px){.conn{letter-spacing:.06em;font-size:9px;padding:3px 8px}.qbtn{letter-spacing:.06em;padding:0 8px}}
 /* M0-6: the template's own reduced-motion rule covers `*` only; pseudo-elements (e.g. the typing cursor) kept blinking */
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* Narrow screens: the template's briefing panels (top:46%) touched the orb's wordmark by a few px on slower renders */
+@media (max-width:900px){.brief{top:49%}}
