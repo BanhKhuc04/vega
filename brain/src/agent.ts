@@ -1,14 +1,15 @@
 import type { Bus, SceneOut } from './bus';
 import type { Config, Provider } from './config';
+import { RateLimiter, reply } from './guard';
 import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
 import { routeLocal } from './local';
-import { label, roomLabel } from './registry';
+import { label, needsConfirm, roomLabel } from './registry';
 import type { Metric, Registry } from './registry';
 import { dayOf } from './store';
 import type { Store } from './store';
 import { clip } from './text';
-import { chipLabel, parseToolCall, toolSpecs } from './tools';
+import { PHYSICAL, chipLabel, parseToolCall, toolSpecs } from './tools';
 import type { ToolCall } from './tools';
 
 export interface ExternalData {
@@ -24,7 +25,7 @@ export interface Command {
   /** Outside content the command is about. It reaches the LLM as data only. */
   external?: ExternalData[];
 }
-export type Path = 'local' | 'llm' | 'no_llm' | 'offline' | 'error' | 'budget';
+export type Path = 'local' | 'llm' | 'no_llm' | 'offline' | 'error' | 'budget' | 'rejected' | 'confirm' | 'confirmed' | 'cancelled';
 export interface Outcome {
   answer: string;
   path: Path;
@@ -39,6 +40,11 @@ export interface ToolResult {
 interface Run {
   /** A scene that takes the screen instead of the Idle caption (sleep, focus, a confirmation). */
   screen: SceneOut | null;
+  /** High-risk actions held back until the owner confirms. */
+  pending: ToolCall[];
+  /** Direct command from the owner, with no outside content in play: the only case where physical tools run. */
+  trusted: boolean;
+  confirmed: boolean;
 }
 interface Chip {
   label: string;
@@ -86,21 +92,60 @@ export class Agent {
   private readonly now: () => number;
   /** Day on which the BUDGET chip was shown (once a day). */
   private budgetShown = '';
+  private readonly limiter: RateLimiter;
+  private pending: { calls: ToolCall[]; expires: number } | null = null;
   constructor(private readonly deps: AgentDeps) {
     this.chat = deps.chat ?? httpChat;
     this.log = deps.log ?? (() => {});
     this.now = deps.now ?? Date.now;
+    this.limiter = new RateLimiter(deps.config.ratePerMin);
   }
 
   async handle(cmd: Command): Promise<Outcome> {
+    const { config } = this.deps;
+    const now = this.now();
+    const run: Run = { screen: null, pending: [], trusted: cmd.origin === 'owner' && !cmd.external?.length, confirmed: false };
+    const done = (out: Outcome) => (this.answer(cmd, out, run), out);
+
+    const rl = this.limiter.take(now);
+    if (!rl.ok) {
+      this.log(`[security] ${cmd.id} rejected: rate limit`);
+      return done({ answer: `Rate limit: at most ${config.ratePerMin} commands per minute. Try again in ${rl.retryInS} s.`, path: 'rejected', calls: [], llmCalls: 0 });
+    }
+
+    // Any new command ends a pending confirmation; only a direct "yes" from the owner carries it out.
+    const pending = this.pending && this.pending.expires > now ? this.pending : null;
+    this.pending = null;
+    const r = run.trusted ? reply(cmd.text) : null;
+    if (r === 'yes' && pending) {
+      run.confirmed = true;
+      const texts = pending.calls.map((c) => this.exec(c, run).text);
+      this.think([{ label: 'Confirmed', state: 'done' }, ...pending.calls.map((c): Chip => ({ label: chipLabel(c), state: 'done' }))]);
+      return done({ answer: texts.join(' · '), path: 'confirmed', calls: pending.calls, llmCalls: 0 });
+    }
+    if (r) return done({ answer: pending ? 'Cancelled.' : 'Nothing to confirm.', path: 'cancelled', calls: [], llmCalls: 0 });
+
     const chips: Chip[] = [{ label: 'Parse intent', state: 'run' }];
     this.think(chips);
-    const local = cmd.external?.length ? null : routeLocal(cmd.text, this.deps.registry, { defaultRoom: this.deps.config.defaultRoom });
+    const local = run.trusted ? routeLocal(cmd.text, this.deps.registry, { defaultRoom: config.defaultRoom }) : null;
     chips[0]!.state = 'done';
-    const run: Run = { screen: null };
-    const out = local ? this.runLocal(local, chips, run) : await this.runLlm(cmd, chips, run);
-    this.answer(cmd, out, run);
-    return out;
+    let out = local ? this.runLocal(local, chips, run) : await this.runLlm(cmd, chips, run);
+    if (run.pending.length) {
+      const what = run.pending.map((c) => (c.name === 'set_device' ? `turn ${c.args.on ? 'on' : 'off'} ${label(this.deps.registry.get(c.args.device)!)}` : chipLabel(c))).join(', ');
+      this.pending = { calls: run.pending, expires: now + config.confirmTtlS * 1000 };
+      run.screen = {
+        scene: 'alert',
+        ttl: config.confirmTtlS,
+        data: {
+          title: 'confirm action',
+          ref: clip(`${run.pending.map((c) => (c.name === 'set_device' ? c.args.device : c.name)).join(', ')} · high risk`, 60),
+          error: clip(`${what[0]!.toUpperCase()}${what.slice(1)}?`, 300),
+          note: `Type "yes" within ${config.confirmTtlS} s to confirm. Anything else cancels.`,
+        },
+      };
+      out = { ...out, path: 'confirm', answer: clip(`Confirm: ${what}? Reply "yes" within ${config.confirmTtlS} s.`, 200) };
+    }
+    return done(out);
   }
 
   private runLocal(calls: ToolCall[], chips: Chip[], run: Run): Outcome {
@@ -125,7 +170,7 @@ export class Agent {
       ...(cmd.external ?? []).map((x): ChatMessage => ({ role: 'user', content: wrapExternal(x) })),
       { role: 'user', content: cmd.text },
     ];
-    const tools = toolSpecs(registry);
+    const tools = toolSpecs(registry, { physical: run.trusted }); // with outside content in play, physical tools are not even offered
     let lastTexts: string[] = [];
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const task = turn === 0 ? 'router' : 'chat';
@@ -182,9 +227,13 @@ export class Agent {
     return { answer: lastTexts.join(' · ') || 'Done.', path: 'llm', calls, llmCalls };
   }
 
-  /** Runs one tool. */
+  /** Runs one tool. Physical tools only for a trusted command; high-risk devices only once confirmed. */
   private exec(c: ToolCall, run: Run): ToolResult {
     const { registry: reg, bus, config } = this.deps;
+    if (PHYSICAL.has(c.name) && !run.trusted) {
+      this.log(`[security] refused ${chipLabel(c)}: not a direct command from the owner`);
+      return { ok: false, text: 'Refused: physical actions need a direct command from the owner.' };
+    }
     switch (c.name) {
       case 'list_devices': {
         const devices = reg.all().map((d) => ({ device: d.key, name: label(d), online: d.online, on: d.on, tempC: d.tempC, humidity: d.humidity, co2Ppm: d.co2Ppm, presence: d.presence }));
@@ -204,6 +253,10 @@ export class Agent {
         const d = reg.get(c.args.device);
         if (!d) return { ok: false, text: `Unknown device ${c.args.device}` };
         if (!d.online) return { ok: false, text: `${label(d)} is offline` };
+        if (needsConfirm(d) && !run.confirmed) {
+          run.pending.push(c);
+          return { ok: true, text: `${label(d)}: waiting for the owner to confirm on screen`, data: { pending: true } };
+        }
         bus.setDevice(d.room, d.id, c.args.on);
         return { ok: true, text: `${label(d)} ${c.args.on ? 'on' : 'off'}` };
       }

@@ -5,6 +5,11 @@ import { loadConfig } from './config';
 import { Registry } from './registry';
 import { Store } from './store';
 
+try {
+  process.loadEnvFile(); // `.env` in the working directory, if any; never overrides the real environment
+} catch {
+  // no .env: settings come from the environment (compose, brain.env)
+}
 const cfg = loadConfig();
 const log = (msg: string) => console.log(`${new Date().toISOString()} ${msg}`);
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
@@ -17,13 +22,15 @@ const agent = new Agent({ bus: mqttBus(client), registry, config: cfg, store, lo
 
 // one command at a time, in arrival order
 let queue: Promise<unknown> = Promise.resolve();
+/** A command older than this (or retained) is a replay, not the owner speaking now. */
+const MAX_AGE_MS = 30_000;
 
 client.on('connect', () => {
   log(`[brain] connected to ${cfg.mqttUrl}`);
   client.subscribe(BRAIN_SUBSCRIPTIONS);
 });
 client.on('error', (e) => log(`[brain] mqtt error: ${e.message}`));
-client.on('message', (topic, payload) => {
+client.on('message', (topic, payload, packet) => {
   if (topic !== SYSTEM_COMMAND) return void registry.apply(topic, payload.toString());
   let raw: unknown;
   try {
@@ -33,6 +40,9 @@ client.on('message', (topic, payload) => {
   }
   const r = systemCommand.safeParse(raw);
   if (!r.success) return log('[brain] ignored command: does not match the contract');
+  if (packet.retain) return log(`[security] ignored retained command ${r.data.id}`);
+  const age = Date.now() - Date.parse(r.data.ts);
+  if (!(Math.abs(age) <= MAX_AGE_MS)) return log(`[security] ignored stale command ${r.data.id} (${Math.round(age / 1000)} s old)`);
   const cmd = { id: r.data.id, text: r.data.text, origin: 'owner' as const };
   queue = queue.then(() => agent.handle(cmd)).catch((e: unknown) => log(`[brain] command ${cmd.id} failed: ${(e as Error).stack ?? e}`));
 });

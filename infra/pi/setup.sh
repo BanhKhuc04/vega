@@ -125,6 +125,36 @@ step_env() {
   echo "   created $ENV_FILE"
 }
 
+step_tailscale_ip() {
+  say "Tailscale address (dashboard and MQTT WebSocket listen on localhost + Tailscale only)"
+  if [ "$DRY" = 1 ]; then
+    echo "   [dry-run] would set TAILSCALE_IP in $ENV_FILE from 'tailscale ip -4'"
+    return
+  fi
+  grep -q '^TAILSCALE_IP=' "$ENV_FILE" || printf 'TAILSCALE_IP=\n' >>"$ENV_FILE"
+  if [ -n "$(env_get TAILSCALE_IP)" ]; then
+    echo "   TAILSCALE_IP=$(env_get TAILSCALE_IP), keeping it"
+    return
+  fi
+  local ip=""
+  if command -v tailscale >/dev/null 2>&1; then ip="$(tailscale ip -4 2>/dev/null | head -n1 || true)"; fi
+  if [ -n "$ip" ]; then
+    sed -i "s/^TAILSCALE_IP=.*/TAILSCALE_IP=$ip/" "$ENV_FILE"
+    echo "   TAILSCALE_IP=$ip"
+  else
+    echo "   Tailscale not found: dashboard and WebSocket reachable from this Pi only (install Tailscale, then run again)"
+  fi
+}
+
+step_brain_env() {
+  say "Brain settings (brain.env: AI providers, budget; never committed)"
+  if [ -f "$HERE/brain.env" ]; then
+    echo "   $HERE/brain.env exists, keeping it"
+  else
+    run install -m 600 "$HERE/brain.env.example" "$HERE/brain.env"
+  fi
+}
+
 step_mosquitto_users() {
   say "Mosquitto users"
   if [ "$DRY" = 1 ]; then
@@ -190,7 +220,9 @@ step_packages
 step_docker
 step_zram
 step_env
+step_tailscale_ip
+step_brain_env
 step_mosquitto_users
 step_stack
 if [ "$KIOSK" = 1 ]; then step_kiosk; fi
-say "Done. Dashboard: http://$(hostname -I 2>/dev/null | awk '{print $1}'):$( [ -f "$ENV_FILE" ] && env_get UI_PORT || echo 8080 )/"
+say "Done. Dashboard: http://$( [ -f "$ENV_FILE" ] && [ -n "$(env_get TAILSCALE_IP)" ] && env_get TAILSCALE_IP || echo localhost ):$( [ -f "$ENV_FILE" ] && env_get UI_PORT || echo 8080 )/"
