@@ -16,12 +16,18 @@ export interface MqttLikeClient {
 }
 export type ClientFactory = (url: string) => Promise<MqttLikeClient>;
 
-const defaultFactory: ClientFactory = async (url) =>
-  new MiniMqttClient(url, { clientId: `vega-ui-${Math.random().toString(16).slice(2, 10)}` });
+export interface Credentials {
+  username?: string;
+  password?: string;
+}
+const defaultFactory = (cred: Credentials): ClientFactory => async (url) =>
+  new MiniMqttClient(url, { clientId: `vega-ui-${Math.random().toString(16).slice(2, 10)}`, ...cred });
 
 export interface MqttOptions {
   url: string;
   primaryRoom?: string;
+  username?: string;
+  password?: string;
   factory?: ClientFactory;
   now?: () => number;
   warn?: (msg: string) => void;
@@ -44,7 +50,9 @@ export class MqttSource implements VegaDataSource {
   private readonly decoder = new TextDecoder();
 
   constructor(private readonly opts: MqttOptions) {
-    this.factory = opts.factory ?? defaultFactory;
+    this.factory =
+      opts.factory ??
+      defaultFactory({ ...(opts.username !== undefined && { username: opts.username }), ...(opts.password !== undefined && { password: opts.password }) });
     this.now = opts.now ?? Date.now;
     this.warn = opts.warn ?? ((m) => console.warn(m));
     this.snap = emptySnapshot('mqtt', opts.primaryRoom);

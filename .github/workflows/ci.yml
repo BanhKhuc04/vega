@@ -1,0 +1,70 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npm run size
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          CI: "true"
+          MQTT_E2E: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: dashboard/test-results
+          if-no-files-found: ignore
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build vega-ui image
+        run: docker build -f dashboard/Dockerfile -t vega-ui:ci .
+      - name: Image serves the dashboard
+        run: |
+          docker run -d --name ui -p 8080:80 -e VEGA_SOURCE=mock vega-ui:ci
+          for i in $(seq 1 20); do curl -fs http://localhost:8080/ >/dev/null && break || sleep 1; done
+          curl -fs http://localhost:8080/ | grep -q "VEGA Core"
+          curl -fs http://localhost:8080/config.js | grep -q 'source: "mock"'
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n infra/pi/setup.sh dashboard/docker/40-vega-config.sh
+      - run: shellcheck -x infra/pi/setup.sh dashboard/docker/40-vega-config.sh

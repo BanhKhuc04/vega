@@ -44,9 +44,17 @@ function packet(first: number, ...parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
-export function encodeConnect(clientId: string, keepaliveS: number): Uint8Array {
-  // protocol "MQTT" level 4, clean session, keepalive
-  return packet(0x10, utf8('MQTT'), Uint8Array.of(4, 0x02, keepaliveS >> 8, keepaliveS & 0xff), utf8(clientId));
+export function encodeConnect(clientId: string, keepaliveS: number, username?: string, password?: string): Uint8Array {
+  // protocol "MQTT" level 4, clean session (+ username / password flags), keepalive
+  const flags = 0x02 | (username !== undefined ? 0x80 : 0) | (username !== undefined && password !== undefined ? 0x40 : 0);
+  return packet(
+    0x10,
+    utf8('MQTT'),
+    Uint8Array.of(4, flags, keepaliveS >> 8, keepaliveS & 0xff),
+    utf8(clientId),
+    ...(username !== undefined ? [utf8(username)] : []),
+    ...(username !== undefined && password !== undefined ? [utf8(password)] : []),
+  );
 }
 
 export function encodeSubscribe(packetId: number, topics: readonly string[]): Uint8Array {
@@ -126,6 +134,8 @@ function decode(first: number, body: Uint8Array): Packet {
 
 export interface MiniOptions {
   clientId: string;
+  username?: string;
+  password?: string;
   keepaliveS?: number;
   reconnectMs?: number;
   connectTimeoutMs?: number;
@@ -232,7 +242,7 @@ export class MiniMqttClient implements MqttLikeClient {
     ws.binaryType = 'arraybuffer';
     this.parser = new PacketParser();
     this.timeoutTimer = setTimeout(() => ws.close(), this.connectTimeoutMs);
-    ws.onopen = () => this.send(encodeConnect(this.opts.clientId, this.keepalive));
+    ws.onopen = () => this.send(encodeConnect(this.opts.clientId, this.keepalive, this.opts.username, this.opts.password));
     ws.onmessage = (ev: MessageEvent) => {
       if (!(ev.data instanceof ArrayBuffer)) return;
       for (const p of this.parser.push(new Uint8Array(ev.data))) this.onPacket(p);

@@ -1,23 +1,27 @@
 import { defineConfig } from '@playwright/test';
 
-// Chromium is pre-installed in the dev container; elsewhere, drop the executablePath override
-// and run `npx playwright install chromium`.
+// In the cloud dev container Chromium is pre-installed; elsewhere (CI) leave CHROMIUM_PATH unset and
+// run `npx playwright install --with-deps chromium`.
 const executablePath = process.env.CHROMIUM_PATH || (process.env.CI ? undefined : '/opt/pw-browsers/chromium');
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000,
+  timeout: 90_000,
   workers: 1,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'off',
-    launchOptions: { executablePath, args: ['--no-sandbox'] },
+    launchOptions: {
+      executablePath,
+      // software WebGL so the `full` and `lite` tiers can be exercised without a GPU
+      args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+    },
   },
-  webServer: [
-    { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: 'http://localhost:4173', reuseExistingServer: !process.env.CI, timeout: 120_000 },
-    ...(process.env.MQTT_E2E
-      ? [{ command: 'npx vite --port 5174 --strictPort', url: 'http://localhost:5174', env: { VITE_DATA_SOURCE: 'mqtt', VITE_MQTT_URL: 'ws://localhost:9001' }, reuseExistingServer: false, timeout: 60_000 }]
-      : []),
-  ],
+  webServer: {
+    command: 'npm run build && npx vite preview --port 4173 --strictPort',
+    url: 'http://localhost:4173',
+    reuseExistingServer: false, // always build and serve the current sources
+    timeout: 180_000,
+  },
 });
