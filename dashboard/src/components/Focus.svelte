@@ -10,7 +10,7 @@
 </script>
 
 <main class="focus" data-testid="view-focus">
-  <div class="focus-bg fin" aria-hidden="true">
+  <div class="focus-bg" aria-hidden="true">
     <div style="height:180px"><i style="height:80%"></i><i style="height:55%"></i><i style="height:30%"></i></div>
     <div style="height:120px;margin-top:60px"></div>
     <div style="height:220px"><i style="height:40%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:50%"></i></div>
