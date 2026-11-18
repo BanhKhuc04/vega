@@ -1,6 +1,7 @@
 import type { HistoryEntry, Snapshot, VegaDataSource } from './types';
 import { parseMessage } from './parse';
 import { applyUpdate } from './reduce';
+import { MiniMqttClient } from './minimqtt';
 
 export const SUBSCRIPTIONS = [
   'vega/+/+/state',
@@ -21,16 +22,8 @@ export interface MqttLikeClient {
 }
 export type ClientFactory = (url: string) => Promise<MqttLikeClient>;
 
-const defaultFactory: ClientFactory = async (url) => {
-  // Dynamic import: mqtt.js stays out of the main chunk when the mock source is used.
-  const { default: mqtt } = await import('mqtt');
-  return mqtt.connect(url, {
-    clientId: `vega-ui-${Math.random().toString(16).slice(2, 10)}`,
-    reconnectPeriod: 2000,
-    connectTimeout: 4000,
-    clean: true,
-  }) as unknown as MqttLikeClient;
-};
+const defaultFactory: ClientFactory = async (url) =>
+  new MiniMqttClient(url, { clientId: `vega-ui-${Math.random().toString(16).slice(2, 10)}` });
 
 export function emptySnapshot(): Snapshot {
   return {
@@ -61,6 +54,7 @@ export class MqttSource implements VegaDataSource {
   private listeners = new Set<(s: Snapshot) => void>();
   private client: MqttLikeClient | null = null;
   private connected = false;
+  private everConnected = false;
   private stopped = false;
   private readonly factory: ClientFactory;
   private readonly now: () => number;
@@ -83,11 +77,15 @@ export class MqttSource implements VegaDataSource {
         this.client = client;
         client.on('connect', () => {
           this.connected = true;
+          this.everConnected = true;
           client.subscribe(SUBSCRIPTIONS);
           client.subscribe(['vega/desk/core/state']);
           this.setConnection('connected');
         });
-        client.on('reconnect', () => this.setConnection('connecting'));
+        // While retrying after a drop we keep saying "disconnected" instead of flapping.
+        client.on('reconnect', () => {
+          if (!this.everConnected) this.setConnection('connecting');
+        });
         const down = () => {
           this.connected = false;
           this.setConnection('disconnected');
