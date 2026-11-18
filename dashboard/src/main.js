@@ -259,6 +259,7 @@ const clock = new THREE.Clock();
 let ringPhase = 0, glitch = 0;
 const fpsMeter = new FpsMeter();
 const qualityListeners = [];
+document.addEventListener('visibilitychange', () => fpsMeter.reset()); // a hidden tab stops animation frames: do not measure that
 function watchFps(now) {
   if (!Q.auto || document.hidden) return;
   const fps = fpsMeter.tick(now);

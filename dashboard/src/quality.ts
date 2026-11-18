@@ -69,7 +69,10 @@ export function nextQuality(current: Quality, fps: number): Quality | null {
   return null;
 }
 
-/** Average FPS over fixed windows. Ignores a warm-up period and resets after long stalls (hidden tab). */
+/**
+ * Average FPS over fixed windows, after a warm-up. A very slow display (frames more than a second apart) must be
+ * measured as slow, so there is no stall detection here: the caller resets the meter when the tab is hidden.
+ */
 export class FpsMeter {
   private start = -1;
   private windowStart = -1;
@@ -79,7 +82,6 @@ export class FpsMeter {
   constructor(
     private readonly windowMs = FPS_WINDOW_MS,
     private readonly warmupMs = FPS_WARMUP_MS,
-    private readonly stallMs = 1000,
   ) {}
 
   reset(): void {
@@ -89,7 +91,6 @@ export class FpsMeter {
 
   /** Feed each animation frame timestamp (ms). Returns the FPS when a window completes, else null. */
   tick(now: number): number | null {
-    if (this.last >= 0 && now - this.last > this.stallMs) this.reset();
     this.last = now;
     if (this.start < 0) {
       this.start = now;

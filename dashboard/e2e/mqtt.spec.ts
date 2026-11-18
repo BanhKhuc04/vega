@@ -292,7 +292,9 @@ test('losing the broker: header RECONNECTING, last scene and data stay, nothing 
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 15_000 });
   pubState('vega/bedroom/env/state', { co2_ppm: 777 });
   await expect(live(page, 'co2')).toHaveText('777', { timeout: 2000 });
-  expect(w.errors).toEqual([]);
+  // While the broker is down Chromium itself logs each refused reconnect; that is the browser's report of the outage
+  // we caused on purpose, not an app error. Anything else still fails the test.
+  expect(w.errors.filter((e) => !/WebSocket connection to .* failed/.test(e))).toEqual([]);
 });
 
 function shoot() {

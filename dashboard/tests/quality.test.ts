@@ -77,12 +77,18 @@ describe('FpsMeter with simulated frame times', () => {
     expect(nextQuality('full', r[0]!)).toBe('lite');
     expect(nextQuality('lite', 20)).toBe('css');
   });
-  it('a stall (hidden tab) restarts the measurement instead of reporting garbage', () => {
+  it('a display slower than one frame per second is still measured, as very slow', () => {
+    const r = run(0.6, 40);
+    expect(r.length).toBeGreaterThanOrEqual(1);
+    expect(r[0]!).toBeLessThan(1);
+    expect(nextQuality('full', r[0]!)).toBe('lite');
+  });
+  it('reset() restarts the measurement (used when the tab becomes visible again)', () => {
     const m = new FpsMeter();
     for (let t = 0; t < 2500; t += 16) m.tick(t);
-    expect(m.tick(60_000)).toBeNull(); // 57 s gap -> reset
+    m.reset();
     const after: number[] = [];
-    for (let t = 60_016; t < 66_000; t += 16.7) {
+    for (let t = 60_000; t < 66_000; t += 16.7) {
       const r = m.tick(t);
       if (r !== null) after.push(r);
     }
