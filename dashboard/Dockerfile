@@ -4,6 +4,7 @@ WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/contract/package.json packages/contract/
 COPY dashboard/package.json dashboard/
+COPY brain/package.json brain/
 COPY tools/sim/package.json tools/sim/
 RUN npm ci --workspace dashboard --include-workspace-root
 COPY packages/contract packages/contract

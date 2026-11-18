@@ -41,5 +41,28 @@ services:
       - mosquitto
     mem_limit: 48m
 
+  vega-brain:
+    build:
+      context: ../..
+      dockerfile: brain/Dockerfile
+    image: vega-brain:local
+    restart: unless-stopped
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_USER: brain
+      MQTT_PASS: ${MQTT_BRAIN_PASS:?run setup.sh first}
+      VEGA_ROOM: ${VEGA_ROOM:-bedroom}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
+    env_file:
+      - path: ./brain.env
+        required: false
+    volumes:
+      - brain-data:/data
+    depends_on:
+      - mosquitto
+    mem_limit: 160m
+
 volumes:
   mosquitto-data:
+  brain-data:
