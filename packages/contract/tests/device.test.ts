@@ -28,8 +28,18 @@ describe('deviceMeta', () => {
   it('accepts valid meta', () => {
     expect(ok(deviceMeta, { v: 1, kind: 'esp8266' })).toBe(true);
     expect(ok(deviceMeta, { v: 1, kind: 'esp32-s3', room_name: 'Phòng ngủ' })).toBe(true);
+    expect(ok(deviceMeta, { v: 1, kind: 'esp8266', aliases: ['đèn', 'light'], risk: 'low' })).toBe(true);
   });
-  it.each([{ v: 1 }, { v: 1, kind: 'toaster' }, { v: 1, kind: 'esp8266', room_name: 5 }, { v: 1, kind: 'esp8266', room_name: '' }])('rejects %j', (v) =>
+  it.each([
+    { v: 1 },
+    { v: 1, kind: 'toaster' },
+    { v: 1, kind: 'esp8266', room_name: 5 },
+    { v: 1, kind: 'esp8266', room_name: '' },
+    { v: 1, kind: 'esp8266', aliases: [''] },
+    { v: 1, kind: 'esp8266', aliases: 'đèn' },
+    { v: 1, kind: 'esp8266', aliases: Array(9).fill('x') },
+    { v: 1, kind: 'esp8266', risk: 'medium' },
+  ])('rejects %j', (v) =>
     expect(ok(deviceMeta, v)).toBe(false),
   );
 });

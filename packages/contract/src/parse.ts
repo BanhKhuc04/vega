@@ -1,5 +1,5 @@
 import { availability, coreState, deviceMeta, deviceState } from './device';
-import type { CoreStateMsg, DeviceKind } from './device';
+import type { CoreStateMsg, DeviceKind, Risk } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
 import { netStats, piStats, systemEvent } from './system';
@@ -9,7 +9,7 @@ import { CORE_STATE, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDevice
 export type Update =
   | { type: 'state'; room: string; deviceId: string; tempC?: number; humidity?: number; co2Ppm?: number; presence?: boolean; on?: boolean; ts: number }
   | { type: 'availability'; room: string; deviceId: string; online: boolean }
-  | { type: 'meta'; room: string; deviceId: string; kind: DeviceKind; roomName: string | null }
+  | { type: 'meta'; room: string; deviceId: string; kind: DeviceKind; roomName: string | null; name: string | null; aliases: string[]; risk: Risk | null }
   | { type: 'ci'; repo: string; failed: number; ts: number }
   | { type: 'nextEvent'; title: string; detail: string | null; at: number }
   | { type: 'co2Series'; room: string; values: number[]; thresholdPpm: number; maxPpm: number }
@@ -78,7 +78,9 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
     }
     if (d.leaf === 'meta') {
       const r = deviceMeta.safeParse(json(payload));
-      return r.success ? { type: 'meta', room: d.room, deviceId: d.deviceId, kind: r.data.kind, roomName: r.data.room_name ?? null } : null;
+      if (!r.success) return null;
+      const m = r.data;
+      return { type: 'meta', room: d.room, deviceId: d.deviceId, kind: m.kind, roomName: m.room_name ?? null, name: m.name ?? null, aliases: m.aliases ?? [], risk: m.risk ?? null };
     }
     if (d.leaf === 'state') {
       if (topic === CORE_STATE) {

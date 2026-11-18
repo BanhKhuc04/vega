@@ -10,15 +10,19 @@ export interface DeviceDef {
   kind: DeviceKind;
   role: 'env' | 'radar' | 'relay' | 'core';
   roomName?: string;
+  /** Words the owner uses for it (the brain's device dictionary). */
+  aliases?: string[];
+  risk?: 'low' | 'high';
 }
 
 /** 5 × esp8266 + 1 × esp32-s3, as in the template's "MQTT 6/6" mesh. */
 export const DEVICES: readonly DeviceDef[] = [
-  { room: 'bedroom', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Bedroom' },
+  { room: 'bedroom', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Bedroom', aliases: ['phòng ngủ', 'bedroom'] },
   { room: 'bedroom', id: 'radar', kind: 'esp8266', role: 'radar', roomName: 'Bedroom' },
-  { room: 'livingroom', id: 'light', kind: 'esp8266', role: 'relay', roomName: 'Living room' },
-  { room: 'kitchen', id: 'plug', kind: 'esp8266', role: 'relay', roomName: 'Kitchen' },
-  { room: 'balcony', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Balcony' },
+  { room: 'livingroom', id: 'light', kind: 'esp8266', role: 'relay', roomName: 'Living room', aliases: ['đèn', 'đèn phòng khách', 'light', 'lamp'], risk: 'low' },
+  // a high-power socket (kettle, heater): the brain asks for confirmation before switching it
+  { room: 'kitchen', id: 'plug', kind: 'esp8266', role: 'relay', roomName: 'Kitchen', aliases: ['ổ cắm', 'ổ cắm bếp', 'plug', 'socket'], risk: 'high' },
+  { room: 'balcony', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Balcony', aliases: ['ban công', 'balcony', 'ngoài trời', 'outside'] },
   { room: 'desk', id: 'core', kind: 'esp32-s3', role: 'core', roomName: 'Desk' },
 ];
 export const deviceKey = (d: Pick<DeviceDef, 'room' | 'id'>) => `${d.room}/${d.id}`;
@@ -96,7 +100,7 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
     const avail = deviceTopic(d.room, d.id, 'availability');
     const c = await connect(opts, `vega-sim-${tag}-${d.room}-${d.id}`, { topic: avail, payload: 'offline' });
     clients.set(key, c);
-    pub(c, deviceTopic(d.room, d.id, 'meta'), { v, kind: d.kind, ...(d.roomName && { room_name: d.roomName }) });
+    pub(c, deviceTopic(d.room, d.id, 'meta'), { v, kind: d.kind, ...(d.roomName && { room_name: d.roomName }), ...(d.aliases && { aliases: d.aliases }), ...(d.risk && { risk: d.risk }) });
     pub(c, avail, 'online');
     if (d.role === 'relay') {
       const set = deviceTopic(d.room, d.id, 'set');

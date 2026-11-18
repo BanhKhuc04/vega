@@ -25,12 +25,23 @@ export const DEVICE_KINDS = ['esp8266', 'esp32-s3', 'orangepi', 'pi', 'other'] a
 export const deviceKind = z.enum(DEVICE_KINDS);
 export type DeviceKind = z.infer<typeof deviceKind>;
 
-/** `vega/<room>/<device_id>/meta` (retained). */
+export const RISKS = ['low', 'high'] as const;
+/** `low`: the brain acts at once (lights, fans). `high`: needs the owner's confirmation on screen (PC power, big loads). */
+export const risk = z.enum(RISKS);
+export type Risk = z.infer<typeof risk>;
+
+/**
+ * `vega/<room>/<device_id>/meta` (retained). The brain builds its device dictionary and tools from it:
+ * `aliases` are the words the owner uses for the device (any language), `risk` ranks physical commands.
+ * A switchable device without `risk` is treated as `high`.
+ */
 export const deviceMeta = z.object({
   v,
   kind: deviceKind,
   room_name: z.string().min(1).max(40).optional(),
   name: z.string().min(1).max(40).optional(),
+  aliases: z.array(z.string().min(1).max(30)).max(8).optional(),
+  risk: risk.optional(),
 });
 export type DeviceMeta = z.infer<typeof deviceMeta>;
 
