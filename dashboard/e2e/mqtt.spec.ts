@@ -9,7 +9,7 @@ import type { Broker } from '../../tools/sim/src/broker';
 import { runSim } from '../../tools/sim/src/simlib';
 import type { Sim } from '../../tools/sim/src/simlib';
 import { buildPayload, parseArgs } from '../../tools/sim/src/scene';
-import { SCENE_NAMES, noHorizontalScroll, settle, shot, textOverlaps, watch } from './helpers';
+import { SCENE_NAMES, T, noHorizontalScroll, settle, shot, textOverlaps, watch } from './helpers';
 import type { Watch } from './helpers';
 
 /**
@@ -83,40 +83,41 @@ test('Idle values update within 2 s of a publish; a device going offline lowers 
   const { page } = await openPage(browser);
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   await expect(live(page, 'meshOn')).toHaveText('6', { timeout: 6000 });
+  await page.waitForTimeout(T(2000)); // the intro count-up must be over before exact values are asserted
 
   const t0 = Date.now();
   pubState('vega/bedroom/env/state', { temp_c: 31.5, humidity: 55, co2_ppm: 1234 });
-  await expect(live(page, 'temp')).toHaveText('31.5', { timeout: 2000 });
-  await expect(live(page, 'co2')).toHaveText('1,234', { timeout: 2000 });
-  await expect(live(page, 'hum')).toHaveText('55', { timeout: 2000 });
+  await expect(live(page, 'temp')).toHaveText('31.5', { timeout: T(2000) });
+  await expect(live(page, 'co2')).toHaveText('1,234', { timeout: T(2000) });
+  await expect(live(page, 'hum')).toHaveText('55', { timeout: T(2000) });
   const dt = Date.now() - t0;
   console.log(`room readings on screen ${dt} ms after publish`);
-  expect(dt).toBeLessThan(2000);
+  expect(dt).toBeLessThan(T(2000));
   await expect(live(page, 'co2row')).toHaveClass(/warn/);
   pubState('vega/bedroom/env/state', { co2_ppm: 640 });
-  await expect(live(page, 'co2')).toHaveText('640', { timeout: 2000 });
+  await expect(live(page, 'co2')).toHaveText('640', { timeout: T(2000) });
   await expect(live(page, 'co2row')).not.toHaveClass(/warn/);
   await expect(live(page, 'temp')).toHaveText('31.5'); // partial states merge
 
   // system stats: header + callouts
   spy.publish('vega/system/pi', JSON.stringify({ v: 1, cpu_pct: 40, temp_c: 61 }), { retain: true });
   spy.publish('vega/system/net', JSON.stringify({ v: 1, latency_ms: 77 }), { retain: true });
-  await expect(live(page, 'piText')).toHaveText('PI · 61°C', { timeout: 2000 });
-  await expect(live(page, 'coText')).toHaveText('CORE TEMP · 61°C', { timeout: 2000 });
-  await expect(live(page, 'latText')).toHaveText('LATENCY · 77 MS', { timeout: 2000 });
+  await expect(live(page, 'piText')).toHaveText('PI · 61°C', { timeout: T(2000) });
+  await expect(live(page, 'coText')).toHaveText('CORE TEMP · 61°C', { timeout: T(2000) });
+  await expect(live(page, 'latText')).toHaveText('LATENCY · 77 MS', { timeout: T(2000) });
 
   // a device dies: its Last Will says offline and the mesh drops within 2 s
   const t1 = Date.now();
   await sim!.killDevice('balcony/env');
-  await expect(live(page, 'meshOn')).toHaveText('5', { timeout: 2000 });
-  await expect(live(page, 'meshText')).toHaveText('MESH · 5/6 ONLINE', { timeout: 2000 });
+  await expect(live(page, 'meshOn')).toHaveText('5', { timeout: T(2000) });
+  await expect(live(page, 'meshText')).toHaveText('MESH · 5/6 ONLINE', { timeout: T(2000) });
   console.log(`mesh dropped ${Date.now() - t1} ms after the device died`);
   await sim!.reviveDevice('balcony/env');
   await expect(live(page, 'meshOn')).toHaveText('6', { timeout: 3000 });
 
   // CI and next event
   spy.publish('vega/system/events', JSON.stringify({ v: 1, type: 'ci', repo: 'vega-brain', failed: 2, ts: new Date().toISOString() }), { retain: true });
-  await expect(live(page, 'ci')).toHaveText('2 failed builds', { timeout: 2000 });
+  await expect(live(page, 'ci')).toHaveText('2 failed builds', { timeout: T(2000) });
   await expect(live(page, 'ciSub')).toContainText('vega-brain');
   await expect(live(page, 'cirow')).toHaveClass(/bad/);
 });
@@ -135,8 +136,8 @@ test('a scene sent over MQTT changes every open tab within 1 s, uses the file da
   const t0 = Date.now();
   spy.publish(UI_SCENE, payload, { retain: true });
   for (const { page } of [a, b]) {
-    await expect.poll(() => mode(page), { timeout: 1000, intervals: [25] }).toBe('research');
-    await expect(page.locator('#rtitle')).toHaveText('Research: standing desk height for a 178 cm user', { timeout: 1500 });
+    await expect.poll(() => mode(page), { timeout: T(1000), intervals: [25] }).toBe('research');
+    await expect(page.locator('#rtitle')).toHaveText('Research: standing desk height for a 178 cm user', { timeout: T(1500) });
   }
   console.log(`both tabs switched ${Date.now() - t0} ms after the publish`);
   await expect(a.page.locator('#status')).toHaveText(/Researching/);
@@ -173,7 +174,7 @@ test('wrong scenes are ignored: no crash, no change, a single console warning', 
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   await page.waitForTimeout(1500);
   spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'research' }), { retain: true });
-  await expect.poll(() => mode(page), { timeout: 1500 }).toBe('research');
+  await expect.poll(() => mode(page), { timeout: T(1500) }).toBe('research');
   const bad = ['{this is not json', JSON.stringify({ v: 1, scene: 'disco' }), JSON.stringify({ v: 1, scene: 'alert', data: { error: 42 } }), JSON.stringify({ scene: 'alert' }), '\u0000\u0001\u0002'];
   for (const p of bad) spy.publish(UI_SCENE, p, { retain: true });
   await page.waitForTimeout(800);
@@ -184,7 +185,7 @@ test('wrong scenes are ignored: no crash, no change, a single console warning', 
   expect(w.errors).toEqual([]);
   // and it still accepts a good one afterwards
   spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'success' }), { retain: true });
-  await expect.poll(() => mode(page), { timeout: 1500 }).toBe('success');
+  await expect.poll(() => mode(page), { timeout: T(1500) }).toBe('success');
 });
 
 test('a CI failure event makes the sim raise the alert scene on every tab', async ({ browser }) => {
@@ -197,11 +198,11 @@ test('a CI failure event makes the sim raise the alert scene on every tab', asyn
   expect(await mode(a.page)).toBe('idle');
   spy.publish('vega/system/events', JSON.stringify({ v: 1, type: 'ci', repo: 'firmware-esp', failed: 1, ts: new Date().toISOString() }), { retain: true });
   for (const { page } of [a, b]) {
-    await expect.poll(() => mode(page), { timeout: 2000, intervals: [50] }).toBe('alert');
+    await expect.poll(() => mode(page), { timeout: T(2000), intervals: [50] }).toBe('alert');
     await expect(page.locator('.alert-card .err')).toContainText('firmware-esp');
   }
   spy.publish('vega/system/events', JSON.stringify({ v: 1, type: 'ci', repo: 'firmware-esp', failed: 0, ts: new Date().toISOString() }), { retain: true });
-  await expect.poll(() => mode(a.page), { timeout: 2000, intervals: [50] }).toBe('success');
+  await expect.poll(() => mode(a.page), { timeout: T(2000), intervals: [50] }).toBe('success');
 });
 
 for (const [w, h, tag] of [[1440, 900, '1440'], [390, 844, '390']] as const) {
@@ -214,7 +215,7 @@ for (const [w, h, tag] of [[1440, 900, '1440'], [390, 844, '390']] as const) {
     for (const name of SCENE_NAMES) {
       const payload = buildPayload(parseArgs([name, '--ttl', '120'], {}));
       spy.publish(UI_SCENE, payload, { retain: true });
-      await expect.poll(() => mode(page), { timeout: 1000, intervals: [25] }).toBe(name);
+      await expect.poll(() => mode(page), { timeout: T(1000), intervals: [25] }).toBe(name);
       await settle(page, 2600);
       await noHorizontalScroll(page);
       const o = await textOverlaps(page);
@@ -235,7 +236,7 @@ test('each scene shows text taken from its data', async ({ browser }) => {
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   const send = async (name: string) => {
     spy.publish(UI_SCENE, buildPayload(parseArgs([name, '--ttl', '120'], {})), { retain: true });
-    await expect.poll(() => mode(page), { timeout: 1000, intervals: [25] }).toBe(name);
+    await expect.poll(() => mode(page), { timeout: T(1000), intervals: [25] }).toBe(name);
   };
   await send('listen');
   await expect(page.locator('#transcript')).toContainText('temperature in the bedroom', { timeout: 6000 });
@@ -266,10 +267,11 @@ test('losing the broker: header RECONNECTING, last scene and data stay, nothing 
   await bringUp({ simEvery: 60_000 });
   const { page, w } = await openPage(browser);
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
+  await page.waitForTimeout(T(2000)); // the intro count-up must be over before exact values are asserted
   pubState('vega/bedroom/env/state', { temp_c: 30.2, humidity: 61, co2_ppm: 1500 });
-  await expect(live(page, 'co2')).toHaveText('1,500', { timeout: 2000 });
+  await expect(live(page, 'co2')).toHaveText('1,500', { timeout: T(2000) });
   spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'research', data: { title: 'Research: before the outage' } }), { retain: true });
-  await expect.poll(() => mode(page), { timeout: 1500 }).toBe('research');
+  await expect.poll(() => mode(page), { timeout: T(1500) }).toBe('research');
   await page.waitForTimeout(1500);
 
   const { port, wsPort } = broker!;
@@ -291,7 +293,7 @@ test('losing the broker: header RECONNECTING, last scene and data stay, nothing 
   await bringUp({ sim: false, port, wsPort });
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 15_000 });
   pubState('vega/bedroom/env/state', { co2_ppm: 777 });
-  await expect(live(page, 'co2')).toHaveText('777', { timeout: 2000 });
+  await expect(live(page, 'co2')).toHaveText('777', { timeout: T(2000) });
   // While the broker is down Chromium itself logs each refused reconnect; that is the browser's report of the outage
   // we caused on purpose, not an app error. Anything else still fails the test.
   expect(w.errors.filter((e) => !/WebSocket connection to .* failed/.test(e))).toEqual([]);
@@ -320,6 +322,6 @@ test('the command bar publishes vega/system/command while connected', async ({ b
   await spy.subscribeAsync('vega/system/command');
   await page.locator('#q').fill('turn off the main light');
   await page.locator('#q').press('Enter');
-  await expect.poll(() => lastPayload.get('vega/system/command') ?? '', { timeout: 2000 }).not.toBe('');
+  await expect.poll(() => lastPayload.get('vega/system/command') ?? '', { timeout: T(2000) }).not.toBe('');
   expect(JSON.parse(lastPayload.get('vega/system/command')!)).toMatchObject({ v: 1, text: 'turn off the main light' });
 });

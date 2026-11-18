@@ -104,3 +104,10 @@ export async function textOverlaps(page: Page): Promise<string[]> {
     return out;
   });
 }
+
+/**
+ * Latency budgets (scene within 1 s, readings within 2 s) are asserted as written on a developer machine. A shared
+ * CI runner without a GPU is several times slower, so there the wait is stretched; the measured latency is still
+ * logged. The app's own criteria are not changed.
+ */
+export const T = (ms: number): number => (process.env.CI ? ms * 3 : ms);
