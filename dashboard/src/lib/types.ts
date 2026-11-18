@@ -78,6 +78,7 @@ export interface Snapshot {
   isMock: boolean;
   connection: ConnectionStatus;
   env: RoomEnv | null;
+  roomNames: Record<string, string>;
   devices: Device[];
   ci: CiStatus | null;
   next: NextEvent | null;
