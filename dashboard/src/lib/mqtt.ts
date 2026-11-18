@@ -79,7 +79,6 @@ export class MqttSource implements VegaDataSource {
           this.connected = true;
           this.everConnected = true;
           client.subscribe(SUBSCRIPTIONS);
-          client.subscribe(['vega/desk/core/state']);
           this.setConnection('connected');
         });
         // While retrying after a drop we keep saying "disconnected" instead of flapping.
