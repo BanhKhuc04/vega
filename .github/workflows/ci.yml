@@ -22,7 +22,10 @@ jobs:
       - run: npm run lint
       - run: npm run check
       - run: npm test
+      - name: Provider bench (mock only, no API keys in CI)
+        run: npm run bench -- --provider mock
       - run: npm run build
+      - run: npm run build -w brain
       - run: npm run size
 
   e2e:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { routeLocal } from '../src/local';
 import { fold, clip } from '../src/text';
-import { simRegistry } from './fixtures';
+import { simRegistry } from '../bench/registry';
 
 const reg = simRegistry();
 const route = (t: string) => routeLocal(t, reg, { defaultRoom: 'bedroom' });

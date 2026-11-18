@@ -1,0 +1,50 @@
+{"text":"bật đèn phòng khách giúp mình","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"tắt đèn đi","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}}]}
+{"text":"mở đèn lên nào","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"cho đèn sáng lên","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"tắt cái đèn phòng khách","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}}]}
+{"text":"phòng khách tối quá, bật đèn lên","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"bật ổ cắm bếp","expect":[{"tool":"set_device","args":{"device":"kitchen/plug","on":true}}]}
+{"text":"tắt ổ cắm trong bếp","expect":[{"tool":"set_device","args":{"device":"kitchen/plug","on":false}}]}
+{"text":"bật ấm đun nước","expect":[{"tool":"set_device","args":{"device":"kitchen/plug","on":true}}]}
+{"text":"tắt hết đèn","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}}]}
+{"text":"tắt tất cả thiết bị","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}},{"tool":"set_device","args":{"device":"kitchen/plug","on":false}}]}
+{"text":"bật đèn và ổ cắm","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}},{"tool":"set_device","args":{"device":"kitchen/plug","on":true}}]}
+{"text":"phòng ngủ bao nhiêu độ","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"bedroom"}}]}
+{"text":"nhiệt độ ngoài ban công","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"balcony"}}]}
+{"text":"trong phòng có nóng không","expect":[{"tool":"get_sensor","args":{"metric":"temp"}}]}
+{"text":"độ ẩm phòng ngủ thế nào","expect":[{"tool":"get_sensor","args":{"metric":"humidity","room":"bedroom"}}]}
+{"text":"không khí trong phòng có ngột ngạt không","expect":[{"tool":"get_sensor","args":{"metric":"co2"}}]}
+{"text":"CO2 ngoài ban công bao nhiêu","expect":[{"tool":"get_sensor","args":{"metric":"co2","room":"balcony"}}]}
+{"text":"phòng có ẩm không","expect":[{"tool":"get_sensor","args":{"metric":"humidity"}}]}
+{"text":"hôm nay phòng ngủ có lạnh không","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"bedroom"}}]}
+{"text":"ngoài trời mát không","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"balcony"}}]}
+{"text":"nồng độ CO2 hiện tại","expect":[{"tool":"get_sensor","args":{"metric":"co2"}}]}
+{"text":"đi ngủ thôi","expect":[{"tool":"run_scene","args":{"name":"sleep"}}]}
+{"text":"chúc ngủ ngon vega","expect":[{"tool":"run_scene","args":{"name":"sleep"}}]}
+{"text":"bật chế độ tập trung","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
+{"text":"mình cần học bài 25 phút","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
+{"text":"bắt đầu pomodoro","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
+{"text":"nhà có những thiết bị nào","expect":[{"tool":"list_devices","args":{}}]}
+{"text":"thiết bị nào đang bật","expect":[{"tool":"list_devices","args":{}}]}
+{"text":"liệt kê thiết bị","expect":[{"tool":"list_devices","args":{}}]}
+{"text":"kể cho mình một câu chuyện cười","expect":[]}
+{"text":"thủ đô của Pháp là gì","expect":[]}
+{"text":"cảm ơn vega","expect":[]}
+{"text":"đừng bật đèn","expect":[]}
+{"text":"không cần tắt ổ cắm đâu","expect":[]}
+{"text":"hôm nay là thứ mấy","expect":[]}
+{"text":"viết giúp mình một bài thơ ngắn","expect":[]}
+{"text":"bật đèn phòng khách và cho biết phòng ngủ mấy độ","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}},{"tool":"get_sensor","args":{"metric":"temp","room":"bedroom"}}]}
+{"text":"tắt đèn rồi đi ngủ","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}},{"tool":"run_scene","args":{"name":"sleep"}}]}
+{"text":"phòng khách sáng quá, tắt bớt đèn","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":false}}]}
+{"text":"em ơi mở giùm cái đèn","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"turn on the living room light","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"what's the temperature on the balcony","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"balcony"}}]}
+{"text":"bật quạt","expect":[]}
+{"text":"mở cửa gara","expect":[]}
+{"text":"độ ẩm ngoài ban công","expect":[{"tool":"get_sensor","args":{"metric":"humidity","room":"balcony"}}]}
+{"text":"trời tối rồi, bật đèn lên","expect":[{"tool":"set_device","args":{"device":"livingroom/light","on":true}}]}
+{"text":"tắt ổ cắm bếp giúp, sợ cháy","expect":[{"tool":"set_device","args":{"device":"kitchen/plug","on":false}}]}
+{"text":"phòng ngủ có ngột không","expect":[{"tool":"get_sensor","args":{"metric":"co2","room":"bedroom"}}]}
+{"text":"vega ơi, nhiệt độ phòng ngủ bao nhiêu","expect":[{"tool":"get_sensor","args":{"metric":"temp","room":"bedroom"}}]}

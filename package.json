@@ -26,6 +26,7 @@
     "scene": "tsx tools/sim/src/scene.ts",
     "broker": "tsx tools/sim/src/broker-cli.ts",
     "brain": "tsx brain/src/main.ts",
+    "bench": "tsx brain/bench/bench.ts",
     "compare": "node scripts/compare-template.mjs"
   },
   "devDependencies": {

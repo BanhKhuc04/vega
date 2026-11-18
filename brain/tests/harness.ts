@@ -7,7 +7,7 @@ import { loadConfig } from '../src/config';
 import type { Config } from '../src/config';
 import { chat } from '../src/llm';
 import { Store } from '../src/store';
-import { simRegistry } from './fixtures';
+import { simRegistry } from '../bench/registry';
 
 /** A bus that records what the brain sends, after checking every scene against the contract like a display would. */
 export function recordingBus() {

@@ -32,13 +32,14 @@ function guess(text: string, tools: ToolSpec[] | undefined): { name: string; arg
   const on = has(text, ['bat', 'mo', 'turn on', 'switch on', 'on', 'sang len']);
   const off = has(text, ['tat', 'turn off', 'switch off', 'off']);
   if (devices.length && (on || off) && !negated) {
-    const all = has(text, ['het', 'tat ca', 'moi', 'all', 'everything']);
-    const picked = all ? devices : devices.filter((k) => has(text, DEVICE_WORDS[k.split('/')[1]!] ?? [k.split('/')[1]!]));
+    const named = devices.filter((k) => has(text, DEVICE_WORDS[k.split('/')[1]!] ?? [k.split('/')[1]!]));
+    const picked = named.length ? named : has(text, ['het', 'tat ca', 'moi', 'all', 'everything']) ? devices : [];
     for (const device of picked) calls.push({ name: 'set_device', args: { device, on: off ? false : true } });
   }
+  const noRooms = text.replace(/phong ngu/g, ' '); // "phòng ngủ" is the bedroom, not bedtime
   if (enumOf(tools, 'run_scene', 'name').length && !negated) {
-    if (has(text, ['ngu', 'di ngu', 'sleep', 'good night', 'nghi ngoi'])) calls.push({ name: 'run_scene', args: { name: 'sleep' } });
-    else if (has(text, ['tap trung', 'focus', 'lam viec', 'hoc bai', 'pomodoro'])) calls.push({ name: 'run_scene', args: { name: 'focus' } });
+    if (has(noRooms, ['ngu', 'di ngu', 'sleep', 'good night', 'nghi ngoi'])) calls.push({ name: 'run_scene', args: { name: 'sleep' } });
+    else if (has(noRooms, ['tap trung', 'focus', 'lam viec', 'hoc bai', 'pomodoro'])) calls.push({ name: 'run_scene', args: { name: 'focus' } });
   }
   const rooms = enumOf(tools, 'get_sensor', 'room');
   const room = rooms.find((r) => has(text, ROOM_WORDS[r] ?? [r]));
@@ -46,7 +47,7 @@ function guess(text: string, tools: ToolSpec[] | undefined): { name: string; arg
     ? 'co2'
     : has(text, ['do am', 'am', 'humid', 'humidity', 'kho', 'nom'])
       ? 'humidity'
-      : has(text, ['nhiet', 'nong', 'lanh', 'am ap', 'mat me', 'do c', 'may do', 'temp', 'temperature', 'warm', 'hot', 'cold', 'degrees'])
+      : has(text, ['nhiet', 'nong', 'lanh', 'am ap', 'mat', 'do c', 'may do', 'temp', 'temperature', 'warm', 'hot', 'cold', 'degrees'])
         ? 'temp'
         : null;
   if (metric && calls.length === 0) calls.push({ name: 'get_sensor', args: { metric, ...(room && { room }) } });

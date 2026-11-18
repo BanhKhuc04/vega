@@ -6,7 +6,7 @@ import type { Provider } from '../src/config';
 import { LlmUnavailable, chat, costUsd } from '../src/llm';
 import { mockChat } from '../src/mock';
 import { chipLabel, parseToolCall, toolSpecs } from '../src/tools';
-import { simRegistry } from './fixtures';
+import { simRegistry } from '../bench/registry';
 
 describe('loadConfig', () => {
   it('defaults: no LLM, local only', () => {

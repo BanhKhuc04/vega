@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Registry, label, needsConfirm, roomLabel } from '../src/registry';
-import { simRegistry } from './fixtures';
+import { simRegistry } from '../bench/registry';
 
 describe('Registry', () => {
   it('builds devices from meta, availability and state', () => {
