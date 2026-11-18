@@ -26,12 +26,13 @@ const opened: BrowserContext[] = [];
 const mqttUrl = () => `ws://127.0.0.1:${broker!.wsPort}`;
 const lastPayload = new Map<string, string>();
 
-async function bringUp(opts: { sim?: boolean; port?: number; wsPort?: number } = {}) {
+/** `simEvery`: telemetry period. Tests that publish exact values use a long one so the sim does not overwrite them. */
+async function bringUp(opts: { sim?: boolean; port?: number; wsPort?: number; simEvery?: number } = {}) {
   broker = await startBroker({ port: opts.port ?? 0, wsPort: opts.wsPort ?? 0 });
   spy = mqtt.connect(`mqtt://127.0.0.1:${broker.port}`, { reconnectPeriod: 200 });
   await new Promise<void>((r) => spy.once('connect', () => r()));
   spy.on('message', (t, p) => lastPayload.set(t, p.toString()));
-  if (opts.sim !== false) sim = await runSim({ url: `mqtt://127.0.0.1:${broker.port}`, intervalMs: 400, piIntervalMs: 800 });
+  if (opts.sim !== false) sim = await runSim({ url: `mqtt://127.0.0.1:${broker.port}`, intervalMs: opts.simEvery ?? 400, piIntervalMs: opts.simEvery ? opts.simEvery * 2 : 800 });
 }
 
 async function tearDown() {
@@ -75,11 +76,11 @@ test('connects, shows LIVE, drops the sample tag once real data is in, and talks
   await expect(live(page, 'latText')).toHaveText(/^LATENCY · \d+ MS$/);
   expect(w.errors).toEqual([]);
   expect(w.external).toEqual([]);
-  expect(new Set(sockets)).toEqual(new Set([mqttUrl()]));
+  expect(new Set(sockets.map((u) => new URL(u).href))).toEqual(new Set([new URL(mqttUrl()).href]));
 });
 
 test('Idle values update within 2 s of a publish; a device going offline lowers the mesh at once', async ({ browser }) => {
-  await bringUp();
+  await bringUp({ simEvery: 60_000 });
   const { page } = await openPage(browser);
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   await expect(live(page, 'meshOn')).toHaveText('6', { timeout: 6000 });
@@ -262,7 +263,7 @@ test('each scene shows text taken from its data', async ({ browser }) => {
 });
 
 test('losing the broker: header RECONNECTING, last scene and data stay, nothing goes blank; LIVE again by itself', async ({ browser }) => {
-  await bringUp();
+  await bringUp({ simEvery: 60_000 });
   const { page, w } = await openPage(browser);
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   pubState('vega/bedroom/env/state', { temp_c: 30.2, humidity: 61, co2_ppm: 1500 });

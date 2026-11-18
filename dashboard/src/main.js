@@ -171,7 +171,7 @@ const rings = [
 ];
 const ringRoot = new THREE.Group();
 orb.add(ringRoot);
-rings.forEach((r) => { const h = new THREE.Group(); h.rotation.order = 'ZXY'; h.rotation.set(...r.tilt); h.add(r.o); ringRoot.add(h); r.h = h; });
+rings.forEach((r) => { const h = new THREE.Group(); h.rotation.order = 'ZXY'; h.rotation.set(r.tilt[0], r.tilt[1], r.tilt[2]); h.add(r.o); ringRoot.add(h); r.h = h; });
 const beadMat = new THREE.MeshBasicMaterial({ color: '#e8f6ff' });
 [110, 230, 350].forEach((a) => { const m = new THREE.Mesh(new THREE.SphereGeometry(.03, 12, 12), beadMat); const t = THREE.MathUtils.degToRad(a); m.position.set(Math.cos(t) * 1.53, Math.sin(t) * 1.53, 0); rings[0].o.add(m); });
 
@@ -249,7 +249,7 @@ const label = $('#orbLabel'), wm = $('#wm'), sub = $('#orbSub');
 const rainEl = $('#rain'); const rain = createRain(rainEl);
 const cssOrb = quality === 'css' ? createCssOrb($('#app'), $('#callouts')) : null;
 let cssOrbLive = cssOrb;
-const calls = [['#co1', -1.15, .95, -150, -46], ['#co2c', 1.35, .5, 150, -40], ['#co3', 1.0, -1.15, 140, 44]].map(([id, ax, ay, dx, dy]) => {
+const calls = /** @type {[string, number, number, number, number][]} */ ([['#co1', -1.15, .95, -150, -46], ['#co2c', 1.35, .5, 150, -40], ['#co3', 1.0, -1.15, 140, 44]]).map(([id, ax, ay, dx, dy]) => {
   const g = $(id); const [t1, t2] = g.querySelectorAll('text');
   return { ax, ay, dx, dy, pl: g.querySelector('polyline'), dot: g.querySelector('circle'), t1, t2 };
 });
@@ -652,7 +652,7 @@ window.addEventListener('keydown', (e) => {
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= 9) setMode(modeKeys[n - 1]); else if (e.key === '0') setMode(modeKeys[9]); else if (e.key === '-') setMode(modeKeys[10]);
 });
-document.addEventListener('pointerover', (e) => { if (e.target.closest && e.target.closest('button')) sfx.hover(); });
+document.addEventListener('pointerover', (e) => { const t = /** @type {Element} */ (e.target); if (t.closest && t.closest('button')) sfx.hover(); });
 $('#cmd').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = $('#q').value.trim(); $('#q').value = '';

@@ -3,7 +3,7 @@ let ctx = null, muted = false;
 let gesture = false; // no AudioContext until the user has interacted (autoplay policy, and no console noise)
 function ac() {
   if (!gesture) return null;
-  if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (A) ctx = new A(); }
+  if (!ctx) { const A = window.AudioContext || /** @type {any} */ (window).webkitAudioContext; if (A) ctx = new A(); }
   if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
 }

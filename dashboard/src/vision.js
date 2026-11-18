@@ -184,6 +184,11 @@ function makeNoise() {
 }
 
 /* ---------------- engine ---------------- */
+/**
+ * @param {any} canvas legacy template code: DOM types are left loose on purpose
+ * @param {any} layer
+ * @param {{ accent?: string, onDetect?: (...args: any[]) => void, onPhase?: (phase: string) => void }} [opts]
+ */
 export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPhase } = {}) {
   const g = canvas.getContext('2d');
   let scene = null, noise = null, raf = 0, active = false, t0 = 0, last = 0;
