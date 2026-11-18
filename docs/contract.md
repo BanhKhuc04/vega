@@ -1,11 +1,13 @@
-# VEGA contract, revision 2
+# VEGA contract, revision 3
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
 
 - Revision **2** = device topics (from the first UI brief, now with zod schemas) + the **scene protocol** `vega/ui/scene`.
+- Revision **3** (M1) = `meta` gains the optional `aliases` and `risk` the brain needs. Additive: older payloads stay valid,
+  older readers ignore the new fields, so `PAYLOAD_VERSION` stays 1.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 2` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 3` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -51,8 +53,16 @@ The dashboard subscribes to `vega/+/+/state`, `vega/+/+/meta`, `vega/+/+/availab
 Ranges: `temp_c` -50…150, `humidity` 0…100, `co2_ppm` 0…100000. The Idle screen shows the **primary room**
 (`bedroom` by default, `VEGA_ROOM` to change); other rooms only count towards the mesh.
 
-**`meta`**: `{ "v": 1, "kind": "esp8266", "room_name": "Bedroom" }`. `kind` is one of `esp8266`, `esp32-s3`,
-`orangepi`, `pi`, `other`.
+**`meta`**: `{ "v": 1, "kind": "esp8266", "room_name": "Living room", "name": "light", "aliases": ["đèn", "light"], "risk": "low" }`.
+`kind` is one of `esp8266`, `esp32-s3`, `orangepi`, `pi`, `other`. Everything else is optional:
+
+| Field | Meaning |
+|---|---|
+| `room_name`, `name` | display names (≤ 40 chars) |
+| `aliases` | up to 8 words (≤ 30 chars, any language) the owner uses for the device. The brain's local router and the LLM tools are built from them, so a new device needs no brain code |
+| `risk` | `low`: the brain switches it at once (lights, fans). `high`: it asks for confirmation on screen first (PC power, big loads). A switch **without** `risk` is treated as `high` |
+
+A device is switchable for the brain once its `state` has reported `on`; it is a sensor once it has reported a reading.
 
 **`availability`**: `online` or `offline`. The device sets `offline` as its MQTT Last Will. "Device mesh" counts
 online/total devices and an `offline` message lowers the count immediately.
@@ -74,7 +84,8 @@ Events are discriminated by `type`, and the payload is the same on `vega/system/
 ```
 
 `vega/system/command` (published by the dashboard's command bar when connected):
-`{ "v": 1, "id": "UI-m3k2x9-0", "text": "turn off the light", "ts": "2026-11-18T09:30:00Z" }`.
+`{ "v": 1, "id": "UI-m3k2x9-0", "text": "turn off the light", "ts": "2026-11-18T09:30:00Z" }`. Not retained. The brain
+ignores a retained command, or one whose `ts` is more than 30 s away from its clock (see `docs/security.md`).
 
 `vega/system/pi`: `{ "v": 1, "cpu_pct": 23, "temp_c": 52, "mem_pct": 41, "uptime_s": 518400 }` (all optional).
 `vega/system/net`: `{ "v": 1, "latency_ms": 38 }`.
@@ -151,6 +162,25 @@ One example per scene lives in `tools/sim/examples/*.json` (validated by tests).
 
 The map (`locate`), the camera feed (`vision`) and the datasheet drawing (`research` → source) are still the
 template's simulated pictures; real ones arrive with M7/M8.
+
+## Bộ não (M1): bộ não dùng hợp đồng này thế nào
+
+`brain/` chỉ parse và tạo payload bằng `packages/contract`. Mọi thứ nó gửi đều được kiểm schema trước khi publish.
+
+| Bộ não nghe | Bộ não gửi |
+|---|---|
+| `vega/+/+/meta`, `vega/+/+/state`, `vega/+/+/availability` (dựng sổ thiết bị) | `vega/<room>/<id>/set` (relay) |
+| `vega/system/command` (lệnh của chủ nhân) | `vega/ui/scene` (retained): cảnh `think` cho từng bước, rồi câu trả lời |
+| | `vega/system/events/command_result` (retained): câu trả lời đầy đủ, cùng `id` với lệnh |
+
+Một lệnh đi qua màn hình như sau:
+
+1. `think` (`ttl` 30 s) với các chip lấy từ việc đang chạy: `Parse intent`, rồi `Local match` hoặc `LLM <model>`, rồi mỗi tool
+   một chip (`get_sensor temp bedroom`, `set_device livingroom/light`…). Vượt trần chi phí ngày thì có chip `BUDGET` (một lần mỗi ngày).
+2. Câu trả lời hiện ở `idle.caption` (≤ 80 ký tự, câu đầy đủ ở `command_result`). Riêng cảnh `sleep`/`focus` thì chính cảnh đó
+   là câu trả lời, và hành động cần xác nhận thì hiện cảnh `alert` "confirm action" (`ttl` 30 s), chờ chủ nhân gõ `yes`.
+
+Không có template mới: bộ não chỉ dùng các trường đã có ở trên.
 
 ## Versioning
 

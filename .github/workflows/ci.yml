@@ -64,6 +64,8 @@ jobs:
           for i in $(seq 1 20); do curl -fs http://localhost:8080/ >/dev/null && break || sleep 1; done
           curl -fs http://localhost:8080/ | grep -q "VEGA Core"
           curl -fs http://localhost:8080/config.js | grep -q 'source: "mock"'
+      - name: Pi compose file is valid
+        run: MQTT_BRAIN_PASS=x MQTT_UI_PASS=x docker compose -f infra/pi/docker-compose.yml config -q
       - name: Build vega-brain image (amd64 + arm64 for the Pi)
         run: docker buildx build --platform linux/amd64,linux/arm64 -f brain/Dockerfile -t vega-brain:ci .
       - name: Brain image starts and reaches a broker
