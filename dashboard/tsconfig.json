@@ -1,15 +1,5 @@
 {
-  "extends": "@tsconfig/svelte/tsconfig.json",
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "verbatimModuleSyntax": true,
-    "types": ["vite/client", "node"],
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "scripts/**/*.ts", "e2e/**/*.ts", "vite.config.ts", "playwright.config.ts"]
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "types": ["vite/client", "node"] },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts", "vite.config.ts", "playwright.config.ts"]
 }
