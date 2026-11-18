@@ -1,0 +1,33 @@
+{
+  "name": "vega",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "VEGA personal assistant monorepo (M0 foundation)",
+  "engines": { "node": ">=22" },
+  "workspaces": ["packages/*", "dashboard", "tools/*"],
+  "scripts": {
+    "dev": "npm run dev -w dashboard",
+    "build": "npm run build -w dashboard",
+    "preview": "npm run preview -w dashboard",
+    "lint": "eslint .",
+    "check": "npm run check --workspaces --if-present",
+    "test": "vitest run",
+    "test:e2e": "npm run test:e2e -w dashboard",
+    "size": "node scripts/check-size.mjs",
+    "sim": "tsx tools/sim/src/sim.ts",
+    "scene": "tsx tools/sim/src/scene.ts",
+    "broker": "tsx tools/sim/src/broker-cli.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.1"
+  }
+}

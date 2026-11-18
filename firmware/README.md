@@ -1,4 +1,4 @@
 # firmware/
 
-Placeholder. ESP8266 / ESP32-S3 firmware (Phase 1, 6) lives here.
-The round desk-core screen reference is the `#/core` route of `dashboard/`.
+Placeholder. ESP8266 / ESP32-S3 firmware (milestones M2, M5). Topics and payloads are defined in
+`packages/contract` and documented in `docs/contract.md`.

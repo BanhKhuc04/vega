@@ -1,9 +1,14 @@
 node_modules/
 dist/
+build/
+.vite/
 .env
 .env.*
 !.env.example
 *.log
 .DS_Store
-dashboard/test-results/
-dashboard/playwright-report/
+coverage/
+test-results/
+playwright-report/
+infra/pi/.env
+infra/pi/mosquitto/passwd
