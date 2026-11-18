@@ -7,6 +7,11 @@ describe('packet encoding (MQTT 3.1.1)', () => {
   it('CONNECT', () => {
     expect(hex(encodeConnect('c1', 30))).toBe('10 0e 00 04 4d 51 54 54 04 02 00 1e 00 02 63 31');
   });
+  it('CONNECT with username and password sets the flags and appends them in order', () => {
+    expect(hex(encodeConnect('c1', 30, 'ui', 'pw'))).toBe('10 16 00 04 4d 51 54 54 04 c2 00 1e 00 02 63 31 00 02 75 69 00 02 70 77');
+    expect(hex(encodeConnect('c1', 30, 'ui'))).toBe('10 12 00 04 4d 51 54 54 04 82 00 1e 00 02 63 31 00 02 75 69');
+    expect(hex(encodeConnect('c1', 30, undefined, 'pw'))).toBe(hex(encodeConnect('c1', 30))); // a password without a user is not sent
+  });
   it('SUBSCRIBE with QoS 0', () => {
     expect(hex(encodeSubscribe(1, ['a/b']))).toBe('82 08 00 01 00 03 61 2f 62 00');
   });

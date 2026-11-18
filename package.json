@@ -4,8 +4,14 @@
   "version": "0.2.0",
   "type": "module",
   "description": "VEGA personal assistant monorepo (M0 foundation)",
-  "engines": { "node": ">=22" },
-  "workspaces": ["packages/*", "dashboard", "tools/*"],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "dashboard",
+    "tools/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w dashboard",
     "build": "npm run build -w dashboard",
@@ -17,7 +23,8 @@
     "size": "node scripts/check-size.mjs",
     "sim": "tsx tools/sim/src/sim.ts",
     "scene": "tsx tools/sim/src/scene.ts",
-    "broker": "tsx tools/sim/src/broker-cli.ts"
+    "broker": "tsx tools/sim/src/broker-cli.ts",
+    "compare": "node scripts/compare-template.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deviceTopic, parseDeviceTopic, UI_SCENE } from '../src';
+import { DASHBOARD_SUBSCRIPTIONS, deviceTopic, eventTopic, isEventsTopic, parseDeviceTopic, UI_SCENE } from '../src';
 
 describe('topics', () => {
   it('builds and parses device topics', () => {
@@ -20,5 +20,11 @@ describe('topics', () => {
     'other/a/b/state',
     '',
   ])('rejects %s', (t) => expect(parseDeviceTopic(t)).toBeNull());
+  it('event topics: the stream and one retained slot per type', () => {
+    expect(eventTopic('ci')).toBe('vega/system/events/ci');
+    for (const t of ['vega/system/events', 'vega/system/events/ci', 'vega/system/events/next_event']) expect(isEventsTopic(t), t).toBe(true);
+    for (const t of ['vega/system/events/', 'vega/system/events/a/b', 'vega/system/eventsx', 'vega/system/pi', 'vega/ui/scene']) expect(isEventsTopic(t), t).toBe(false);
+    expect(DASHBOARD_SUBSCRIPTIONS).toContain('vega/system/events/+');
+  });
   it('exposes the scene topic', () => expect(UI_SCENE).toBe('vega/ui/scene'));
 });

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-18 |
-| **Trạng thái** | Đã duyệt, chuyển sang triển khai |
+| **Trạng thái** | **Superseded by 0002 / 0003** (đã duyệt rồi thay bằng phương án VEGA 1.0; giao diện Svelte theo canvas bị gỡ, lớp dữ liệu và hợp đồng MQTT được giữ lại và nâng cấp) |
 | **Người quyết định** | Chủ dự án |
 | **Người triển khai** | Phiên Claude Code riêng (Sonnet 5.5) |
 | **Tài liệu gốc** | Canvas thiết kế "VEGA — Giao diện FUI" · Roadmap dự án (bản hiện còn ghi tên "Jarvis") |

@@ -15,6 +15,12 @@ export default ts.config(
   {
     // Legacy JS from the design template: keep it as delivered, lint only for real mistakes.
     files: ['dashboard/src/*.js'],
-    rules: { 'no-empty': 'off', 'no-unused-vars': ['warn', { args: 'none' }], 'no-useless-escape': 'off' },
+    rules: {
+      'no-empty': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      '@typescript-eslint/no-unused-expressions': 'off', // the template uses `cond && fn()`
+      'no-useless-escape': 'off',
+    },
   },
 );

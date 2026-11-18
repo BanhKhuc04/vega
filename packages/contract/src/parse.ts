@@ -3,7 +3,7 @@ import type { CoreStateMsg, DeviceKind } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
 import { netStats, piStats, systemEvent } from './system';
-import { CORE_STATE, SYSTEM_EVENTS, SYSTEM_NET, SYSTEM_PI, UI_SCENE, parseDeviceTopic } from './topics';
+import { CORE_STATE, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
 
 /** One MQTT message, decoded and validated. */
 export type Update =
@@ -45,7 +45,7 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
       const r = parseScene(payload);
       return r.ok ? { type: 'scene', scene: r.scene } : { type: 'sceneInvalid', error: r.error };
     }
-    if (topic === SYSTEM_EVENTS) {
+    if (isEventsTopic(topic)) {
       const r = systemEvent.safeParse(json(payload));
       if (!r.success) return null;
       const e = r.data;

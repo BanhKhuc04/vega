@@ -24,6 +24,13 @@ describe('parseMessage: valid input', () => {
     expect(p('vega/system/pi', { v: 1, cpu_pct: 23, temp_c: 52 })).toEqual({ type: 'pi', cpuPct: 23, tempC: 52, memPct: null, uptimeS: null });
     expect(p('vega/system/net', { v: 1, latency_ms: 38 })).toEqual({ type: 'net', latencyMs: 38 });
   });
+  it('events are accepted on the stream topic and on the retained per-type topics', () => {
+    const ci = { v: 1, type: 'ci', repo: 'r', failed: 1 };
+    expect(p('vega/system/events', ci)).toMatchObject({ type: 'ci' });
+    expect(p('vega/system/events/ci', ci)).toMatchObject({ type: 'ci' });
+    expect(p('vega/system/events/next_event', { v: 1, type: 'next_event', title: 't', at: '2026-11-18T12:00:00Z' })).toMatchObject({ type: 'nextEvent' });
+    expect(p('vega/system/events/ci', { v: 1, type: 'nope' })).toBeNull();
+  });
   it('scene', () => {
     expect(p('vega/ui/scene', { v: 1, scene: 'research' })).toMatchObject({ type: 'scene', scene: { scene: 'research' } });
   });
