@@ -1,9 +1,5 @@
-import { SYSTEM_COMMAND, systemCommand } from '@vega/contract';
-import { Agent } from './agent';
-import { BRAIN_SUBSCRIPTIONS, connect, mqttBus } from './bus';
 import { loadConfig } from './config';
-import { Registry } from './registry';
-import { Store } from './store';
+import { startBrain } from './service';
 
 try {
   process.loadEnvFile(); // `.env` in the working directory, if any; never overrides the real environment
@@ -13,44 +9,9 @@ try {
 const cfg = loadConfig();
 const log = (msg: string) => console.log(`${new Date().toISOString()} ${msg}`);
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
-log(`[brain] LLM router=${cfg.tasks.router ?? 'none'} chat=${cfg.tasks.chat ?? 'none'}`);
+log(`[brain] LLM router=${cfg.tasks.router ?? 'none'} chat=${cfg.tasks.chat ?? 'none'} · budget $${cfg.budgetUsdDay}/day · db ${cfg.dbPath}`);
 
-const registry = new Registry();
-const client = connect(cfg.mqttUrl, { ...(cfg.mqttUser && { username: cfg.mqttUser }), ...(cfg.mqttPass && { password: cfg.mqttPass }) });
-const store = new Store(cfg.dbPath);
-const agent = new Agent({ bus: mqttBus(client), registry, config: cfg, store, log });
-
-// one command at a time, in arrival order
-let queue: Promise<unknown> = Promise.resolve();
-/** A command older than this (or retained) is a replay, not the owner speaking now. */
-const MAX_AGE_MS = 30_000;
-
-client.on('connect', () => {
-  log(`[brain] connected to ${cfg.mqttUrl}`);
-  client.subscribe(BRAIN_SUBSCRIPTIONS);
-});
-client.on('error', (e) => log(`[brain] mqtt error: ${e.message}`));
-client.on('message', (topic, payload, packet) => {
-  if (topic !== SYSTEM_COMMAND) return void registry.apply(topic, payload.toString());
-  let raw: unknown;
-  try {
-    raw = JSON.parse(payload.toString());
-  } catch {
-    return log('[brain] ignored command: invalid JSON');
-  }
-  const r = systemCommand.safeParse(raw);
-  if (!r.success) return log('[brain] ignored command: does not match the contract');
-  if (packet.retain) return log(`[security] ignored retained command ${r.data.id}`);
-  const age = Date.now() - Date.parse(r.data.ts);
-  if (!(Math.abs(age) <= MAX_AGE_MS)) return log(`[security] ignored stale command ${r.data.id} (${Math.round(age / 1000)} s old)`);
-  const cmd = { id: r.data.id, text: r.data.text, origin: 'owner' as const };
-  queue = queue.then(() => agent.handle(cmd)).catch((e: unknown) => log(`[brain] command ${cmd.id} failed: ${(e as Error).stack ?? e}`));
-});
-
-const stop = () =>
-  client.end(false, {}, () => {
-    store.close();
-    process.exit(0);
-  });
+const brain = startBrain(cfg, { log });
+const stop = () => void brain.stop().then(() => process.exit(0));
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
