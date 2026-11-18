@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DISCONNECT, MiniMqttClient, PINGREQ, PacketParser, encodeConnect, encodePublish, encodeSubscribe } from '../src/lib/minimqtt';
+import { DISCONNECT, MiniMqttClient, PINGREQ, PacketParser, encodeConnect, encodePublish, encodeSubscribe } from '../src/data/minimqtt';
 
 const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0')).join(' ');
 

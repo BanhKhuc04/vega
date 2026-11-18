@@ -1,17 +1,11 @@
-import type { HistoryEntry, Snapshot, VegaDataSource } from './types';
-import { parseMessage } from './parse';
-import { applyUpdate } from './reduce';
+import { DASHBOARD_SUBSCRIPTIONS, SYSTEM_COMMAND, PAYLOAD_VERSION, parseMessage } from '@vega/contract';
+import type { SceneMessage } from '@vega/contract';
 import { MiniMqttClient } from './minimqtt';
+import { applyUpdate } from './reduce';
+import { emptySnapshot } from './sample';
+import type { ConnState, Snapshot, VegaDataSource } from './types';
 
-export const SUBSCRIPTIONS = [
-  'vega/+/+/state',
-  'vega/+/+/meta',
-  'vega/+/+/availability',
-  'vega/system/events',
-] as const;
-export const COMMAND_TOPIC = 'vega/system/command';
-
-/** The small slice of the mqtt.js client API we use; lets tests inject a fake. */
+/** The small slice of an MQTT client API we use; lets tests inject a fake. */
 export interface MqttLikeClient {
   on(event: 'connect' | 'reconnect' | 'close' | 'offline', cb: () => void): unknown;
   on(event: 'error', cb: (err: Error) => void): unknown;
@@ -25,45 +19,35 @@ export type ClientFactory = (url: string) => Promise<MqttLikeClient>;
 const defaultFactory: ClientFactory = async (url) =>
   new MiniMqttClient(url, { clientId: `vega-ui-${Math.random().toString(16).slice(2, 10)}` });
 
-export function emptySnapshot(): Snapshot {
-  return {
-    sourceKind: 'mqtt',
-    isMock: false,
-    connection: 'connecting',
-    env: null,
-    roomNames: {},
-    devices: [],
-    ci: null,
-    next: null,
-    co2: null,
-    research: null,
-    core: 'idle',
-    history: [],
-  };
-}
-
 export interface MqttOptions {
   url: string;
+  primaryRoom?: string;
   factory?: ClientFactory;
   now?: () => number;
+  warn?: (msg: string) => void;
 }
 
 export class MqttSource implements VegaDataSource {
   readonly kind = 'mqtt' as const;
-  private snap: Snapshot = emptySnapshot();
+  private snap: Snapshot;
   private listeners = new Set<(s: Snapshot) => void>();
+  private sceneListeners = new Set<(s: SceneMessage) => void>();
   private client: MqttLikeClient | null = null;
   private connected = false;
   private everConnected = false;
   private stopped = false;
+  private warned = false;
+  private seq = 0;
   private readonly factory: ClientFactory;
   private readonly now: () => number;
-  private seq = 0;
+  private readonly warn: (msg: string) => void;
   private readonly decoder = new TextDecoder();
 
   constructor(private readonly opts: MqttOptions) {
     this.factory = opts.factory ?? defaultFactory;
     this.now = opts.now ?? Date.now;
+    this.warn = opts.warn ?? ((m) => console.warn(m));
+    this.snap = emptySnapshot('mqtt', opts.primaryRoom);
   }
 
   start(): void {
@@ -78,25 +62,25 @@ export class MqttSource implements VegaDataSource {
         client.on('connect', () => {
           this.connected = true;
           this.everConnected = true;
-          client.subscribe(SUBSCRIPTIONS);
-          this.setConnection('connected');
+          client.subscribe(DASHBOARD_SUBSCRIPTIONS);
+          this.setConn('live');
         });
-        // While retrying after a drop we keep saying "disconnected" instead of flapping.
+        // While retrying after a drop we keep saying "reconnecting" instead of flapping.
         client.on('reconnect', () => {
-          if (!this.everConnected) this.setConnection('connecting');
+          if (!this.everConnected) this.setConn('offline');
         });
         const down = () => {
           this.connected = false;
-          this.setConnection('disconnected');
+          this.setConn(this.everConnected ? 'reconnecting' : 'offline');
         };
         client.on('close', down);
         client.on('offline', down);
         client.on('error', () => {
-          /* mqtt.js keeps retrying; the 'close' event updates the UI */
+          /* the client keeps retrying; 'close' updates the header */
         });
         client.on('message', (topic, payload) => this.handle(topic, this.decoder.decode(payload)));
       })
-      .catch(() => this.setConnection('disconnected'));
+      .catch(() => this.setConn('offline'));
   }
 
   stop(): void {
@@ -116,34 +100,41 @@ export class MqttSource implements VegaDataSource {
     return () => this.listeners.delete(listener);
   }
 
-  sendCommand(text: string): HistoryEntry | null {
+  onScene(listener: (s: SceneMessage) => void): () => void {
+    this.sceneListeners.add(listener);
+    return () => this.sceneListeners.delete(listener);
+  }
+
+  sendCommand(text: string): boolean {
     const clean = text.trim();
-    if (!clean) return null;
+    if (!clean || !this.connected || !this.client) return false;
     const ts = this.now();
     const id = `UI-${ts.toString(36)}-${this.seq++}`;
-    const sent = this.connected && this.client !== null;
-    if (sent) {
-      this.client?.publish(COMMAND_TOPIC, JSON.stringify({ v: 1, id, text: clean, ts: new Date(ts).toISOString() }));
-    }
-    const entry: HistoryEntry = {
-      id,
-      ts,
-      text: clean,
-      result: sent ? 'Đã gửi, đang chờ phản hồi' : 'Chưa gửi được: mất kết nối',
-      session: null,
-    };
-    this.update({ ...this.snap, history: [entry, ...this.snap.history] });
-    return entry;
+    this.client.publish(SYSTEM_COMMAND, JSON.stringify({ v: PAYLOAD_VERSION, id, text: clean, ts: new Date(ts).toISOString() }));
+    return true;
   }
 
   /** Exposed for tests. */
   handle(topic: string, payload: string): void {
     const u = parseMessage(topic, payload, this.now());
-    if (u) this.update(applyUpdate(this.snap, u));
+    if (!u) return;
+    if (u.type === 'scene') {
+      this.warned = false;
+      for (const l of this.sceneListeners) l(u.scene);
+      return;
+    }
+    if (u.type === 'sceneInvalid') {
+      if (!this.warned) {
+        this.warned = true;
+        this.warn(`[vega] ignored invalid scene on vega/ui/scene: ${u.error}`);
+      }
+      return;
+    }
+    this.update(applyUpdate(this.snap, u));
   }
 
-  private setConnection(c: Snapshot['connection']): void {
-    if (this.snap.connection !== c) this.update({ ...this.snap, connection: c });
+  private setConn(c: ConnState): void {
+    if (this.snap.conn !== c) this.update({ ...this.snap, conn: c });
   }
 
   private update(s: Snapshot): void {

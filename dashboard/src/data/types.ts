@@ -1,8 +1,9 @@
-export type Mode = 'idle' | 'research' | 'focus' | 'history';
-export type CoreState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'alert' | 'sleep';
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
-export type DeviceKind = 'esp8266' | 'esp32-s3' | 'unknown';
-export type Tone = 'good' | 'warn' | 'plain';
+import type { CoreStateMsg, DeviceKind, SceneMessage } from '@vega/contract';
+
+export type CoreState = CoreStateMsg['state'];
+/** What the header chip shows. */
+export type ConnState = 'live' | 'reconnecting' | 'offline' | 'sim';
+export type KnownKind = DeviceKind | 'unknown';
 
 export interface RoomEnv {
   room: string;
@@ -15,77 +16,30 @@ export interface RoomEnv {
 
 export interface Device {
   id: string; // "<room>/<device_id>"
-  kind: DeviceKind;
+  kind: KnownKind;
   online: boolean;
-}
-
-export interface CiStatus {
-  repo: string;
-  failed: number;
-  ts: number;
-}
-
-export interface NextEvent {
-  title: string;
-  at: number; // epoch ms
-}
-
-export interface Co2Series {
-  room: string;
-  values: number[]; // 24 hourly values
-  thresholdPpm: number;
-  maxPpm: number;
-}
-
-export interface ResearchStep {
-  label: string;
-  state: 'done' | 'active' | 'todo';
-  detail?: string;
-  progress?: number; // 0..1, only for the active step
-}
-
-export interface ResearchSession {
-  id: string;
-  title: string;
-  stepNo: number;
-  stepCount: number;
-  phase: string;
-  sources: number;
-  sourcesDesc: string;
-  ref: string;
-  steps: ResearchStep[];
-  sourceCaption: string;
-  compare: {
-    title: string;
-    columns: string[];
-    rows: { label: string; cells: { text: string; tone: Tone }[] }[];
-  };
-  note: string;
-  noteRefs: string;
-}
-
-export interface HistoryEntry {
-  id: string;
-  ts: number;
-  text: string;
-  result: string;
-  session: ResearchSession | null;
 }
 
 export interface Snapshot {
   sourceKind: 'mock' | 'mqtt';
-  /** True while the shown data is sample data. Must always be labelled in the UI. */
-  isMock: boolean;
-  connection: ConnectionStatus;
+  /** Everything shown is simulated (SIM mode). */
+  isSample: boolean;
+  conn: ConnState;
+  /** Room whose readings drive the Idle screen. */
+  primaryRoom: string;
   env: RoomEnv | null;
   roomNames: Record<string, string>;
+  /** Last 24 CO₂ readings for the sparkline. */
+  co2Spark: number[];
+  co2Threshold: number;
+  presence: boolean | null;
   devices: Device[];
-  ci: CiStatus | null;
-  next: NextEvent | null;
-  co2: Co2Series | null;
-  research: ResearchSession | null;
+  ci: { repo: string; failed: number; ts: number } | null;
+  next: { title: string; detail: string | null; at: number } | null;
+  co2Series: { room: string; values: number[]; thresholdPpm: number; maxPpm: number } | null;
+  pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;
+  net: { latencyMs: number } | null;
   core: CoreState;
-  history: HistoryEntry[];
 }
 
 export interface VegaDataSource {
@@ -94,16 +48,8 @@ export interface VegaDataSource {
   stop(): void;
   getSnapshot(): Snapshot;
   subscribe(listener: (s: Snapshot) => void): () => void;
-  /** Send a command typed in the command bar. Returns the history entry created for it. */
-  sendCommand(text: string): HistoryEntry | null;
+  /** Scenes pushed by the brain on `vega/ui/scene` (already validated). */
+  onScene(listener: (s: SceneMessage) => void): () => void;
+  /** Publishes a typed command. Returns false if it could not be sent. */
+  sendCommand(text: string): boolean;
 }
-
-export const CORE_STATES: readonly CoreState[] = [
-  'idle',
-  'listening',
-  'thinking',
-  'speaking',
-  'alert',
-  'sleep',
-];
-export const DEVICE_KINDS: readonly DeviceKind[] = ['esp8266', 'esp32-s3', 'unknown'];

@@ -484,7 +484,7 @@ function panelFx(p) {
     gsap.from('#map .pin, #map .tag', { opacity: 0, y: -12, duration: .6, stagger: .15, delay: 2.2, ease: 'expo.out' });
     gsap.from('#map svg > g:nth-of-type(1) rect', { opacity: 0, duration: .4, stagger: { each: .004, from: 'random' } });
   }
-  if (k === 'target') countUp($('#dist'), 2.4, 1, false, 2.2);
+  if (k === 'target') countUp($('#dist'), Number.isFinite(+$('#dist').dataset.to) ? +$('#dist').dataset.to : 2.4, 1, false, 2.2);
   if (k === 'route') gsap.from('.turns li', { opacity: 0, x: -10, stagger: .25, duration: .4, delay: .3 });
   if (k === 'nmea') { const box = $('#nmea'); box.innerHTML = ''; timers.push(setInterval(() => { const d = document.createElement('div'); box.appendChild(d); typeText(d, nmeaLine(), 160); while (box.children.length > 7) box.firstChild.remove(); }, 450)); }
 }
@@ -670,24 +670,29 @@ $('#cmd').addEventListener('submit', (e) => {
   });
 });
 
-/* ---------------- boot ---------------- */
+/* ---------------- boot (called by boot.ts once the data layer has painted its first values) ---------------- */
 let booted = false;
-resize();
-window.addEventListener('resize', resize);
-gsap.set('.tpl', { autoAlpha: 0 });
-S.s = .001; S.glow = 0;
-booted = true;
-const startMode = location.hash.slice(1);
-mode = '';
-setMode(MODES[startMode] ? startMode : 'idle');
-gsap.fromTo(S, { glow: 0 }, { glow: MODES[mode].look.glow, duration: 2.4, ease: 'expo.out', delay: .2 });
-gsap.from('.top', { opacity: 0, y: -14, duration: 1, ease: 'expo.out', delay: .4, clearProps: 'transform' }); // no leftover transform: the .sys cluster inside is position:fixed
-gsap.from('.frame i', { opacity: 0, scale: .4, duration: .8, stagger: .08, ease: 'expo.out' });
-gsap.from('.cmd', { opacity: 0, y: 20, duration: 1, ease: 'expo.out', delay: .9 });
-scramble(wm, 'VEGA', 1.4);
-window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (MODES[h]) setMode(h); });
-if (reduced) gsap.globalTimeline.timeScale(4);
-frame();
+let started = false;
+export function start() {
+  if (started) return;
+  started = true;
+  resize();
+  window.addEventListener('resize', resize);
+  gsap.set('.tpl', { autoAlpha: 0 });
+  S.s = .001; S.glow = 0;
+  booted = true;
+  const startMode = location.hash.slice(1);
+  mode = '';
+  setMode(MODES[startMode] ? startMode : 'idle');
+  gsap.fromTo(S, { glow: 0 }, { glow: MODES[mode].look.glow, duration: 2.4, ease: 'expo.out', delay: .2 });
+  gsap.from('.top', { opacity: 0, y: -14, duration: 1, ease: 'expo.out', delay: .4, clearProps: 'transform' }); // no leftover transform: the .sys cluster inside is position:fixed
+  gsap.from('.frame i', { opacity: 0, scale: .4, duration: .8, stagger: .08, ease: 'expo.out' });
+  gsap.from('.cmd', { opacity: 0, y: 20, duration: 1, ease: 'expo.out', delay: .9 });
+  scramble(wm, 'VEGA', 1.4);
+  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (MODES[h]) setMode(h); });
+  if (reduced) gsap.globalTimeline.timeScale(4);
+  frame();
+}
 
 /* ---------------- API for the data layer, scene renderer and header controls (boot.ts) ---------------- */
 export const hooks = { onCommand: null };

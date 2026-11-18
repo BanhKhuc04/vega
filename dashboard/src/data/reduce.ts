@@ -1,5 +1,5 @@
+import type { Update } from '@vega/contract';
 import type { Device, Snapshot } from './types';
-import type { Update } from './parse';
 
 function upsertDevice(devices: Device[], id: string, patch: Partial<Device>): Device[] {
   const i = devices.findIndex((d) => d.id === id);
@@ -7,24 +7,30 @@ function upsertDevice(devices: Device[], id: string, patch: Partial<Device>): De
   return devices.map((d, j) => (j === i ? { ...d, ...patch } : d));
 }
 
-/** Pure reducer: applies one parsed MQTT update to a snapshot. */
+const SPARK_LEN = 24;
+
+/** Pure reducer: applies one decoded MQTT update to a snapshot. Scene updates are not state. */
 export function applyUpdate(s: Snapshot, u: Update): Snapshot {
   switch (u.type) {
-    case 'env': {
-      // Merge field-by-field so partial states from separate sensors do not erase each other.
-      const prev = s.env && s.env.room === u.room ? s.env : null;
-      return {
-        ...s,
-        env: {
-          room: u.room,
-          roomName: s.roomNames[u.room] ?? prev?.roomName ?? u.room,
-          tempC: u.tempC ?? prev?.tempC ?? null,
-          humidity: u.humidity ?? prev?.humidity ?? null,
-          co2Ppm: u.co2Ppm ?? prev?.co2Ppm ?? null,
-          ts: u.ts,
-        },
-        devices: upsertDevice(s.devices, `${u.room}/${u.deviceId}`, {}),
-      };
+    case 'state': {
+      const id = `${u.room}/${u.deviceId}`;
+      const devices = upsertDevice(s.devices, id, {});
+      if (u.room !== s.primaryRoom) return { ...s, devices };
+      // Merge field by field so partial states from separate sensors do not erase each other.
+      const prev = s.env;
+      const touchesEnv = u.tempC !== undefined || u.humidity !== undefined || u.co2Ppm !== undefined;
+      const env = touchesEnv
+        ? {
+            room: u.room,
+            roomName: s.roomNames[u.room] ?? prev?.roomName ?? u.room,
+            tempC: u.tempC ?? prev?.tempC ?? null,
+            humidity: u.humidity ?? prev?.humidity ?? null,
+            co2Ppm: u.co2Ppm ?? prev?.co2Ppm ?? null,
+            ts: u.ts,
+          }
+        : prev;
+      const co2Spark = u.co2Ppm !== undefined ? [...s.co2Spark, u.co2Ppm].slice(-SPARK_LEN) : s.co2Spark;
+      return { ...s, devices, env, co2Spark, presence: u.presence ?? s.presence };
     }
     case 'availability':
       return { ...s, devices: upsertDevice(s.devices, `${u.room}/${u.deviceId}`, { online: u.online }) };
@@ -35,15 +41,22 @@ export function applyUpdate(s: Snapshot, u: Update): Snapshot {
     }
     case 'ci':
       return { ...s, ci: { repo: u.repo, failed: u.failed, ts: u.ts } };
-    case 'next':
-      return { ...s, next: { title: u.title, at: u.at } };
-    case 'co2':
-      return { ...s, co2: { room: u.room, values: u.values, thresholdPpm: u.thresholdPpm, maxPpm: u.maxPpm } };
-    case 'research':
-      return { ...s, research: u.session };
-    case 'commandResult':
-      return { ...s, history: s.history.map((h) => (h.id === u.id ? { ...h, result: u.result } : h)) };
+    case 'nextEvent':
+      return { ...s, next: { title: u.title, detail: u.detail, at: u.at } };
+    case 'co2Series': {
+      const series = { room: u.room, values: u.values, thresholdPpm: u.thresholdPpm, maxPpm: u.maxPpm };
+      const seed = u.room === s.primaryRoom && s.co2Spark.length === 0 ? u.values.slice(-SPARK_LEN) : s.co2Spark;
+      return { ...s, co2Series: series, co2Spark: seed, co2Threshold: u.thresholdPpm };
+    }
+    case 'pi':
+      return { ...s, pi: { cpuPct: u.cpuPct, tempC: u.tempC, memPct: u.memPct, uptimeS: u.uptimeS } };
+    case 'net':
+      return { ...s, net: { latencyMs: u.latencyMs } };
     case 'core':
       return { ...s, core: u.state };
+    case 'commandResult':
+    case 'scene':
+    case 'sceneInvalid':
+      return s;
   }
 }

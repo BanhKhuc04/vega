@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "scene": "think",
+  "ttl": 30,
+  "level": "high",
+  "data": {
+    "chips": [
+      {
+        "label": "Parse intent",
+        "state": "done"
+      },
+      {
+        "label": "Query room sensors",
+        "state": "done"
+      },
+      {
+        "label": "Draft answer",
+        "state": "run"
+      }
+    ],
+    "plan": "→ room.read(bedroom) · window.state()"
+  }
+}

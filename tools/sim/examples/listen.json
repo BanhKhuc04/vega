@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "scene": "listen",
+  "ttl": 30,
+  "data": {
+    "transcript": "What is the temperature in the bedroom and is the window open",
+    "hint": "Listening on desk core · release to send"
+  }
+}

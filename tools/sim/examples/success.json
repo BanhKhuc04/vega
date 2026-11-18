@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "scene": "success",
+  "ttl": 20,
+  "data": {
+    "title": "vega-brain #13",
+    "ref": "raspberry pi · 41 s",
+    "checks": [
+      "Tests passed",
+      "ARM64 image pushed to GHCR",
+      "Container restarted · health check OK"
+    ]
+  }
+}

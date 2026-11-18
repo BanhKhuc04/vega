@@ -6,7 +6,7 @@
  * PUBLISH (QoS 0), PINGREQ and automatic reconnect, so this file implements just that.
  * The `MqttLikeClient` interface keeps the swap to mqtt.js a one-line change if that ever matters.
  */
-import type { MqttLikeClient } from './mqtt';
+import type { MqttLikeClient } from './mqtt-source';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
