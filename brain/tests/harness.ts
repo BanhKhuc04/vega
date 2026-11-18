@@ -6,6 +6,7 @@ import type { Bus } from '../src/bus';
 import { loadConfig } from '../src/config';
 import type { Config } from '../src/config';
 import { chat } from '../src/llm';
+import { Store } from '../src/store';
 import { simRegistry } from './fixtures';
 
 /** A bus that records what the brain sends, after checking every scene against the contract like a display would. */
@@ -35,6 +36,7 @@ export function makeAgent(opts: { env?: Record<string, string>; chat?: ChatFn; c
     llm.calls++;
     return (opts.chat ?? chat)(p, req, o);
   };
-  const agent = new Agent({ bus: rec.bus, registry, config, chat: spy, ...opts.deps });
-  return { agent, registry, config, llm, ...rec };
+  const store = new Store(':memory:');
+  const agent = new Agent({ bus: rec.bus, registry, config, store, chat: spy, ...opts.deps });
+  return { agent, registry, config, llm, store, ...rec };
 }

@@ -1,10 +1,12 @@
 import type { Bus, SceneOut } from './bus';
 import type { Config, Provider } from './config';
-import { LlmUnavailable, chat as httpChat } from './llm';
+import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
 import { routeLocal } from './local';
 import { label, roomLabel } from './registry';
 import type { Metric, Registry } from './registry';
+import { dayOf } from './store';
+import type { Store } from './store';
 import { clip } from './text';
 import { chipLabel, parseToolCall, toolSpecs } from './tools';
 import type { ToolCall } from './tools';
@@ -22,7 +24,7 @@ export interface Command {
   /** Outside content the command is about. It reaches the LLM as data only. */
   external?: ExternalData[];
 }
-export type Path = 'local' | 'llm' | 'no_llm' | 'offline' | 'error';
+export type Path = 'local' | 'llm' | 'no_llm' | 'offline' | 'error' | 'budget';
 export interface Outcome {
   answer: string;
   path: Path;
@@ -49,7 +51,9 @@ export interface AgentDeps {
   bus: Bus;
   registry: Registry;
   config: Config;
+  store: Store;
   chat?: ChatFn;
+  now?: () => number;
   log?: (msg: string) => void;
 }
 
@@ -79,9 +83,13 @@ const wrapExternal = (x: ExternalData) =>
 export class Agent {
   private readonly chat: ChatFn;
   private readonly log: (msg: string) => void;
+  private readonly now: () => number;
+  /** Day on which the BUDGET chip was shown (once a day). */
+  private budgetShown = '';
   constructor(private readonly deps: AgentDeps) {
     this.chat = deps.chat ?? httpChat;
     this.log = deps.log ?? (() => {});
+    this.now = deps.now ?? Date.now;
   }
 
   async handle(cmd: Command): Promise<Outcome> {
@@ -107,10 +115,11 @@ export class Agent {
   }
 
   private async runLlm(cmd: Command, chips: Chip[], run: Run): Promise<Outcome> {
-    const { config, registry } = this.deps;
+    const { config, registry, store } = this.deps;
     const calls: ToolCall[] = [];
     let llmCalls = 0;
     if (!config.tasks.router) return { answer: 'I only understand device commands right now (no AI configured).', path: 'no_llm', calls, llmCalls };
+    const overBudget = () => store.spentUsd(dayOf(this.now())) >= config.budgetUsdDay;
     const messages: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...(cmd.external ?? []).map((x): ChatMessage => ({ role: 'user', content: wrapExternal(x) })),
@@ -119,7 +128,18 @@ export class Agent {
     const tools = toolSpecs(registry);
     let lastTexts: string[] = [];
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const provider = config.providers[(turn === 0 ? config.tasks.router : (config.tasks.chat ?? config.tasks.router))!]!;
+      const task = turn === 0 ? 'router' : 'chat';
+      const provider = config.providers[(config.tasks[task] ?? config.tasks.router)!]!;
+      if (overBudget()) {
+        const day = dayOf(this.now());
+        if (this.budgetShown !== day) {
+          this.budgetShown = day;
+          chips.push({ label: 'BUDGET', state: 'wait' });
+          this.think(chips, `Daily AI budget of $${config.budgetUsdDay} reached · local commands only`);
+        }
+        this.log(`[brain] daily AI budget reached ($${store.spentUsd(day).toFixed(4)} of $${config.budgetUsdDay})`);
+        return { answer: lastTexts.length ? lastTexts.join(' · ') : 'Daily AI budget reached: local commands only.', path: 'budget', calls, llmCalls };
+      }
       chips.push({ label: `LLM ${provider.model}`.slice(0, 40), state: 'run' });
       this.think(chips);
       let res: ChatResponse;
@@ -135,6 +155,7 @@ export class Agent {
           : { answer: 'AI error, please try again later.', path: 'error', calls, llmCalls };
       }
       llmCalls++;
+      store.logUsage({ ts: this.now(), commandId: cmd.id, task, provider: provider.name, model: provider.model, tokensIn: res.usage.in, tokensOut: res.usage.out, usd: costUsd(provider, res.usage) });
       chips.at(-1)!.state = 'done';
       const tcs = res.message.tool_calls ?? [];
       if (tcs.length === 0) {
@@ -207,6 +228,7 @@ export class Agent {
   private answer(cmd: Command, out: Outcome, run: Run): void {
     this.deps.bus.scene(run.screen ?? { scene: 'idle', data: { caption: clip(out.answer, 80) } });
     this.deps.bus.result(cmd.id, out.answer);
+    this.deps.store.logCommand({ id: cmd.id, ts: this.now(), text: cmd.text, origin: cmd.origin, path: out.path, answer: out.answer, tools: out.calls.map(chipLabel), llmCalls: out.llmCalls });
     this.log(`[brain] ${cmd.id} ${out.path} (${out.llmCalls} LLM) "${cmd.text}" -> ${out.answer}`);
   }
 }

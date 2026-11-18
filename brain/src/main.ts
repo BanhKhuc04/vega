@@ -3,6 +3,7 @@ import { Agent } from './agent';
 import { BRAIN_SUBSCRIPTIONS, connect, mqttBus } from './bus';
 import { loadConfig } from './config';
 import { Registry } from './registry';
+import { Store } from './store';
 
 const cfg = loadConfig();
 const log = (msg: string) => console.log(`${new Date().toISOString()} ${msg}`);
@@ -11,7 +12,8 @@ log(`[brain] LLM router=${cfg.tasks.router ?? 'none'} chat=${cfg.tasks.chat ?? '
 
 const registry = new Registry();
 const client = connect(cfg.mqttUrl, { ...(cfg.mqttUser && { username: cfg.mqttUser }), ...(cfg.mqttPass && { password: cfg.mqttPass }) });
-const agent = new Agent({ bus: mqttBus(client), registry, config: cfg, log });
+const store = new Store(cfg.dbPath);
+const agent = new Agent({ bus: mqttBus(client), registry, config: cfg, store, log });
 
 // one command at a time, in arrival order
 let queue: Promise<unknown> = Promise.resolve();
@@ -35,6 +37,10 @@ client.on('message', (topic, payload) => {
   queue = queue.then(() => agent.handle(cmd)).catch((e: unknown) => log(`[brain] command ${cmd.id} failed: ${(e as Error).stack ?? e}`));
 });
 
-const stop = () => client.end(false, {}, () => process.exit(0));
+const stop = () =>
+  client.end(false, {}, () => {
+    store.close();
+    process.exit(0);
+  });
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
