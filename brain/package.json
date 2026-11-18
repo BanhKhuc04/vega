@@ -1,0 +1,20 @@
+{
+  "name": "@vega/brain",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "vega-brain: understands commands from vega/system/command, calls device tools, drives vega/ui/scene",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node build.mjs",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@vega/contract": "*",
+    "mqtt": "^5.16.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

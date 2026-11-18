@@ -1,6 +1,7 @@
 # Cài VEGA lên Raspberry Pi 3
 
-Mục tiêu của M0: trên Pi, kiosk Chromium mở màn VEGA ở mức `css`, dữ liệu đi qua Mosquitto có mật khẩu.
+Mục tiêu: trên Pi, kiosk Chromium mở màn VEGA ở mức `css`, dữ liệu đi qua Mosquitto có mật khẩu, `vega-brain` (M1) trả lời
+lệnh từ thanh lệnh.
 Script `infra/pi/setup.sh` và `infra/pi/docker-compose.yml` được viết và kiểm tra cú pháp (`bash -n`, `shellcheck`,
 `docker compose config`) **ngoài Pi**; lần chạy thật đầu tiên là của chủ dự án.
 
@@ -9,6 +10,8 @@ Script `infra/pi/setup.sh` và `infra/pi/docker-compose.yml` được viết và
 - Raspberry Pi OS Lite **64-bit** (Bookworm), thẻ nhớ ≥ 16 GB (khuyến nghị SSD qua USB), Ethernet hoặc Wi-Fi, màn hình HDMI.
 - SSH vào Pi, `git clone` repo này (hoặc `rsync`).
 - Pi và PC cùng mạng LAN. **Không** forward cổng 1883, 9001, 8080 ra internet (chưa có TLS).
+- **Tailscale** trên Pi và PC (khuyến nghị): từ M1, dashboard (8080) và WebSocket MQTT (9001) chỉ nghe ở `localhost` và địa chỉ
+  Tailscale của Pi, không nghe ở LAN (`docs/security.md`). Cài Tailscale trước khi chạy `setup.sh` để script tự điền `TAILSCALE_IP`.
 
 ## Cài
 
@@ -28,8 +31,10 @@ Các bước và nơi chỉnh:
 | Docker | cài bằng script chính thức nếu chưa có; bật `docker.service` |
 | zram | `zram-tools`, zstd, 50% RAM (`/etc/default/zramswap`) |
 | Bí mật | tạo `infra/pi/.env` (quyền 600, **không commit**) với mật khẩu ngẫu nhiên cho 3 user MQTT |
+| Tailscale | điền `TAILSCALE_IP` trong `.env` bằng `tailscale ip -4` (trống = dashboard chỉ mở được trên chính Pi) |
+| Bộ não | tạo `infra/pi/brain.env` (quyền 600, **không commit**) từ `brain.env.example`: nhà cung cấp AI, trần chi phí ngày. Để `LLM_ROUTER=none` thì chỉ chạy lệnh cục bộ |
 | Mosquitto | `mosquitto/passwd` dựng lại từ `.env`; ACL ở `mosquitto/acl` |
-| Stack | `infra/pi/docker-compose.yml`: `mosquitto` (64 MB), `vega-ui` nginx (48 MB), `restart: unless-stopped` |
+| Stack | `infra/pi/docker-compose.yml`: `mosquitto` (64 MB), `vega-brain` (160 MB, SQLite ở volume `brain-data`), `vega-ui` nginx (48 MB), `restart: unless-stopped` |
 | Kiosk | `cage` + Chromium, unit `vega-kiosk.service`, mở `http://localhost:8080/?quality=css` |
 
 Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc định user đang chạy `sudo`, hoặc `pi`).
@@ -40,7 +45,7 @@ Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc
 | User | Quyền | Dùng cho |
 |---|---|---|
 | `brain` | đọc/ghi `vega/#` | bộ não (M1), công cụ `npm run sim` / `npm run scene` |
-| `ui` | đọc `vega/#`, ghi `vega/system/command` | dashboard. Mật khẩu này nằm trong `/config.js` nên ai mở được dashboard trong LAN đều thấy: vì vậy nó không ghi được gì khác |
+| `ui` | đọc `vega/#`, ghi `vega/system/command` | dashboard. Mật khẩu này nằm trong `/config.js` nên ai mở được dashboard đều thấy: vì vậy nó không ghi được gì khác, và dashboard chỉ mở được qua `localhost`/Tailscale |
 | `device` | ghi `state`, `meta`, `availability`; đọc `set` | ESP. Từng thiết bị riêng có ở M2 |
 
 Mật khẩu: `grep MQTT_ infra/pi/.env`.
@@ -48,7 +53,8 @@ Mật khẩu: `grep MQTT_ infra/pi/.env`.
 ## Kiểm tra sau khi cài
 
 ```bash
-docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env ps      # 2 container, healthy
+docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env ps      # 3 container
+docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env logs vega-brain | tail   # "connected to mqtt://mosquitto:1883"
 curl -s http://localhost:8080/config.js                                        # source: "mqtt"
 ```
 
@@ -58,11 +64,12 @@ Từ PC (cùng LAN), bắn một cảnh vào broker của Pi: màn Pi và mọi 
 MQTT_URL=mqtt://<ip-pi>:1883 MQTT_USER=brain MQTT_PASS=<mật khẩu brain> npm run scene -- briefing
 ```
 
-Mở dashboard trên PC bằng `http://<ip-pi>:8080/` (mức `full`) để xem cùng một cảnh với Pi.
+Mở dashboard trên PC bằng `http://<ip-tailscale-của-pi>:8080/` (mức `full`) để xem cùng một cảnh với Pi. Gõ
+`phòng mấy độ, bật đèn giúp` trên thanh lệnh để thử bộ não (cần thiết bị thật, hoặc chạy `npm run sim` trỏ vào broker của Pi).
 
 ## Mất điện, rút điện cắm lại
 
-Docker tự bật lại hai container (`restart: unless-stopped`) và `vega-kiosk.service` tự mở trình duyệt. Kiosk chờ nginx
+Docker tự bật lại các container (`restart: unless-stopped`) và `vega-kiosk.service` tự mở trình duyệt. Kiosk chờ nginx
 sẵn sàng rồi mới mở trang.
 
 ## Hiệu năng trên Pi 3 (cần kiểm tra thật)

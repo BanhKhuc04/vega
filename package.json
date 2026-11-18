@@ -1,14 +1,15 @@
 {
   "name": "vega",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
-  "description": "VEGA personal assistant monorepo (M0 foundation)",
+  "description": "VEGA personal assistant monorepo (M1 brain)",
   "engines": {
     "node": ">=22"
   },
   "workspaces": [
     "packages/*",
+    "brain",
     "dashboard",
     "tools/*"
   ],
@@ -24,6 +25,8 @@
     "sim": "tsx tools/sim/src/sim.ts",
     "scene": "tsx tools/sim/src/scene.ts",
     "broker": "tsx tools/sim/src/broker-cli.ts",
+    "brain": "tsx brain/src/main.ts",
+    "bench": "tsx brain/bench/bench.ts",
     "compare": "node scripts/compare-template.mjs"
   },
   "devDependencies": {

@@ -12,3 +12,6 @@ test-results/
 playwright-report/
 infra/pi/.env
 infra/pi/mosquitto/passwd
+infra/pi/brain.env
+*.db
+*.db-*

@@ -6,8 +6,12 @@ services:
     image: eclipse-mosquitto:2
     restart: unless-stopped
     ports:
+      # plain MQTT on the LAN, for ESP devices (user `device` cannot publish commands)
       - "${MQTT_PORT:-1883}:1883"
-      - "${MQTT_WS_PORT:-9001}:9001"
+      # WebSocket for dashboards: localhost (kiosk) and Tailscale only, never the LAN (docs/security.md).
+      # Without TAILSCALE_IP the second line binds 127.0.0.2, another loopback address: localhost only.
+      - "127.0.0.1:${MQTT_WS_PORT:-9001}:9001"
+      - "${TAILSCALE_IP:-127.0.0.2}:${MQTT_WS_PORT:-9001}:9001"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/acl:/mosquitto/config/acl:ro
@@ -29,7 +33,9 @@ services:
     image: vega-ui:local
     restart: unless-stopped
     ports:
-      - "${UI_PORT:-8080}:80"
+      # the page carries the `ui` MQTT password (it may publish commands): same exposure as the WebSocket
+      - "127.0.0.1:${UI_PORT:-8080}:80"
+      - "${TAILSCALE_IP:-127.0.0.2}:${UI_PORT:-8080}:80"
     environment:
       VEGA_SOURCE: mqtt
       # empty = ws://<host that served the page>:9001
@@ -41,5 +47,28 @@ services:
       - mosquitto
     mem_limit: 48m
 
+  vega-brain:
+    build:
+      context: ../..
+      dockerfile: brain/Dockerfile
+    image: vega-brain:local
+    restart: unless-stopped
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_USER: brain
+      MQTT_PASS: ${MQTT_BRAIN_PASS:?run setup.sh first}
+      VEGA_ROOM: ${VEGA_ROOM:-bedroom}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
+    env_file:
+      - path: ./brain.env
+        required: false
+    volumes:
+      - brain-data:/data
+    depends_on:
+      - mosquitto
+    mem_limit: 160m
+
 volumes:
   mosquitto-data:
+  brain-data:

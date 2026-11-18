@@ -85,12 +85,15 @@ test('the chart shows the CO₂ sample correctly (threshold line, amber bars, pe
   expect((plot.y + plot.height - thr.y) / plot.height).toBeCloseTo(1000 / 1500, 1);
 });
 
-test('typing a command routes through Think like the template did', async ({ page }) => {
+test('typing a command no longer routes the screen by itself: the brain decides (Brief 0004, B9)', async ({ page }) => {
   await page.goto('/?quality=css');
   await page.locator('#q').fill('research CO2 sensors');
   await page.locator('#q').press('Enter');
-  await expect(page.locator('#app')).toHaveAttribute('data-mode', 'think');
-  await expect(page.locator('#app')).toHaveAttribute('data-mode', 'research', { timeout: 5000 });
+  await expect(page.locator('#q')).toHaveValue('');
+  await page.waitForTimeout(2500); // the old demo went think -> research after 1.8 s
+  await expect(page.locator('#app')).toHaveAttribute('data-mode', 'idle');
+  await page.locator('#q').press('Enter'); // an empty command still opens Listen, as in the template
+  await expect(page.locator('#app')).toHaveAttribute('data-mode', 'listen');
 });
 
 test('accessibility basics', async ({ page }) => {

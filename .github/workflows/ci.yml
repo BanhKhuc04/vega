@@ -22,7 +22,10 @@ jobs:
       - run: npm run lint
       - run: npm run check
       - run: npm test
+      - name: Provider bench (mock only, no API keys in CI)
+        run: npm run bench -- --provider mock
       - run: npm run build
+      - run: npm run build -w brain
       - run: npm run size
 
   e2e:
@@ -61,6 +64,19 @@ jobs:
           for i in $(seq 1 20); do curl -fs http://localhost:8080/ >/dev/null && break || sleep 1; done
           curl -fs http://localhost:8080/ | grep -q "VEGA Core"
           curl -fs http://localhost:8080/config.js | grep -q 'source: "mock"'
+      - name: Pi compose file is valid
+        run: MQTT_BRAIN_PASS=x MQTT_UI_PASS=x docker compose -f infra/pi/docker-compose.yml config -q
+      - name: Build vega-brain image (amd64 + arm64 for the Pi)
+        run: docker buildx build --platform linux/amd64,linux/arm64 -f brain/Dockerfile -t vega-brain:ci .
+      - name: Brain image starts and reaches a broker
+        run: |
+          docker buildx build --load -f brain/Dockerfile -t vega-brain:ci .
+          docker network create vega
+          docker run -d --name mq --network vega eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf
+          docker run -d --name brain --network vega -e MQTT_URL=mqtt://mq:1883 vega-brain:ci
+          for i in $(seq 1 20); do docker logs brain 2>&1 | grep -q 'connected to' && break || sleep 1; done
+          docker logs brain
+          docker logs brain 2>&1 | grep -q 'connected to mqtt://mq:1883'
 
   shell:
     runs-on: ubuntu-latest

@@ -13,7 +13,8 @@ describe('parseMessage: valid input', () => {
   });
   it('availability / meta / core', () => {
     expect(p('vega/bedroom/sensor/availability', 'offline')).toEqual({ type: 'availability', room: 'bedroom', deviceId: 'sensor', online: false });
-    expect(p('vega/desk/core/meta', { v: 1, kind: 'esp32-s3', room_name: 'Desk' })).toEqual({ type: 'meta', room: 'desk', deviceId: 'core', kind: 'esp32-s3', roomName: 'Desk' });
+    expect(p('vega/desk/core/meta', { v: 1, kind: 'esp32-s3', room_name: 'Desk' })).toEqual({ type: 'meta', room: 'desk', deviceId: 'core', kind: 'esp32-s3', roomName: 'Desk', name: null, aliases: [], risk: null });
+    expect(p('vega/kitchen/plug/meta', { v: 1, kind: 'esp8266', name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' })).toMatchObject({ name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' });
     expect(p('vega/desk/core/state', { v: 1, state: 'listening' })).toEqual({ type: 'core', state: 'listening' });
   });
   it('system topics', () => {

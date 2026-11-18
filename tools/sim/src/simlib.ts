@@ -10,15 +10,19 @@ export interface DeviceDef {
   kind: DeviceKind;
   role: 'env' | 'radar' | 'relay' | 'core';
   roomName?: string;
+  /** Words the owner uses for it (the brain's device dictionary). */
+  aliases?: string[];
+  risk?: 'low' | 'high';
 }
 
 /** 5 × esp8266 + 1 × esp32-s3, as in the template's "MQTT 6/6" mesh. */
 export const DEVICES: readonly DeviceDef[] = [
-  { room: 'bedroom', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Bedroom' },
+  { room: 'bedroom', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Bedroom', aliases: ['phòng ngủ', 'bedroom'] },
   { room: 'bedroom', id: 'radar', kind: 'esp8266', role: 'radar', roomName: 'Bedroom' },
-  { room: 'livingroom', id: 'light', kind: 'esp8266', role: 'relay', roomName: 'Living room' },
-  { room: 'kitchen', id: 'plug', kind: 'esp8266', role: 'relay', roomName: 'Kitchen' },
-  { room: 'balcony', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Balcony' },
+  { room: 'livingroom', id: 'light', kind: 'esp8266', role: 'relay', roomName: 'Living room', aliases: ['đèn', 'đèn phòng khách', 'light', 'lamp'], risk: 'low' },
+  // a high-power socket (kettle, heater): the brain asks for confirmation before switching it
+  { room: 'kitchen', id: 'plug', kind: 'esp8266', role: 'relay', roomName: 'Kitchen', aliases: ['ổ cắm', 'ổ cắm bếp', 'plug', 'socket'], risk: 'high' },
+  { room: 'balcony', id: 'env', kind: 'esp8266', role: 'env', roomName: 'Balcony', aliases: ['ban công', 'balcony', 'ngoài trời', 'outside'] },
   { room: 'desk', id: 'core', kind: 'esp32-s3', role: 'core', roomName: 'Desk' },
 ];
 export const deviceKey = (d: Pick<DeviceDef, 'room' | 'id'>) => `${d.room}/${d.id}`;
@@ -96,7 +100,7 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
     const avail = deviceTopic(d.room, d.id, 'availability');
     const c = await connect(opts, `vega-sim-${tag}-${d.room}-${d.id}`, { topic: avail, payload: 'offline' });
     clients.set(key, c);
-    pub(c, deviceTopic(d.room, d.id, 'meta'), { v, kind: d.kind, ...(d.roomName && { room_name: d.roomName }) });
+    pub(c, deviceTopic(d.room, d.id, 'meta'), { v, kind: d.kind, ...(d.roomName && { room_name: d.roomName }), ...(d.aliases && { aliases: d.aliases }), ...(d.risk && { risk: d.risk }) });
     pub(c, avail, 'online');
     if (d.role === 'relay') {
       const set = deviceTopic(d.room, d.id, 'set');
@@ -142,17 +146,23 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
   const sys = await connect(opts, `vega-sim-${tag}-system`);
   const t0 = now();
   let lastFailed = opts.initialCi === 'fail' ? 1 : 0;
-  const pubCi = (failed: number, repo: string) => pub(sys, eventTopic('ci'), { v, type: 'ci', repo, failed, ts: now().toISOString() });
-  if (opts.initialCi !== 'none') pubCi(lastFailed, 'firmware-esp');
+  const ciPayload = (failed: number, repo: string) => JSON.stringify({ v, type: 'ci', repo, failed, ts: now().toISOString() });
+  const pubCi = (failed: number, repo: string) => pub(sys, eventTopic('ci'), ciPayload(failed, repo));
+  let startupCi = opts.initialCi === 'none' ? null : ciPayload(lastFailed, 'firmware-esp');
+  if (startupCi) pub(sys, eventTopic('ci'), startupCi);
   pub(sys, eventTopic('next_event'), { v, type: 'next_event', title: 'lab report', detail: 'computer networks', at: nextLocalAt(16, 30, t0).toISOString() });
   pub(sys, eventTopic('co2_series'), { v, type: 'co2_series', room: 'bedroom', values: CO2_BY_HOUR, threshold_ppm: 1000, max_ppm: 1500 });
 
   const scene = (msg: object) => pub(sys, UI_SCENE, { v, ts: now().toISOString(), ...msg });
   sys.subscribe([SYSTEM_EVENTS, SYSTEM_EVENTS_RETAINED, 'vega/system/command']);
-  sys.on('message', (topic, payload) => {
+  sys.on('message', (topic, payload, packet) => {
     const u = parseMessage(topic, payload.toString());
     if (topic === 'vega/system/command') return log(`[sim] command: ${payload.toString()}`);
     if (!u || u.type !== 'ci') return;
+    // old state replayed on subscribe, or the echo of our own startup state (lastFailed holds it already):
+    // either may arrive after newer events, so neither may trigger a scene
+    if (packet.retain) return;
+    if (payload.toString() === startupCi) return void (startupCi = null);
     const prev = lastFailed;
     lastFailed = u.failed;
     if (u.failed > 0 && (prev === 0 || u.failed > prev)) {
