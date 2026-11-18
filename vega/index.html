@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEGA Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<div id="app" data-mode="idle">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <canvas id="rain" aria-hidden="true"></canvas>
+  <svg id="callouts" aria-hidden="true"><g class="co" id="co1"><polyline/><circle r="2.5"/><text text-anchor="end">CORE TEMP · 52°C</text><text class="s" text-anchor="end">thermal nominal</text></g><g class="co" id="co2c"><polyline/><circle r="2.5"/><text>MESH · 6/6 ONLINE</text><text class="s">esp8266 ×5 · esp32-s3 ×1</text></g><g class="co" id="co3"><polyline/><circle r="2.5"/><text>LATENCY · 38 MS</text><text class="s">pi → broker round trip</text></g></svg>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+  <div id="orbLabel" aria-hidden="true">
+    <div class="backing"></div>
+    <div class="burst"><i></i><i></i><i></i></div>
+    <span class="wm" id="wm">VEGA</span>
+    <span class="sub" id="orbSub">STANDBY</span>
+  </div>
+
+  <header class="top">
+    <div class="brand">
+      <span class="logo">VEGA</span>
+      <span class="status"><b class="dot"></b><span id="status">All systems nominal</span></span>
+      <div class="lvl" role="group" aria-label="Priority level"><button type="button" data-l="normal" aria-pressed="true" style="--c:#4FC3FF" aria-label="Normal priority"><i></i></button><button type="button" data-l="medium" aria-pressed="false" style="--c:#FFC24A" aria-label="Medium priority"><i></i></button><button type="button" data-l="high" aria-pressed="false" style="--c:#B57BFF" aria-label="High priority"><i></i></button><span id="lvlTxt">NORMAL PRIORITY</span></div>
+    </div>
+    <nav class="dock" aria-label="Scenarios" id="dock"></nav>
+    <div class="meta"><span id="clock">--:--:--</span><span class="pi">PI · 52°C</span></div>
+  </header>
+
+  <!-- IDLE -->
+  <section class="tpl" data-tpl="idle">
+    <aside class="side left" aria-label="Room">
+      <div class="ro"><span class="k">Bedroom</span><span class="v"><span data-count="28.4" data-dec="1">0</span>°C</span><span class="s">humidity <span data-count="72">0</span>%</span></div>
+      <div class="ro warn"><span class="k">CO₂</span><span class="v"><span data-count="1180" data-sep="1">0</span><small> ppm</small></span><span class="spark" id="spark"></span><span class="s">above threshold · open a window</span></div>
+      <div class="ro"><span class="k">Presence</span><span class="v sm">Occupied</span><span class="s">radar · desk zone</span></div>
+    </aside>
+    <aside class="side right" aria-label="System">
+      <div class="ro r"><span class="k">Device mesh</span><span class="v">MQTT <span data-count="6">0</span>/6</span><span class="s">esp8266 ×5 · esp32-s3 ×1</span></div>
+      <div class="ro r bad"><span class="k">CI/CD</span><span class="v sm">1 failed build</span><span class="s">firmware-esp · 4 min ago</span></div>
+      <div class="ro r"><span class="k">Up next</span><span class="v sm">16:30 lab report</span><span class="s">computer networks</span></div>
+    </aside>
+    <p class="caption">Standing by · say “Hey Vega”</p>
+  </section>
+
+  <!-- LISTENING -->
+  <section class="tpl tpl-bottom" data-tpl="listen">
+    <div class="wave" id="wave"></div>
+    <p class="transcript"><span class="q">“</span><span id="transcript"></span><span class="q">”</span></p>
+    <p class="hint">Listening on desk core · release to send</p>
+  </section>
+
+  <!-- THINKING -->
+  <section class="tpl tpl-bottom" data-tpl="think">
+    <div class="chips" id="chips">
+      <span class="chip" data-s="done">Parse intent</span>
+      <span class="chip" data-s="done">Check devices</span>
+      <span class="chip" data-s="run">Plan actions</span>
+    </div>
+    <p class="plan" id="plan">→ main_light.off() · ac.set(26)</p>
+  </section>
+
+  <!-- RESEARCH -->
+  <section class="tpl research" data-tpl="research" aria-label="Research">
+    <div class="rhead">
+      <h1 id="rtitle">Research: CO₂ sensor for the bedroom</h1>
+      <span class="rstep">step 3/5 · reading sources</span>
+    </div>
+    <div class="grid" id="grid">
+      <article class="panel" data-p="stat">
+        <div class="hd"><span data-scr>stat // sources read</span><span class="id">vg-0141</span></div>
+        <div class="big" id="srcCount">0</div>
+        <p class="t">datasheets, ESPHome docs, comparison write-ups and forum threads</p>
+        <div class="meter"><i id="srcMeter"></i></div>
+      </article>
+      <article class="panel" data-p="co2" id="co2">
+        <div class="hd"><span data-scr>chart // room CO₂ · 24h</span><span class="id">sample data</span></div>
+        <div class="chart">
+          <div class="yax x-only"><span>1,500</span><span>1,000</span><span>500</span><span>0</span></div>
+          <div class="plot"><div class="thr"><span>threshold 1,000 ppm</span></div><div class="bars" id="bars"></div></div>
+        </div>
+        <div class="xax x-only"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span></div>
+        <p class="t x-only">Peak <b class="w">1,420 ppm at 05:00</b> with the door shut. Crack the window or schedule the exhaust fan before bed.</p>
+        <div class="row"><span class="t">Above threshold all night</span><button type="button" class="btn" id="expand">Expand ⤢</button><button type="button" class="btn x-only" id="collapse">Collapse ×</button></div>
+      </article>
+      <article class="panel" data-p="steps">
+        <div class="hd"><span data-scr>process // pipeline</span><span class="id">vg-0143</span></div>
+        <ol class="steps" id="steps">
+          <li data-s="done">Understand the question</li>
+          <li data-s="done">Plan search queries</li>
+          <li data-s="run">Read &amp; extract · 8/12</li>
+          <li data-s="wait">Compare &amp; synthesize</li>
+          <li data-s="wait">Answer with citations</li>
+        </ol>
+      </article>
+      <article class="panel" data-p="source">
+        <div class="hd"><span data-scr>source // datasheet</span><span class="id">vg-0144</span></div>
+        <svg class="schem" viewBox="0 0 320 170" role="img" aria-label="Line drawing of a CO2 sensor module with header pins">
+          <g fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="70" y="30" width="180" height="100" rx="6"/><rect x="105" y="50" width="110" height="60" rx="4"/>
+            <circle cx="160" cy="80" r="16"/><circle cx="160" cy="80" r="6"/>
+            <path d="M90 130v22M110 130v22M130 130v22M150 130v22M170 130v22M190 130v22M210 130v22M230 130v22"/>
+            <path d="M250 60h40M250 100h40M290 60v40"/><path d="M30 80h40M30 80v-40h40"/>
+          </g>
+          <g font-family="JetBrains Mono, monospace" font-size="9" fill="#7F93B6"><text x="294" y="84">I2C</text><text x="4" y="36">VIN</text><text x="118" y="46">NDIR chamber</text></g>
+        </svg>
+        <p class="t hl">NDIR sensors measure real CO₂</p>
+      </article>
+      <article class="panel" data-p="compare">
+        <div class="hd"><span data-scr>compare // NDIR vs MOX</span><span class="id">vg-0145</span></div>
+        <table class="cmp">
+          <thead><tr><th scope="col">Criterion</th><th scope="col">NDIR</th><th scope="col">MOX</th></tr></thead>
+          <tbody>
+            <tr><td>CO₂ reading</td><td class="ok">True CO₂</td><td class="w">Estimated (eCO₂)</td></tr>
+            <tr><td>Interface</td><td>I2C / UART</td><td>I2C</td></tr>
+            <tr><td>Works on ESP8266</td><td class="ok">Yes</td><td class="ok">Yes</td></tr>
+          </tbody>
+        </table>
+      </article>
+      <article class="panel" data-p="note">
+        <div class="hd"><span data-scr>note // early verdict</span><span class="id">vg-0146</span></div>
+        <p class="note" id="note" data-text="Go with an NDIR sensor: it measures CO₂ directly, while MOX parts infer it from VOCs and drift in a closed bedroom. Both wire straight into the ESP8266 boards you already have."></p>
+        <span class="id">sources [1] [4] [7] · verifying</span>
+      </article>
+      <article class="panel wide" data-p="log">
+        <div class="hd"><span data-scr>log // agent</span><span class="id live">● live</span></div>
+        <div class="log" id="log"></div>
+      </article>
+    </div>
+  </section>
+
+
+  <!-- LOCATE -->
+  <section class="tpl research" data-tpl="locate" aria-label="Locate">
+    <div class="rhead"><h1>Locate: nearest electronics market</h1><span class="rstep">gps lock · 7 satellites</span></div>
+    <div class="split">
+      <article class="panel mapp" data-p="map"><div class="hd"><span data-scr>map // district view</span><span class="id">sample data</span></div><div class="map" id="map"></div></article>
+      <div class="col">
+        <article class="panel" data-p="target"><div class="hd"><span data-scr>target // electronics market</span><span class="id">sample data</span></div>
+          <div class="big"><span id="dist">0.0</span><small> km</small></div>
+          <p class="t">≈ 9 min by bike · 14 min by bus · open until 21:00</p>
+          <p class="coord">10.7609° N · 106.6681° E</p></article>
+        <article class="panel" data-p="route"><div class="hd"><span data-scr>route // 3 turns</span><span class="id">fastest</span></div>
+          <ol class="steps turns"><li>Head east on Riverside Rd · 0.6 km</li><li>Turn left onto St 12 · 0.7 km</li><li>Turn right onto Ave 7 · 1.0 km</li><li>Arrive at St 24 · on the left</li></ol></article>
+        <article class="panel" data-p="nmea"><div class="hd"><span data-scr>gnss // nmea stream</span><span class="id live">● live</span></div><div class="log code" id="nmea"></div></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISION -->
+  <section class="tpl vfull" data-tpl="vision" aria-label="Vision">
+    <canvas id="feed" role="img" aria-label="Simulated overhead camera over a desk with a Raspberry Pi 3, two ESP8266 boards, a relay module, a breadboard, a mug and a notebook, each outlined and labelled"></canvas>
+    <div class="vshade" aria-hidden="true"></div>
+    <div class="vlayer" id="vlayer" aria-hidden="true"></div>
+    <div class="vhud tl"><span class="rec">● REC</span>CAM-02 · OVERHEAD · SIMULATED FEED</div>
+    <div class="vhud tr"><span id="vphase">SCANNING</span> · <span id="vcount">0</span>/7 OBJECTS</div>
+    <div class="vctl" role="group" aria-label="Vision view"><button type="button" data-v="overview" aria-pressed="true">Overview</button><button type="button" data-v="inspect" aria-pressed="false">Inspect Pi</button><button type="button" data-v="rescan">Rescan</button></div>
+    <aside class="vspec panel" id="vspec" aria-label="Raspberry Pi analysis">
+      <div class="hd"><span>analysis // raspberry pi 3 model b</span><span class="id">conf 0.98</span></div>
+      <p class="t hl">Identified as the vega-core host</p>
+      <div class="srow"><span>SoC</span><b>BCM2837 · 4× Cortex-A53 · 1.2 GHz</b></div>
+      <div class="srow"><span>Memory</span><b>1 GB LPDDR2 (underside)</b></div>
+      <div class="srow"><span>Wireless</span><b>802.11n Wi-Fi · Bluetooth 4.1</b></div>
+      <div class="srow"><span>USB</span><b>4× USB 2.0</b></div>
+      <div class="srow"><span>Network</span><b>10/100 Ethernet · link up</b></div>
+      <div class="srow"><span>GPIO</span><b>40-pin · 5 jumpers in use</b></div>
+      <div class="srow"><span>Power</span><b>5 V 2.5 A micro-USB</b></div>
+      <div class="stats"><div><span>CPU</span><b>23%</b></div><div><span>Temp</span><b>52°C</b></div><div><span>Uptime</span><b>6 d</b></div></div>
+      <p class="t">Tip: fit a heatsink on the SoC. A Pi 3 throttles near 80 °C under sustained load. <span class="id">live stats are sample data</span></p>
+    </aside>
+  </section>
+
+  <!-- BRIEFING -->
+  <section class="tpl brief" data-tpl="briefing" aria-label="Morning briefing">
+    <div class="greet">
+      <span class="k">Wed · 18 Nov · morning briefing</span>
+      <h1>Good morning.</h1>
+      <p>3 events, 2 emails that matter and one deadline today. The room got stuffy overnight.</p>
+    </div>
+    <article class="panel" data-p="b1"><div class="hd"><span data-scr>today // 3 events</span><span class="id">calendar</span></div>
+      <ul class="agenda"><li><b>09:00</b>Computer networks lab</li><li><b>14:00</b>Team project sync</li><li class="hot"><b>16:30</b>Lab report due</li></ul></article>
+    <article class="panel" data-p="b2"><div class="hd"><span data-scr>inbox // 2 that matter</span><span class="id">gmail</span></div>
+      <ul class="agenda"><li><b>Faculty</b>Exam schedule updated for week 12</li><li><b>GitHub</b>Review requested on vega-brain #44</li></ul></article>
+    <article class="panel" data-p="b3"><div class="hd"><span data-scr>room // overnight</span><span class="id">sample data</span></div>
+      <p class="t">CO₂ peaked at <b class="w">1,420 ppm</b> around 05:00. Temperature held at 27–28°C.</p></article>
+    <article class="panel" data-p="b4"><div class="hd"><span data-scr>builds // status</span><span class="id">ci/cd</span></div>
+      <p class="t"><b class="ok">2 passing</b> · <b class="bad">1 failing</b> (firmware-esp)</p></article>
+  </section>
+
+  <!-- FOCUS -->
+  <section class="tpl tpl-bottom" data-tpl="focus">
+    <span class="k">Deep work · VEGA phase 1 · registry service</span>
+    <div class="timer" id="timer">25:00</div>
+    <div class="tbar"><i id="tbar"></i></div>
+    <p class="hint">4 notifications held · desk light set to cool white</p>
+    <div class="acts"><button type="button" class="pill" id="fPause">Pause</button><button type="button" class="pill ghost" id="fEnd">End session</button></div>
+  </section>
+
+  <!-- ALERT -->
+  <section class="tpl tpl-bottom" data-tpl="alert">
+    <article class="panel alert-card">
+      <div class="hd"><span data-scr>critical // build failed</span><span class="id">firmware-esp #57 · main</span></div>
+      <pre class="err">src/relay.cpp:42  error: 'WiFiClient' was not declared in this scope</pre>
+      <p class="t">Desk LED switched to red. Last green build: #56, 2 hours ago.</p>
+      <div class="acts"><button type="button" class="pill danger" id="aExplain">Explain error</button><button type="button" class="pill ghost" id="aLogs">Open logs</button><button type="button" class="pill ghost" id="aSnooze">Snooze</button></div>
+    </article>
+  </section>
+
+  <!-- SUCCESS -->
+  <section class="tpl tpl-bottom" data-tpl="success">
+    <article class="panel">
+      <div class="hd"><span data-scr>deployed // vega-brain #43</span><span class="id">raspberry pi · 48 s</span></div>
+      <ul class="checks"><li>Tests passed</li><li>ARM64 image pushed to GHCR</li><li>Container restarted · health check OK</li></ul>
+    </article>
+  </section>
+
+  <!-- SLEEP -->
+  <section class="tpl tpl-bottom" data-tpl="sleep">
+    <h1 class="night">Good night.</h1>
+    <p class="hint">Lights off in <b id="lightsOff">30</b> s · alarm 07:00 · do not disturb on</p>
+  </section>
+
+  <div class="x-layer" id="xLayer"></div>
+
+  <form class="cmd" id="cmd">
+    <label for="q" class="sr">Ask VEGA</label>
+    <input id="q" autocomplete="off" placeholder="Ask VEGA… try “research CO₂ sensors”">
+    <button type="button" class="ico" id="micBtn" aria-label="Talk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
+    <button type="submit" class="ico send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+  </form>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

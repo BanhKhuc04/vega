@@ -1,0 +1,67 @@
+{
+  "hash": "e95c77cf",
+  "configHash": "93140e4f",
+  "lockfileHash": "531de9d0",
+  "browserHash": "afdbd884",
+  "optimized": {
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "87847cd4",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/EffectComposer.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/EffectComposer.js",
+      "file": "three_examples_jsm_postprocessing_EffectComposer__js.js",
+      "fileHash": "e4917275",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/RenderPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/RenderPass.js",
+      "file": "three_examples_jsm_postprocessing_RenderPass__js.js",
+      "fileHash": "f0345ac6",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/UnrealBloomPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js",
+      "file": "three_examples_jsm_postprocessing_UnrealBloomPass__js.js",
+      "fileHash": "b6b88bdf",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/OutputPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/OutputPass.js",
+      "file": "three_examples_jsm_postprocessing_OutputPass__js.js",
+      "fileHash": "ff7cd937",
+      "needsInterop": false
+    },
+    "three/examples/jsm/utils/BufferGeometryUtils.js": {
+      "src": "../../node_modules/three/examples/jsm/utils/BufferGeometryUtils.js",
+      "file": "three_examples_jsm_utils_BufferGeometryUtils__js.js",
+      "fileHash": "795bc92a",
+      "needsInterop": false
+    },
+    "gsap": {
+      "src": "../../node_modules/gsap/index.js",
+      "file": "gsap.js",
+      "fileHash": "b53605a0",
+      "needsInterop": false
+    },
+    "gsap/Flip": {
+      "src": "../../node_modules/gsap/Flip.js",
+      "file": "gsap_Flip.js",
+      "fileHash": "036d540e",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-2D4GNDWB": {
+      "file": "chunk-2D4GNDWB.js"
+    },
+    "chunk-AIBQCP5N": {
+      "file": "chunk-AIBQCP5N.js"
+    },
+    "chunk-MCK4J7S4": {
+      "file": "chunk-MCK4J7S4.js"
+    }
+  }
+}
