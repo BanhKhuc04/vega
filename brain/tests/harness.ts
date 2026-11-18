@@ -1,0 +1,40 @@
+import { parseScene } from '@vega/contract';
+import type { SceneMessage } from '@vega/contract';
+import { Agent } from '../src/agent';
+import type { AgentDeps, ChatFn } from '../src/agent';
+import type { Bus } from '../src/bus';
+import { loadConfig } from '../src/config';
+import type { Config } from '../src/config';
+import { chat } from '../src/llm';
+import { simRegistry } from './fixtures';
+
+/** A bus that records what the brain sends, after checking every scene against the contract like a display would. */
+export function recordingBus() {
+  const scenes: SceneMessage[] = [];
+  const results: { id: string; text: string }[] = [];
+  const sets: { device: string; on: boolean }[] = [];
+  const bus: Bus = {
+    scene(s) {
+      const r = parseScene({ v: 1, ...s });
+      if (!r.ok) throw new Error(`invalid scene: ${r.error}`);
+      scenes.push(r.scene);
+    },
+    result: (id, text) => results.push({ id, text }),
+    setDevice: (room, id, on) => sets.push({ device: `${room}/${id}`, on }),
+  };
+  const thinks = () => scenes.filter((s): s is Extract<SceneMessage, { scene: 'think' }> => s.scene === 'think');
+  return { bus, scenes, results, sets, thinks };
+}
+
+export function makeAgent(opts: { env?: Record<string, string>; chat?: ChatFn; config?: Partial<Config>; temp?: number; deps?: Partial<AgentDeps> } = {}) {
+  const rec = recordingBus();
+  const registry = simRegistry({ ...(opts.temp !== undefined && { temp: opts.temp }) });
+  const config = { ...loadConfig({ LLM_ROUTER: 'mock', ...opts.env }), ...opts.config };
+  const llm = { calls: 0 };
+  const spy: ChatFn = (p, req, o) => {
+    llm.calls++;
+    return (opts.chat ?? chat)(p, req, o);
+  };
+  const agent = new Agent({ bus: rec.bus, registry, config, chat: spy, ...opts.deps });
+  return { agent, registry, config, llm, ...rec };
+}

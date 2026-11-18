@@ -21,4 +21,5 @@ COPY --from=build /repo/brain/dist/brain.mjs ./brain.mjs
 COPY --from=build --chown=node:node /out/data /data
 USER node
 VOLUME /data
-CMD ["node", "--disable-warning=ExperimentalWarning", "brain.mjs"]
+# mqtt.js still calls url.parse (DEP0169); node:sqlite is flagged experimental on Node 22
+CMD ["node", "--disable-warning=ExperimentalWarning", "--disable-warning=DEP0169", "brain.mjs"]
