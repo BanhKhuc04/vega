@@ -660,17 +660,8 @@ $('#cmd').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = $('#q').value.trim(); $('#q').value = '';
   if (!q) { setMode('listen'); return; }
+  // the display only publishes the command; the brain decides what the screen shows (vega/ui/scene)
   hooks.onCommand && hooks.onCommand(q);
-  const lq = q.toLowerCase();
-  if (/urgent|important|high priority|khẩn|quan trọng/.test(lq)) { gsap.delayedCall(2, () => setLevel('high')); }
-  else if (/medium|soon|reminder|nhắc/.test(lq)) { gsap.delayedCall(2, () => setLevel('medium')); }
-  const route = /where|locate|nearest|map|find a/.test(lq) ? 'locate' : /camera|scan|what is this|vision|detect/.test(lq) ? 'vision' : /deploy|ship/.test(lq) ? 'success' : /error|fail|alert|bug/.test(lq) ? 'alert' : /morning|brief|today/.test(lq) ? 'briefing'
-    : /focus|pomodoro|deep work/.test(lq) ? 'focus' : /sleep|night|bed time/.test(lq) ? 'sleep' : 'research';
-  setMode('think');
-  gsap.delayedCall(1.8, () => {
-    if (route === 'research') $('#rtitle').textContent = 'Research: ' + q.replace(/^research\s*/i, '');
-    setMode(route, route === 'research');
-  });
 });
 
 /* ---------------- boot (called by boot.ts once the data layer has painted its first values) ---------------- */

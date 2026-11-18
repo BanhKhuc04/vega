@@ -324,4 +324,7 @@ test('the command bar publishes vega/system/command while connected', async ({ b
   await page.locator('#q').press('Enter');
   await expect.poll(() => lastPayload.get('vega/system/command') ?? '', { timeout: T(2000) }).not.toBe('');
   expect(JSON.parse(lastPayload.get('vega/system/command')!)).toMatchObject({ v: 1, text: 'turn off the main light' });
+  // no demo routing left in the display: without a brain answering, the screen stays where it was
+  await page.waitForTimeout(2500);
+  expect(await mode(page)).toBe('idle');
 });
