@@ -311,6 +311,19 @@ export class Agent {
       }
       case 'ci_explain':
         return { ok: false, text: 'ci_explain runs asynchronously' }; // handled by execAny
+      case 'system_status': {
+        const p = reg.pi;
+        const days = p?.uptimeS != null ? p.uptimeS / 86400 : null;
+        const up = days == null ? '' : days >= 1 ? `up ${Math.floor(days)} d` : `up ${Math.round(days * 24)} h`;
+        const pi = p ? ['Pi', p.tempC != null ? `${Math.round(p.tempC)}°C` : '', p.cpuPct != null ? `CPU ${Math.round(p.cpuPct)}%` : '', p.memPct != null ? `RAM ${Math.round(p.memPct)}%` : '', up].filter(Boolean).join(' ') : 'Pi: no data';
+        const all = reg.all();
+        const st = this.deps.ci?.latest();
+        const ciText = !this.deps.ci ? '' : !st ? 'CI: not checked yet' : st.failing.length ? `CI: ${st.failing.length} failing` : 'CI: all green';
+        const u = this.deps.store.usageOn(dayOf(this.now()));
+        const ai = `AI $${u.usd.toFixed(4)} of $${config.budgetUsdDay} today`;
+        const text = [pi, `${all.filter((d) => d.online).length}/${all.length} devices online`, ciText, ai].filter(Boolean).join(' · ');
+        return { ok: true, text };
+      }
       case 'list_devices': {
         const devices = reg.all().map((d) => ({ device: d.key, name: label(d), online: d.online, on: d.on, tempC: d.tempC, humidity: d.humidity, co2Ppm: d.co2Ppm, presence: d.presence }));
         const text = reg.all().map((d) => `${label(d)}${d.online ? '' : ' (offline)'}${d.on !== undefined ? `: ${d.on ? 'on' : 'off'}` : ''}`).join(', ');

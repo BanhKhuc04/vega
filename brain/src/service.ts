@@ -4,6 +4,7 @@ import type { ChatFn } from './agent';
 import { BRAIN_SUBSCRIPTIONS, connect, mqttBus } from './bus';
 import type { Config } from './config';
 import { CiWatcher, GithubClient, ciEvent, ciScene } from './github';
+import { piStatsReader } from './pistats';
 import { Registry } from './registry';
 import { Store } from './store';
 
@@ -44,12 +45,18 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
       })
     : null;
   let started = false;
+  let piTimer: ReturnType<typeof setInterval> | null = null;
   const agent = new Agent({ bus, registry, config: cfg, store, log, ci, ...(opts.chat && { chat: opts.chat }) });
 
   client.on('connect', () => {
     log(`[brain] connected to ${cfg.mqttUrl}`);
     client.subscribe(BRAIN_SUBSCRIPTIONS);
     agent.publishUsage();
+    if (cfg.piStats && !piTimer) {
+      const readPi = piStatsReader();
+      piTimer = setInterval(() => bus.pi(readPi()), 30_000);
+      setTimeout(() => bus.pi(readPi()), 2000); // a first CPU sample needs a short interval
+    }
     if (ci && !started) {
       started = true;
       log(`[ci] watching ${gh!.repos.join(', ')} every ${gh!.intervalMs / 1000} s`);
@@ -82,6 +89,7 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     stop: () =>
       new Promise<void>((res) => {
         ci?.stop();
+        if (piTimer) clearInterval(piTimer);
         client.end(false, {}, () => {
           store.close();
           res();

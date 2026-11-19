@@ -30,10 +30,16 @@ export interface Device {
  */
 export class Registry {
   readonly devices = new Map<string, Device>();
+  /** Latest `vega/system/pi`. */
+  pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null = null;
 
   /** Feeds one MQTT message; returns true if it changed a device. */
   apply(topic: string, payload: string, now = Date.now()): boolean {
     const u = parseMessage(topic, payload, now);
+    if (u?.type === 'pi') {
+      this.pi = { cpuPct: u.cpuPct, tempC: u.tempC, memPct: u.memPct, uptimeS: u.uptimeS };
+      return true;
+    }
     if (!u || (u.type !== 'meta' && u.type !== 'availability' && u.type !== 'state')) return false;
     const d = this.upsert(u.room, u.deviceId, now);
     if (u.type === 'meta') Object.assign(d, { kind: u.kind, name: u.name, roomName: u.roomName, aliases: u.aliases, risk: u.risk });

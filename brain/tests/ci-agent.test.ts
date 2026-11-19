@@ -89,6 +89,14 @@ describe('Agent · CI (fake GitHub)', () => {
     expect(t.sets).toEqual([]); // and called anyway: refused
   });
 
+  it('/status: Pi, devices, CI and AI budget in one local answer', async () => {
+    const t = makeAgent({ config: { github: github() }, deps: { ci } });
+    t.registry.apply('vega/system/pi', JSON.stringify({ v: 1, cpu_pct: 23, temp_c: 52.4, mem_pct: 41, uptime_s: 6 * 86400 + 5 }));
+    const out = await t.agent.handle(owner('/status'));
+    expect(out).toMatchObject({ path: 'local', llmCalls: 0, answer: 'Pi 52°C CPU 23% RAM 41% up 6 d · 6/6 devices online · CI: 1 failing · AI $0.0000 of $0.2 today' });
+    expect((await t.agent.handle(owner('tình trạng hệ thống'))).calls).toEqual([{ name: 'system_status', args: {} }]);
+  });
+
   it('without CI configured it says how to set it up', async () => {
     const t = makeAgent({ env: { LLM_ROUTER: 'none' } });
     expect((await t.agent.handle(owner('sao fail'))).answer).toMatch(/^CI watching is not set up/);

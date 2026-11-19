@@ -26,6 +26,7 @@ export function recordingBus() {
     setDevice: (room, id, on) => sets.push({ device: `${room}/${id}`, on }),
     usage: (u) => usage.push(u),
     ci: (repo, failed) => ci.push({ repo, failed }),
+    pi: () => {},
   };
   const thinks = () => scenes.filter((s): s is Extract<SceneMessage, { scene: 'think' }> => s.scene === 'think');
   return { bus, scenes, results, sets, thinks, usage, ci };

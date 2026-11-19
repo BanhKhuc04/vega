@@ -172,10 +172,11 @@ describe('tools', () => {
   const reg = simRegistry();
   it('are generated from the registry', () => {
     const specs = toolSpecs(reg);
-    expect(specs.map((s) => s.function.name)).toEqual(['list_devices', 'get_sensor', 'set_device', 'run_scene']);
+    expect(specs.map((s) => s.function.name)).toEqual(['list_devices', 'system_status', 'get_sensor', 'set_device', 'run_scene']);
     const set = specs.find((s) => s.function.name === 'set_device')!.function.parameters as { properties: { device: { enum: string[] } } };
     expect(set.properties.device.enum).toEqual(['kitchen/plug', 'livingroom/light']);
-    expect(toolSpecs(reg, { physical: false }).map((s) => s.function.name)).toEqual(['list_devices', 'get_sensor']);
+    expect(toolSpecs(reg, { physical: false }).map((s) => s.function.name)).toEqual(['list_devices', 'system_status', 'get_sensor']);
+    expect(toolSpecs(reg, { physical: false, ciRepos: ['me/vega'] }).map((s) => s.function.name)).toEqual(['list_devices', 'system_status', 'get_sensor', 'ci_status', 'ci_explain']);
   });
   it('validate what the LLM sends', () => {
     expect(parseToolCall('set_device', '{"device":"livingroom/light","on":true}', reg)).toEqual({ ok: true, call: { name: 'set_device', args: { device: 'livingroom/light', on: true } } });

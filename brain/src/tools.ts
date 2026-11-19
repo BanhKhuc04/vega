@@ -2,7 +2,7 @@ import { METRICS, label } from './registry';
 import type { Metric, Registry } from './registry';
 import type { ToolSpec } from './llm';
 
-export type ToolName = 'list_devices' | 'get_sensor' | 'set_device' | 'run_scene' | 'ci_status' | 'ci_explain';
+export type ToolName = 'list_devices' | 'get_sensor' | 'set_device' | 'run_scene' | 'ci_status' | 'ci_explain' | 'system_status';
 export const SCENE_NAMES = ['sleep', 'focus'] as const;
 export type SceneName = (typeof SCENE_NAMES)[number];
 
@@ -12,7 +12,8 @@ export type ToolCall =
   | { name: 'set_device'; args: { device: string; on: boolean } }
   | { name: 'run_scene'; args: { name: SceneName } }
   | { name: 'ci_status'; args: Record<string, never> }
-  | { name: 'ci_explain'; args: { repo?: string } };
+  | { name: 'ci_explain'; args: { repo?: string } }
+  | { name: 'system_status'; args: Record<string, never> };
 
 /** Tools that change something in the physical world. They only run on a direct command from the owner. */
 export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene']);
@@ -30,6 +31,7 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
   const switches = reg.switches();
   const specs: ToolSpec[] = [
     fn('list_devices', 'List the devices in the home with their room, state and whether they are online.'),
+    fn('system_status', 'Overall status of VEGA: the Pi (temperature, CPU, RAM, uptime), devices online, CI, AI budget today.'),
     fn('get_sensor', 'Read a sensor: temperature (°C), relative humidity (%) or CO2 (ppm). Without a room, the main room is used.', {
       metric: { type: 'string', enum: [...METRICS] },
       ...(sensorRooms.length && { room: { type: 'string', enum: sensorRooms } }),
@@ -67,6 +69,7 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
   }
   switch (name) {
     case 'list_devices':
+    case 'system_status':
       return { ok: true, call: { name, args: {} } };
     case 'get_sensor': {
       if (!(METRICS as readonly unknown[]).includes(a.metric)) return { ok: false, error: `metric must be one of ${METRICS.join(', ')}` };
