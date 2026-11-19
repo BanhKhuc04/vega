@@ -545,12 +545,14 @@ $$('.vctl button').forEach((b) => b.addEventListener('click', () => { sfx.click(
 const INTRO = {
   idle() {
     $$('[data-count]').forEach((el) => countUp(el, parseFloat(el.dataset.count), +(el.dataset.dec || 0), !!el.dataset.sep, 1.6));
-    gsap.from('.ro', { x: (i, el) => (el.classList.contains('r') ? 30 : -30), opacity: 0, duration: .9, stagger: .1, ease: 'expo.out', delay: .3 });
-    gsap.from('#spark i', { scaleY: 0, transformOrigin: 'bottom', stagger: .02, duration: .5, ease: 'expo.out', delay: .6 });
+    // fromTo, not from: the intro can restart before it ends (a retained scene right after load), and `from` would take
+    // the half-faded values as its end state and leave the readings invisible
+    gsap.fromTo('.ro', { x: (i, el) => (el.classList.contains('r') ? 30 : -30), opacity: 0 }, { x: 0, opacity: 1, duration: .9, stagger: .1, ease: 'expo.out', delay: .3, overwrite: true });
+    gsap.fromTo('#spark i', { scaleY: 0 }, { scaleY: 1, transformOrigin: 'bottom', stagger: .02, duration: .5, ease: 'expo.out', delay: .6, overwrite: true });
     { const cap = $('.caption'); scramble(cap, cap.dataset.text || cap.textContent, 1); }
   },
   listen() {
-    gsap.from('#wave', { opacity: 0, scaleX: .3, duration: .6, ease: 'expo.out' });
+    gsap.fromTo('#wave', { opacity: 0, scaleX: .3 }, { opacity: 1, scaleX: 1, duration: .6, ease: 'expo.out', overwrite: true });
     const el = $('#transcript'); el.textContent = '';
     gsap.delayedCall(.5, () => typeText(el, el.dataset.text || '', 22));
   },
