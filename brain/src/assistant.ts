@@ -162,7 +162,7 @@ export class Assistant {
   // --- answers ---
 
   calendarText(day: 'today' | 'tomorrow' | 'next', lang: Lang): string {
-    if (!this.deps.google) return L(lang, 'Chưa kết nối lịch Google: xem README, mục Google.', 'Google Calendar is not set up: see the README, Google section.');
+    if (!this.deps.google) return L(lang, 'Chưa kết nối lịch Google: xem README, mục M4.', 'Google Calendar is not set up: see the README, section M4.');
     if (!this.calendarAt) return L(lang, 'Chưa đọc được lịch Google (chạy npm run google-login).', 'The calendar has not been read yet (run npm run google-login).');
     const now = this.now();
     const fmt = (e: CalEvent) => `${e.allDay ? L(lang, 'cả ngày', 'all day') : hhmm(e.start)} ${e.title}`;
@@ -178,7 +178,7 @@ export class Assistant {
   }
 
   mailText(lang: Lang): string {
-    if (!this.deps.google) return L(lang, 'Chưa kết nối Gmail: xem README, mục Google.', 'Gmail is not set up: see the README, Google section.');
+    if (!this.deps.google) return L(lang, 'Chưa kết nối Gmail: xem README, mục M4.', 'Gmail is not set up: see the README, section M4.');
     if (!this.mailAt) return L(lang, 'Chưa đọc được Gmail (chạy npm run google-login).', 'Gmail has not been read yet (run npm run google-login).');
     if (!this.mail.length) return L(lang, 'Không có mail mới trong Hộp thư chính.', 'No new mail in your Primary inbox.');
     const list = this.mail.map((m) => `${m.from}: ${m.subject}`).join('; ');
