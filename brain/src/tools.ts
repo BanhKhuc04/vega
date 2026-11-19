@@ -2,7 +2,7 @@ import { METRICS, label } from './registry';
 import type { Metric, Registry } from './registry';
 import type { ToolSpec } from './llm';
 
-export type ToolName = 'list_devices' | 'get_sensor' | 'set_device' | 'run_scene';
+export type ToolName = 'list_devices' | 'get_sensor' | 'set_device' | 'run_scene' | 'ci_status' | 'ci_explain';
 export const SCENE_NAMES = ['sleep', 'focus'] as const;
 export type SceneName = (typeof SCENE_NAMES)[number];
 
@@ -10,7 +10,9 @@ export type ToolCall =
   | { name: 'list_devices'; args: Record<string, never> }
   | { name: 'get_sensor'; args: { metric: Metric; room?: string } }
   | { name: 'set_device'; args: { device: string; on: boolean } }
-  | { name: 'run_scene'; args: { name: SceneName } };
+  | { name: 'run_scene'; args: { name: SceneName } }
+  | { name: 'ci_status'; args: Record<string, never> }
+  | { name: 'ci_explain'; args: { repo?: string } };
 
 /** Tools that change something in the physical world. They only run on a direct command from the owner. */
 export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene']);
@@ -19,7 +21,7 @@ export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene
  * Tool definitions for the LLM, generated from the registry: the device and room enums are whatever the devices
  * declared, so a new device needs no code. `physical: false` leaves out the tools that act on the world.
  */
-export function toolSpecs(reg: Registry, opts: { physical?: boolean } = {}): ToolSpec[] {
+export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[] } = {}): ToolSpec[] {
   const fn = (name: ToolName, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ToolSpec => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
@@ -33,6 +35,12 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean } = {}): Too
       ...(sensorRooms.length && { room: { type: 'string', enum: sensorRooms } }),
     }, ['metric']),
   ];
+  if (opts.ciRepos?.length) {
+    specs.push(
+      fn('ci_status', 'State of the GitHub Actions builds of the watched repositories (which workflows fail, with commit).'),
+      fn('ci_explain', 'Read the log of the latest failed build (optionally of one repository) to explain why it failed.', { repo: { type: 'string', enum: opts.ciRepos } }),
+    );
+  }
   if (opts.physical !== false) {
     if (switches.length) {
       specs.push(
@@ -48,7 +56,7 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean } = {}): Too
 }
 
 /** Validates a tool call coming from the LLM (untrusted) against the registry. */
-export function parseToolCall(name: string, argsJson: string, reg: Registry): { ok: true; call: ToolCall } | { ok: false; error: string } {
+export function parseToolCall(name: string, argsJson: string, reg: Registry, ciRepos: string[] = []): { ok: true; call: ToolCall } | { ok: false; error: string } {
   let a: Record<string, unknown>;
   try {
     const v: unknown = JSON.parse(argsJson || '{}');
@@ -73,6 +81,13 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry): { 
     case 'run_scene':
       if (!(SCENE_NAMES as readonly unknown[]).includes(a.name)) return { ok: false, error: `name must be one of ${SCENE_NAMES.join(', ')}` };
       return { ok: true, call: { name, args: { name: a.name as SceneName } } };
+    case 'ci_status':
+      if (!ciRepos.length) return { ok: false, error: 'CI watching is not set up' };
+      return { ok: true, call: { name, args: {} } };
+    case 'ci_explain':
+      if (!ciRepos.length) return { ok: false, error: 'CI watching is not set up' };
+      if (a.repo !== undefined && (typeof a.repo !== 'string' || !ciRepos.includes(a.repo))) return { ok: false, error: 'unknown repository' };
+      return { ok: true, call: { name, args: { ...(typeof a.repo === 'string' && { repo: a.repo }) } } };
     default:
       return { ok: false, error: `unknown tool ${name}` };
   }
@@ -80,6 +95,7 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry): { 
 
 /** Short text for a chip on the Think screen, e.g. "set_device livingroom/light". */
 export function chipLabel(c: ToolCall): string {
-  const arg = c.name === 'get_sensor' ? `${c.args.metric}${c.args.room ? ` ${c.args.room}` : ''}` : c.name === 'set_device' ? c.args.device : c.name === 'run_scene' ? c.args.name : '';
+  const arg =
+    c.name === 'get_sensor' ? `${c.args.metric}${c.args.room ? ` ${c.args.room}` : ''}` : c.name === 'set_device' ? c.args.device : c.name === 'run_scene' ? c.args.name : c.name === 'ci_explain' ? (c.args.repo ?? '') : '';
   return `${c.name}${arg ? ` ${arg}` : ''}`.slice(0, 40);
 }

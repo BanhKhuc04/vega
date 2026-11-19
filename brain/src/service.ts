@@ -44,7 +44,7 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
       })
     : null;
   let started = false;
-  const agent = new Agent({ bus, registry, config: cfg, store, log, ...(opts.chat && { chat: opts.chat }) });
+  const agent = new Agent({ bus, registry, config: cfg, store, log, ci, ...(opts.chat && { chat: opts.chat }) });
 
   client.on('connect', () => {
     log(`[brain] connected to ${cfg.mqttUrl}`);
