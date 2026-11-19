@@ -74,6 +74,13 @@ describe('GoogleApi', () => {
     expect(g.seen.length).toBe(calls);
   });
 
+  it('GOOGLE_REFRESH_TOKEN (the Pi) is used instead of the file', async () => {
+    const c = loadConfig({ ...g.env(join(tmpdir(), 'nope-vega.json')), GOOGLE_REFRESH_TOKEN: g.refreshToken }).google!;
+    const auth = new GoogleAuth(c);
+    expect(auth.hasLogin()).toBe(true);
+    expect(await new GoogleApi(auth, c).unread()).toEqual([]);
+  });
+
   it('no token file → a clear error, nothing sent', async () => {
     const api = new GoogleApi(new GoogleAuth({ ...cfg, tokenFile: join(tmpdir(), 'nope-vega.json') }), cfg);
     await expect(api.events(0, 1)).rejects.toThrow(/google-login/);

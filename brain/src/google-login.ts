@@ -27,6 +27,7 @@ try {
   const r = await login({ ...g, open: openBrowser });
   console.log(`Signed in. Token saved to ${g.tokenFile} (scopes: ${r.scope || 'read-only'}).`);
   console.log('Restart VEGA (npm run vega) to see your calendar and mail.');
+  console.log('For the Pi: copy the "refresh_token" value from that file into infra/pi/brain.env as GOOGLE_REFRESH_TOKEN=...');
 } catch (e) {
   console.error((e as Error).message);
   process.exit(1);

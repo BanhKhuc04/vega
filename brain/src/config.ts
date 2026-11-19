@@ -64,6 +64,8 @@ export interface GoogleConfig {
   clientSecret: string;
   /** Refresh token written by `npm run google-login` (mode 600). */
   tokenFile: string;
+  /** Or the refresh token itself (GOOGLE_REFRESH_TOKEN, in brain.env on the Pi): used instead of the file. */
+  refreshToken?: string;
   calendars: string[];
   apiUrl: string;
   tokenUrl: string;
@@ -98,7 +100,8 @@ function google(env: Env, dbPath: string, warnings: string[]): GoogleConfig | nu
   if (![apiUrl, tokenUrl, authUrl].every((u) => SAFE_URL.test(u))) return warnings.push('Google URLs must be https (or http on localhost): Google is off'), null;
   const calendars = (env.GOOGLE_CALENDARS ?? '').split(',').map((c) => c.trim()).filter(Boolean);
   const dir = dbPath === ':memory:' ? '.' : dirname(dbPath);
-  return { clientId, clientSecret, tokenFile: env.GOOGLE_TOKEN_FILE?.trim() || join(dir, 'google-token.json'), calendars: calendars.length ? calendars : ['primary'], apiUrl, tokenUrl, authUrl };
+  const refreshToken = env.GOOGLE_REFRESH_TOKEN?.trim();
+  return { clientId, clientSecret, tokenFile: env.GOOGLE_TOKEN_FILE?.trim() || join(dir, 'google-token.json'), ...(refreshToken && { refreshToken }), calendars: calendars.length ? calendars : ['primary'], apiUrl, tokenUrl, authUrl };
 }
 
 function weather(env: Env, warnings: string[]): Config['weather'] {

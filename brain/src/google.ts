@@ -41,22 +41,22 @@ export class GoogleAuth {
   /** Set once the refresh token was refused: no more calls (and no repeated errors) until the brain restarts. */
   dead = false;
   constructor(
-    private readonly cfg: Pick<GoogleConfig, 'clientId' | 'clientSecret' | 'tokenFile' | 'tokenUrl'>,
+    private readonly cfg: Pick<GoogleConfig, 'clientId' | 'clientSecret' | 'tokenFile' | 'tokenUrl' | 'refreshToken'>,
     private readonly f: Fetch = fetch,
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** True when a login has been done (the token file exists). */
+  /** True when a login has been done (GOOGLE_REFRESH_TOKEN, or the token file exists). */
   hasLogin(): boolean {
-    return existsSync(this.cfg.tokenFile);
+    return !!this.cfg.refreshToken || existsSync(this.cfg.tokenFile);
   }
 
   async token(): Promise<string> {
     if (this.dead) throw new GoogleError('auth', 'Google sign-in expired: run npm run google-login');
     if (this.access && this.access.expires > this.now() + 60_000) return this.access.token;
-    let refresh: string;
+    let refresh = this.cfg.refreshToken;
     try {
-      refresh = (JSON.parse(readFileSync(this.cfg.tokenFile, 'utf8')) as { refresh_token: string }).refresh_token;
+      refresh ??= (JSON.parse(readFileSync(this.cfg.tokenFile, 'utf8')) as { refresh_token: string }).refresh_token;
     } catch {
       throw new GoogleError('auth', 'no Google sign-in: run npm run google-login');
     }
