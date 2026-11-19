@@ -11,7 +11,7 @@ import { simRegistry } from '../bench/registry';
 describe('loadConfig', () => {
   it('defaults: no LLM, local only', () => {
     const c = loadConfig({});
-    expect(c.tasks).toEqual({ router: null, chat: null });
+    expect(c.tasks).toEqual({ router: null, chat: null, research: null });
     expect(c).toMatchObject({ defaultRoom: 'bedroom', budgetUsdDay: 0.2, ratePerMin: 10, mqttUrl: 'mqtt://localhost:1883' });
     expect(Object.keys(c.providers)).toEqual(['mock']);
   });
@@ -30,7 +30,7 @@ describe('loadConfig', () => {
     });
     expect(c.providers.deepseek).toEqual({ name: 'deepseek', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'sk-test', model: 'some-model', priceIn: 0.27, priceOut: 1.1, api: 'chat', maxOut: 512 });
     expect(c.providers.local!.baseUrl).toBe('http://localhost:11434/v1');
-    expect(c.tasks).toEqual({ router: 'deepseek', chat: 'deepseek' });
+    expect(c.tasks).toEqual({ router: 'deepseek', chat: 'deepseek', research: 'deepseek' });
     expect(c.warnings).toEqual([]);
   });
 

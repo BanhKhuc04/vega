@@ -47,6 +47,10 @@ export class Store {
       );
       CREATE INDEX IF NOT EXISTS llm_usage_day ON llm_usage (day);
       CREATE INDEX IF NOT EXISTS llm_usage_cmd ON llm_usage (command_id);
+      CREATE TABLE IF NOT EXISTS searches (
+        ts INTEGER NOT NULL, month TEXT NOT NULL, command_id TEXT NOT NULL, provider TEXT NOT NULL, query TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS searches_month ON searches (month);
       CREATE TABLE IF NOT EXISTS reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
         done INTEGER NOT NULL DEFAULT 0
@@ -87,6 +91,16 @@ export class Store {
   lastCommands(limit = 20): CommandRow[] {
     const rows = this.db.prepare('SELECT id, ts, text, origin, path, answer, tools, llm_calls FROM commands ORDER BY ts DESC, rowid DESC LIMIT ?').all(limit) as (Omit<CommandRow, 'tools' | 'llmCalls'> & { tools: string; llm_calls: number })[];
     return rows.map(({ tools, llm_calls, ...r }) => ({ ...r, tools: JSON.parse(tools) as string[], llmCalls: llm_calls }));
+  }
+
+  /** One web search, counted against the monthly allowance of the search provider. */
+  logSearch(ts: number, commandId: string, provider: string, query: string): void {
+    this.db.prepare('INSERT INTO searches (ts, month, command_id, provider, query) VALUES (?, ?, ?, ?, ?)').run(ts, dayOf(ts).slice(0, 7), commandId, provider, query);
+  }
+
+  /** Web searches in the local month of `ts`. */
+  searchesInMonth(ts: number): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM searches WHERE month = ?').get(dayOf(ts).slice(0, 7)) as { n: number }).n;
   }
 
   addReminder(at: number, text: string, now: number): Reminder {

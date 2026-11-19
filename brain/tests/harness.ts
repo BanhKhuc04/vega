@@ -12,7 +12,7 @@ import { simRegistry } from '../bench/registry';
 /** A bus that records what the brain sends, after checking every scene against the contract like a display would. */
 export function recordingBus() {
   const scenes: SceneMessage[] = [];
-  const results: { id: string; text: string }[] = [];
+  const results: { id: string; text: string; speak?: string; sources?: { n: number; title: string; url: string }[] }[] = [];
   const sets: { device: string; on: boolean }[] = [];
   const usage: Parameters<Bus['usage']>[0][] = [];
   const ci: { repo: string; failed: number }[] = [];
@@ -24,7 +24,7 @@ export function recordingBus() {
       if (!r.ok) throw new Error(`invalid scene: ${r.error}`);
       scenes.push(r.scene);
     },
-    result: (id, text) => results.push({ id, text }),
+    result: (id, text, extra) => results.push({ id, text, ...extra }),
     setDevice: (room, id, on) => sets.push({ device: `${room}/${id}`, on }),
     usage: (u) => usage.push(u),
     ci: (repo, failed) => ci.push({ repo, failed }),
