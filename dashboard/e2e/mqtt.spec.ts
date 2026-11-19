@@ -286,7 +286,7 @@ test('losing the broker: header RECONNECTING, last scene and data stay, nothing 
   expect(await mode(page)).toBe('research'); // last scene kept
   await expect(page.locator('#rtitle')).toHaveText('Research: before the outage');
   expect((await page.locator('body').innerText()).length).toBeGreaterThan(100); // not blank
-  await page.locator('#dock button[data-mode="idle"]').click();
+  await page.evaluate((m) => (location.hash = `#${m}`), 'idle');
   await expect(live(page, 'co2')).toHaveText('1,500'); // last known readings still shown
   await page.screenshot({ path: shoot() ? `${process.cwd()}/../docs/screenshots/m0/reconnecting.png` : '/dev/null' }).catch(() => {});
 

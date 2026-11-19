@@ -153,7 +153,7 @@ Rules a display follows (`dashboard/src/scene`):
 | `vision` | `camera` |
 | `briefing` | `kicker`, `title`, `summary`, `agenda[{time,title,hot}]`, `inbox[{from,subject}]`, `room`, `builds{passing,failing,repo}` |
 | `focus` | `kicker`, `minutes` (1–180), `hint` |
-| `alert` | `title`, `ref`, `error`, `note` |
+| `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`) |
 | `success` | `title`, `ref`, `checks[]` |
 | `sleep` | `title`, `lightsOffSeconds`, `alarm`, `dnd` |
 
@@ -178,7 +178,10 @@ Một lệnh đi qua màn hình như sau:
 1. `think` (`ttl` 30 s) với các chip lấy từ việc đang chạy: `Parse intent`, rồi `Local match` hoặc `LLM <model>`, rồi mỗi tool
    một chip (`get_sensor temp bedroom`, `set_device livingroom/light`…). Vượt trần chi phí ngày thì có chip `BUDGET` (một lần mỗi ngày).
 2. Câu trả lời hiện ở `idle.caption` (≤ 80 ký tự, câu đầy đủ ở `command_result`). Riêng cảnh `sleep`/`focus` thì chính cảnh đó
-   là câu trả lời, và hành động cần xác nhận thì hiện cảnh `alert` "confirm action" (`ttl` 30 s), chờ chủ nhân gõ `yes`.
+   là câu trả lời, và hành động cần xác nhận thì hiện cảnh `alert` "confirm action" có `confirm: true` (`ttl` 30 s): chủ nhân bấm
+   Confirm hoặc gõ `yes`.
+3. Dashboard ghép `command_result` với lệnh nó vừa gửi (cùng `id`) để hiện câu trả lời đầy đủ trong khung trò chuyện và đọc to;
+   kết quả của lệnh gửi từ màn khác thì không đọc.
 
 Không có template mới: bộ não chỉ dùng các trường đã có ở trên.
 
