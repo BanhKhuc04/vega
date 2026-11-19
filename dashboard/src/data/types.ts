@@ -35,6 +35,8 @@ export interface Snapshot {
   presence: boolean | null;
   devices: Device[];
   ci: { repo: string; failed: number; ts: number } | null;
+  /** The brain's AI spending today (cost ledger). */
+  ai: { day: string; spentUsd: number; budgetUsd: number; calls: number } | null;
   next: { title: string; detail: string | null; at: number } | null;
   co2Series: { room: string; values: number[]; thresholdPpm: number; maxPpm: number } | null;
   pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;

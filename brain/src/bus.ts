@@ -11,6 +11,8 @@ export interface Bus {
   scene(s: SceneOut): void;
   result(id: string, text: string): void;
   setDevice(room: string, id: string, on: boolean): void;
+  /** Today's AI spending (retained, for the screen). */
+  usage(u: { day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }): void;
 }
 
 /** Topics the brain listens to. */
@@ -29,6 +31,10 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
     },
     setDevice(room, id, on) {
       client.publish(deviceTopic(room, id, 'set'), JSON.stringify(relaySet.parse({ v, on })));
+    },
+    usage(u) {
+      const msg = systemEvent.parse({ v, type: 'llm_usage', day: u.day, spent_usd: u.spentUsd, budget_usd: u.budgetUsd, calls: u.calls, tokens_in: u.tokensIn, tokens_out: u.tokensOut });
+      client.publish(eventTopic('llm_usage'), JSON.stringify(msg), { retain: true });
     },
   };
 }

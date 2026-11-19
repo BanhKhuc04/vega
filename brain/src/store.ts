@@ -1,10 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
+import { localDay } from '@vega/contract';
 
 /** Local calendar day, `YYYY-MM-DD` (the daily budget resets at local midnight; set TZ in the container). */
-export function dayOf(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+export const dayOf = localDay;
 
 export interface CommandRow {
   id: string;
@@ -63,6 +61,13 @@ export class Store {
   spentUsd(day: string): number {
     const row = this.db.prepare('SELECT COALESCE(SUM(usd), 0) AS usd FROM llm_usage WHERE day = ?').get(day) as { usd: number };
     return row.usd;
+  }
+
+  /** Totals of one local day: what the screen shows as "AI budget". */
+  usageOn(day: string): { usd: number; calls: number; tokensIn: number; tokensOut: number } {
+    return this.db
+      .prepare('SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS calls, COALESCE(SUM(tokens_in), 0) AS tokensIn, COALESCE(SUM(tokens_out), 0) AS tokensOut FROM llm_usage WHERE day = ?')
+      .get(day) as { usd: number; calls: number; tokensIn: number; tokensOut: number };
   }
 
   /** LLM calls recorded for one command (the ledger is the proof that local commands cost nothing). */

@@ -35,6 +35,11 @@ describe('cost ledger and daily budget', () => {
     expect(t.store.llmCallsFor('L-1')).toBe(0);
     expect(t.store.llmCallsFor('Q-1')).toBe(2);
     expect(t.store.spentUsd(dayOf(Date.now()))).toBeGreaterThan(0);
+    // the screen gets today's totals after every LLM call
+    expect(t.usage).toHaveLength(2);
+    expect(t.usage.at(-1)).toMatchObject({ day: dayOf(Date.now()), calls: 2, budgetUsd: 0.2 });
+    expect(t.usage.at(-1)!.spentUsd).toBeCloseTo(t.store.spentUsd(dayOf(Date.now())), 12);
+    expect(t.usage.at(-1)!.tokensIn).toBeGreaterThan(0);
     expect(t.store.lastCommands().map((c) => [c.id, c.path, c.llmCalls])).toEqual([
       ['Q-1', 'llm', 2],
       ['L-1', 'local', 0],

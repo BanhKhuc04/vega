@@ -1,3 +1,4 @@
+import { localDay } from '@vega/contract';
 import type { HudApi } from '../hud';
 import type { Snapshot } from '../data/types';
 
@@ -40,6 +41,9 @@ export interface LiveText {
   ci?: string;
   ciSub?: string;
   ciBad?: boolean;
+  ai?: string;
+  aiSub?: string;
+  aiBad?: boolean;
   next?: string;
   nextSub?: string;
   piText?: string;
@@ -51,6 +55,9 @@ export interface LiveText {
   /** True while any shown value is sample data (the whole screen in SIM, or until real data arrives). */
   sample: boolean;
 }
+
+/** $0.0012 for small amounts, $0.05 for round ones. */
+const usd = (n: number): string => `$${n >= 0.1 ? n.toFixed(2) : n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '.00')}`;
 
 /** Pure: snapshot -> the strings to show. Fields left undefined keep the template's own text. */
 export function liveText(s: Snapshot, now: number): LiveText {
@@ -93,6 +100,17 @@ export function liveText(s: Snapshot, now: number): LiveText {
     out.nextSub = s.next.detail ?? fmtIn(s.next.at - now);
   } else missing.push(true);
 
+  if (s.ai) {
+    // a figure from an earlier day means nothing was spent today yet (the budget resets at local midnight)
+    const today = s.ai.day === localDay(now);
+    const spent = today ? s.ai.spentUsd : 0;
+    const calls = today ? s.ai.calls : 0;
+    const left = Math.max(0, s.ai.budgetUsd - spent);
+    out.aiBad = spent >= s.ai.budgetUsd;
+    out.ai = `${usd(spent)} used`;
+    out.aiSub = out.aiBad ? `daily limit ${usd(s.ai.budgetUsd)} reached · local only` : `${usd(left)} left of ${usd(s.ai.budgetUsd)} · ${calls} call${calls === 1 ? '' : 's'}`;
+  }
+
   if (s.pi && s.pi.tempC !== null) {
     out.piText = `PI · ${Math.round(s.pi.tempC)}°C`;
     out.coText = `CORE TEMP · ${Math.round(s.pi.tempC)}°C`;
@@ -132,7 +150,7 @@ export class LiveBinder {
       if (visible && !this.first) this.hud.zap(el, value);
       else el.textContent = value;
     };
-    for (const k of ['roomName', 'temp', 'hum', 'co2', 'co2note', 'presence', 'meshOn', 'meshTotal', 'meshKinds', 'ci', 'ciSub', 'next', 'nextSub', 'piText', 'coText', 'meshText', 'meshSub', 'latText'] as const) {
+    for (const k of ['roomName', 'temp', 'hum', 'co2', 'co2note', 'presence', 'meshOn', 'meshTotal', 'meshKinds', 'ci', 'ciSub', 'ai', 'aiSub', 'next', 'nextSub', 'piText', 'coText', 'meshText', 'meshSub', 'latText'] as const) {
       set(k, t[k]);
     }
     const toggle = (key: string, cls: string, on: boolean | undefined) => {
@@ -141,6 +159,7 @@ export class LiveBinder {
     };
     toggle('co2row', 'warn', t.co2Warn);
     toggle('cirow', 'bad', t.ciBad);
+    toggle('airow', 'bad', t.aiBad);
     if (t.spark) {
       const key = t.spark.join(',');
       if (this.last.get('spark') !== key) {

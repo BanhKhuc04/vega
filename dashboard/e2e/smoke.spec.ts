@@ -105,7 +105,7 @@ test('the room readings are visible even when the Idle intro is restarted right 
   await page.evaluate(() => (location.hash = '#idle')); // a second Idle intro before the first one ended
   await page.waitForTimeout(2500);
   const ops = await page.locator('.side .ro').evaluateAll((els) => els.map((e) => Number(getComputedStyle(e).opacity)));
-  expect(ops.length).toBe(6);
+  expect(ops.length).toBe(7); // room, CO₂, presence · mesh, CI, AI budget, up next
   expect(ops.every((o) => o > 0.99)).toBe(true);
 });
 

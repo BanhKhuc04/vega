@@ -23,6 +23,8 @@ describe('systemEvent', () => {
     ['co2 non-number', { v: 1, type: 'co2_series', room: 'r', values: [1, 'x'] }],
     ['co2 too long', { v: 1, type: 'co2_series', room: 'r', values: Array(97).fill(1) }],
     ['command_result no id', { v: 1, type: 'command_result', result: 'x' }],
+    ['llm_usage bad day', { v: 1, type: 'llm_usage', day: 'today', spent_usd: 0, budget_usd: 0.05, calls: 0, tokens_in: 0, tokens_out: 0 }],
+    ['llm_usage negative spend', { v: 1, type: 'llm_usage', day: '2026-11-19', spent_usd: -1, budget_usd: 0.05, calls: 0, tokens_in: 0, tokens_out: 0 }],
     ['no version', { type: 'ci', repo: 'r', failed: 0 }],
   ])('rejects %s', (_n, v) => expect(ok(systemEvent, v)).toBe(false));
 });

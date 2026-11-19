@@ -81,7 +81,12 @@ Events are discriminated by `type`, and the payload is the same on `vega/system/
 { "v": 1, "type": "next_event", "title": "lab report", "detail": "computer networks", "at": "2026-11-18T09:30:00Z" }
 { "v": 1, "type": "co2_series", "room": "bedroom", "values": [980, 1080, 1190], "threshold_ppm": 1000, "max_ppm": 1500 }
 { "v": 1, "type": "command_result", "id": "UI-m3k2x9-0", "result": "Light is off" }
+{ "v": 1, "type": "llm_usage", "day": "2026-11-19", "spent_usd": 0.0017, "budget_usd": 0.05, "calls": 14, "tokens_in": 9800, "tokens_out": 640 }
 ```
+
+`llm_usage` (retained, published by the brain when it connects and after every LLM call) is today's total from its cost
+ledger; `day` is the brain's local day. The Idle screen shows it as "AI budget · today" (used, left, calls); a `day` that
+is not today counts as nothing spent yet.
 
 `vega/system/command` (published by the dashboard's command bar when connected):
 `{ "v": 1, "id": "UI-m3k2x9-0", "text": "turn off the light", "ts": "2026-11-18T09:30:00Z" }`. Not retained. The brain
@@ -172,6 +177,7 @@ template's simulated pictures; real ones arrive with M7/M8.
 | `vega/+/+/meta`, `vega/+/+/state`, `vega/+/+/availability` (dựng sổ thiết bị) | `vega/<room>/<id>/set` (relay) |
 | `vega/system/command` (lệnh của chủ nhân) | `vega/ui/scene` (retained): cảnh `think` cho từng bước, rồi câu trả lời |
 | | `vega/system/events/command_result` (retained): câu trả lời đầy đủ, cùng `id` với lệnh |
+| | `vega/system/events/llm_usage` (retained): tổng chi phí AI hôm nay, sau mỗi lượt gọi |
 
 Một lệnh đi qua màn hình như sau:
 

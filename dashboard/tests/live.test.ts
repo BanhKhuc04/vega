@@ -58,6 +58,14 @@ describe('liveText', () => {
     s.env = { ...s.env!, tempC: null };
     expect(liveText(s, NOW)).toMatchObject({ ci: '3 failed builds', temp: '—' });
   });
+  it('AI budget: used and left today; at the limit it says local only; a stale day counts as nothing spent', () => {
+    const today = sampleSnapshot(NOW).ai!.day;
+    const ai = (o: Partial<NonNullable<Snapshot['ai']>>): Snapshot => ({ ...sampleSnapshot(NOW), ai: { day: today, spentUsd: 0.0012, budgetUsd: 0.05, calls: 4, ...o } });
+    expect(liveText(ai({}), NOW)).toMatchObject({ ai: '$0.0012 used', aiSub: '$0.0488 left of $0.05 · 4 calls', aiBad: false });
+    expect(liveText(ai({ spentUsd: 0.0503, calls: 1 }), NOW)).toMatchObject({ ai: '$0.0503 used', aiSub: 'daily limit $0.05 reached · local only', aiBad: true });
+    expect(liveText(ai({ day: '2020-01-01', spentUsd: 0.05 }), NOW)).toMatchObject({ ai: '$0.00 used', aiSub: '$0.05 left of $0.05 · 0 calls', aiBad: false });
+    expect(liveText(emptySnapshot('mqtt'), NOW).ai).toBeUndefined(); // no brain yet: the template text stays
+  });
   it('next event without detail shows the countdown', () => {
     const s = { ...sampleSnapshot(NOW), next: { title: 'call', detail: null, at: NOW + 20 * 60_000 } };
     expect(liveText(s, NOW)).toMatchObject({ next: '12:20 call', nextSub: 'in 20 min' });

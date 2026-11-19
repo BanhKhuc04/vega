@@ -40,6 +40,8 @@ phía trên ô nhập, và VEGA **đọc to** câu trả lời (nút loa để b
 | Nói (mic) | Chrome hoặc Edge, có internet. Âm thanh do Google/Microsoft nhận dạng (Web Speech API). Chưa chạy trên kiosk Chromium của Pi; giọng nói chạy offline là việc của M5 |
 
 AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ chạy lệnh cục bộ. VEGA chưa nhớ hội thoại: mỗi câu được xử lý riêng.
+Cột phải của màn Idle có ô **AI budget · today**: số tiền AI đã dùng hôm nay, còn lại bao nhiêu so với trần `BUDGET_USD_DAY`, số lượt gọi
+(lấy từ sổ chi phí của bộ não). Màn hẹp hơn 900 px thì hai cột số liệu ẩn đi.
 
 ### Chỉ màn hình, không broker
 

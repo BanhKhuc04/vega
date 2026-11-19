@@ -203,6 +203,7 @@ export class Agent {
       }
       llmCalls++;
       store.logUsage({ ts: this.now(), commandId: cmd.id, task, provider: provider.name, model: provider.model, tokensIn: res.usage.in, tokensOut: res.usage.out, usd: costUsd(provider, res.usage) });
+      this.publishUsage();
       chips.at(-1)!.state = 'done';
       const tcs = res.message.tool_calls ?? [];
       if (tcs.length === 0) {
@@ -273,6 +274,13 @@ export class Agent {
         return { ok: true, text: 'Focus scene: 25 min' };
       }
     }
+  }
+
+  /** Sends today's AI spending to the screen (after every LLM call, and when the brain connects). */
+  publishUsage(): void {
+    const day = dayOf(this.now());
+    const u = this.deps.store.usageOn(day);
+    this.deps.bus.usage({ day, spentUsd: u.usd, budgetUsd: this.deps.config.budgetUsdDay, calls: u.calls, tokensIn: u.tokensIn, tokensOut: u.tokensOut });
   }
 
   private think(chips: Chip[], plan?: string): void {

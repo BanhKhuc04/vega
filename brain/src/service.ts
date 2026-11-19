@@ -29,6 +29,7 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   client.on('connect', () => {
     log(`[brain] connected to ${cfg.mqttUrl}`);
     client.subscribe(BRAIN_SUBSCRIPTIONS);
+    agent.publishUsage();
   });
   client.on('error', (e) => log(`[brain] mqtt error: ${e.message}`));
   client.on('message', (topic, payload, packet) => {
