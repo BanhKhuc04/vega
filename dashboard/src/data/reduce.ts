@@ -57,6 +57,7 @@ export function applyUpdate(s: Snapshot, u: Update): Snapshot {
     case 'llmUsage':
       return { ...s, ai: { day: u.day, spentUsd: u.spentUsd, budgetUsd: u.budgetUsd, calls: u.calls } };
     case 'commandResult':
+    case 'announce':
     case 'scene':
     case 'sceneInvalid':
       return s;

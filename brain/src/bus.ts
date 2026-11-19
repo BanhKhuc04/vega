@@ -15,6 +15,10 @@ export interface Bus {
   pi(s: { cpuPct: number; memPct: number; tempC: number | null; uptimeS: number }): void;
   /** CI state for the screen's CI/CD row (retained). */
   ci(repo: string, failed: number): void;
+  /** The next calendar event, for the Idle screen (retained). */
+  nextEvent(title: string, detail: string | undefined, at: number): void;
+  /** Something VEGA says on its own: shown in the chat and read aloud (not retained). */
+  announce(text: string): void;
   /** Today's AI spending (retained, for the screen). */
   usage(u: { day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }): void;
 }
@@ -43,6 +47,14 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
     ci(repo, failed) {
       const msg = systemEvent.parse({ v, type: 'ci', repo, failed, ts: new Date(now()).toISOString() });
       client.publish(eventTopic('ci'), JSON.stringify(msg), { retain: true });
+    },
+    nextEvent(title, detail, at) {
+      const msg = systemEvent.parse({ v, type: 'next_event', title, ...(detail && { detail }), at: new Date(at).toISOString() });
+      client.publish(eventTopic('next_event'), JSON.stringify(msg), { retain: true });
+    },
+    announce(text) {
+      const msg = systemEvent.parse({ v, type: 'announce', text: text.slice(0, 300), ts: new Date(now()).toISOString() });
+      client.publish(eventTopic('announce'), JSON.stringify(msg));
     },
     usage(u) {
       const msg = systemEvent.parse({ v, type: 'llm_usage', day: u.day, spent_usd: u.spentUsd, budget_usd: u.budgetUsd, calls: u.calls, tokens_in: u.tokensIn, tokens_out: u.tokensOut });

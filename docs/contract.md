@@ -32,7 +32,7 @@ disagree, the code wins and this page is a bug.
 | `vega/<room>/<device_id>/set` | brain/UI → device | no | `relaySet` (relays) |
 | `vega/desk/core/state` | desk core → all | yes | `coreState` |
 | `vega/system/events` | brain, CI watcher → all | no (stream) | `systemEvent` (by `type`) |
-| `vega/system/events/<type>` | same, latest value | yes | same payload; one retained slot per type (`ci`, `next_event`, `co2_series`) |
+| `vega/system/events/<type>` | same, latest value | yes | same payload; one retained slot per type (`ci`, `next_event`, `co2_series`); `announce` is never retained |
 | `vega/system/command` | UI → brain | no | `systemCommand` |
 | `vega/system/pi` | Pi agent → all | yes | `piStats` |
 | `vega/system/net` | Pi agent → all | yes | `netStats` |
@@ -82,7 +82,12 @@ Events are discriminated by `type`, and the payload is the same on `vega/system/
 { "v": 1, "type": "co2_series", "room": "bedroom", "values": [980, 1080, 1190], "threshold_ppm": 1000, "max_ppm": 1500 }
 { "v": 1, "type": "command_result", "id": "UI-m3k2x9-0", "result": "Light is off" }
 { "v": 1, "type": "llm_usage", "day": "2026-11-19", "spent_usd": 0.0017, "budget_usd": 0.05, "calls": 14, "tokens_in": 9800, "tokens_out": 640 }
+{ "v": 1, "type": "announce", "text": "Nhắc bạn: gọi mẹ", "ts": "2026-11-19T08:00:00Z" }
 ```
+
+`announce` (M4, not retained) is something the brain says on its own: a reminder, the morning briefing, "Focus done". Every
+open screen adds it to the chat and reads it aloud. Answers to a command still come as `command_result`, read only by the
+screen that sent the command.
 
 `llm_usage` (retained, published by the brain when it connects and after every LLM call) is today's total from its cost
 ledger; `day` is the brain's local day. The Idle screen shows it as "AI budget · today" (used, left, calls); a `day` that
@@ -158,7 +163,7 @@ Rules a display follows (`dashboard/src/scene`):
 | `vision` | `camera` |
 | `briefing` | `kicker`, `title`, `summary`, `agenda[{time,title,hot}]`, `inbox[{from,subject}]`, `room`, `builds{passing,failing,repo}` |
 | `focus` | `kicker`, `minutes` (1–180), `hint` |
-| `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`), `explain` (boolean: the card shows Explain, which sends "sao fail"), `url` (https only: the card shows Open, which opens it in a new tab) |
+| `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`), `explain` (boolean: the card shows Explain, which sends "sao fail"), `url` (https only: the card shows Open, which opens it in a new tab), `snooze` (boolean: a reminder; the card shows Snooze 10 min, which sends `snooze`) |
 | `success` | `title`, `ref`, `checks[]` |
 | `sleep` | `title`, `lightsOffSeconds`, `alarm`, `dnd` |
 
@@ -180,6 +185,8 @@ template's simulated pictures; real ones arrive with M7/M8.
 | | `vega/system/events/llm_usage` (retained): tổng chi phí AI hôm nay, sau mỗi lượt gọi |
 | `vega/system/pi` (cho `/status`) | `vega/system/events/ci` (retained, M3): trạng thái CI thật từ GitHub, mỗi 60 giây |
 | | `vega/system/pi` (retained, khi `PI_STATS=1`): nhiệt độ, CPU, RAM, uptime của Pi, mỗi 30 giây |
+| | `vega/system/events/next_event` (retained, M4): lịch Google sắp tới, thay số giả của sim |
+| | `vega/system/events/announce` (M4): lời nhắc, Briefing, "Focus done" |
 
 Một lệnh đi qua màn hình như sau:
 

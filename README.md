@@ -67,6 +67,41 @@ Bộ não hỏi GitHub mỗi 60 giây (dùng ETag: kết quả không đổi th�
 Log và thông điệp commit do người khác viết, nên VEGA coi chúng là dữ liệu ngoài: khi chúng có mặt thì không lệnh vật lý nào
 được chạy (`docs/security.md`).
 
+### Trợ lý cá nhân: lịch, mail, thời tiết, nhắc việc, Focus (M4)
+
+| Gõ hoặc nói | Kết quả |
+|---|---|
+| `hôm nay có lịch gì`, `lịch ngày mai`, `sự kiện tiếp theo`, `what's on today` | lịch Google, trả lời cục bộ (0 đồng) |
+| `có mail gì mới không`, `any new mail` | thư **chưa đọc trong Hộp thư chính** 24 giờ qua: người gửi và tiêu đề |
+| `thời tiết thế nào`, `có mưa không` | Open-Meteo, theo toạ độ `WEATHER_LAT` / `WEATHER_LON` |
+| `briefing`, `tóm tắt hôm nay` | màn **Briefing**: lịch hôm nay, mail, thời tiết, phòng, CI. Tự hiện mỗi ngày lúc `BRIEFING_AT` (mặc định `07:00`) |
+| `nhắc tôi 3 giờ chiều gọi mẹ`, `nhắc tôi sau 20 phút uống nước`, `remind me at 5pm to call mom` | tới giờ: thẻ Alert có nút **Snooze 10 min**, và VEGA đọc to. Lời nhắc lưu trong SQLite, khởi động lại không mất |
+| `nhắc nhở của tôi`, `huỷ nhắc 2` | xem / huỷ lời nhắc |
+| `tập trung 25 phút`, `focus for 1 hour`, `dừng tập trung` | màn **Focus**: build hỏng và lời nhắc chờ tới khi hết giờ rồi mới hiện |
+
+Câu trả lời theo ngôn ngữ của câu hỏi. Briefing tự hiện thì dùng `VEGA_LANG` (mặc định `vi`). Những gì VEGA tự nói (lời nhắc,
+Briefing) hiện trong khung chat và được đọc to trên **mọi** màn đang mở.
+
+**Kết nối Google (một lần, chỉ quyền đọc):**
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → tạo project → *APIs & Services › Library*: bật **Google Calendar API** và **Gmail API**.
+2. *OAuth consent screen*: loại **External**, thêm email của bạn vào *Test users*. Nên bấm **Publish app** (sang *In production*): ở chế độ
+   *Testing*, Google cho token hết hạn sau 7 ngày. App chưa xác minh nên lúc đăng nhập Google hiện cảnh báo, bấm *Advanced → Go to …* là được.
+3. *Credentials › Create credentials › OAuth client ID*, loại **Desktop app**. Chép vào `.env`:
+   ```bash
+   GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-...
+   WEATHER_LAT=21.03          # tuỳ chọn, làm tròn 2 chữ số là đủ
+   WEATHER_LON=105.85
+   ```
+4. `npm run google-login`: trình duyệt mở trang Google, bạn đồng ý quyền **chỉ đọc** lịch và Gmail. Token được lưu vào `google-token.json`
+   (cạnh `BRAIN_DB`, quyền file `600`, đã có trong `.gitignore`). Chạy lại `npm run vega`.
+5. Trên Pi (không có trình duyệt): đăng nhập trên PC, mở `google-token.json`, chép giá trị `refresh_token` vào `infra/pi/brain.env`
+   thành `GOOGLE_REFRESH_TOKEN=...` (cùng `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`), rồi `docker compose up -d vega-brain`.
+
+VEGA chỉ lấy phần đầu thư (`format=metadata`), không bao giờ tải nội dung thư, không gửi mail, không sửa lịch. Tiêu đề lịch và mail
+là dữ liệu ngoài: dù có ghi "tắt hết thiết bị" cũng không điều khiển được gì (`docs/security.md`).
+
 ### Chỉ màn hình, không broker
 
 ```bash

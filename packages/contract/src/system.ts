@@ -46,8 +46,16 @@ const llmUsage = z.object({
   tokens_out: z.number().int().min(0),
 });
 
+/** Something the brain says on its own (a reminder, the morning briefing): shown in the chat and read aloud. Not retained. */
+const announce = z.object({
+  v,
+  type: z.literal('announce'),
+  text: z.string().min(1).max(300),
+  ts,
+});
+
 /** `vega/system/events`: one topic, discriminated by `type`. */
-export const systemEvent = z.discriminatedUnion('type', [ci, nextEvent, co2Series, commandResult, llmUsage]);
+export const systemEvent = z.discriminatedUnion('type', [ci, nextEvent, co2Series, commandResult, llmUsage, announce]);
 
 /** Local calendar day `YYYY-MM-DD` (the brain's budget day; the display compares against it). */
 export function localDay(ms: number): string {

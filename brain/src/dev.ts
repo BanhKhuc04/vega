@@ -23,7 +23,7 @@ const broker = await startBroker({ port: Number(process.env.MQTT_PORT ?? 1883), 
 const url = `mqtt://127.0.0.1:${broker.port}`;
 const cfg = loadConfig({ ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '' });
 // with real CI watched, the simulator neither fakes a CI state nor runs its demo CI -> scene rule
-const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }) });
+const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }), ...(cfg.google && { nextEvent: false }) });
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
 const brain = startBrain(cfg, { log });
 

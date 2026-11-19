@@ -14,6 +14,11 @@ export interface CommandRow {
   tools: string[];
   llmCalls: number;
 }
+export interface Reminder {
+  id: number;
+  at: number;
+  text: string;
+}
 export interface UsageRow {
   ts: number;
   commandId: string;
@@ -42,6 +47,10 @@ export class Store {
       );
       CREATE INDEX IF NOT EXISTS llm_usage_day ON llm_usage (day);
       CREATE INDEX IF NOT EXISTS llm_usage_cmd ON llm_usage (command_id);
+      CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
+        done INTEGER NOT NULL DEFAULT 0
+      );
     `);
   }
 
@@ -78,6 +87,33 @@ export class Store {
   lastCommands(limit = 20): CommandRow[] {
     const rows = this.db.prepare('SELECT id, ts, text, origin, path, answer, tools, llm_calls FROM commands ORDER BY ts DESC, rowid DESC LIMIT ?').all(limit) as (Omit<CommandRow, 'tools' | 'llmCalls'> & { tools: string; llm_calls: number })[];
     return rows.map(({ tools, llm_calls, ...r }) => ({ ...r, tools: JSON.parse(tools) as string[], llmCalls: llm_calls }));
+  }
+
+  addReminder(at: number, text: string, now: number): Reminder {
+    const r = this.db.prepare('INSERT INTO reminders (at, text, created) VALUES (?, ?, ?)').run(at, text, now);
+    return { id: Number(r.lastInsertRowid), at, text };
+  }
+
+  /** Reminders not yet fired, soonest first. */
+  pendingReminders(): Reminder[] {
+    return this.db.prepare('SELECT id, at, text FROM reminders WHERE done = 0 ORDER BY at, id').all() as unknown as Reminder[];
+  }
+
+  /** Marks the reminders due at `now` as fired and returns them. */
+  takeDueReminders(now: number): Reminder[] {
+    const due = this.db.prepare('SELECT id, at, text FROM reminders WHERE done = 0 AND at <= ? ORDER BY at, id').all(now) as unknown as Reminder[];
+    for (const r of due) this.db.prepare('UPDATE reminders SET done = 1 WHERE id = ?').run(r.id);
+    return due;
+  }
+
+  /** Puts a reminder back in the queue at a new time (snooze). */
+  rescheduleReminder(id: number, at: number): void {
+    this.db.prepare('UPDATE reminders SET at = ?, done = 0 WHERE id = ?').run(at, id);
+  }
+
+  /** Cancels a pending reminder; false if there is none with that id. */
+  cancelReminder(id: number): boolean {
+    return Number(this.db.prepare('DELETE FROM reminders WHERE id = ? AND done = 0').run(id).changes) > 0;
   }
 
   close(): void {

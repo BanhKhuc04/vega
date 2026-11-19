@@ -62,12 +62,19 @@ const input = document.querySelector<HTMLInputElement>('#q')!;
 const chat = new Chat({ root: document.querySelector<HTMLElement>('#chat')!, input, send: (text) => source.sendCommand(text) });
 const voice = new Voice();
 let toldNoVoice = false;
-source.onResult((id, text) => {
-  if (!chat.result(id, text)) return; // only answers to this screen's own commands are read aloud
+const say = (text: string) => {
   if (!voice.speak(text) && !toldNoVoice) {
     toldNoVoice = true;
     chat.note('No Vietnamese voice on this computer, so answers are not read aloud. Open VEGA in Microsoft Edge, or add the Vietnamese voice in Windows Settings › Time & language › Speech.');
   }
+};
+source.onResult((id, text) => {
+  if (chat.result(id, text)) say(text); // only answers to this screen's own commands are read aloud
+});
+// reminders and the briefing: every open screen shows and reads them (nobody asked from a particular tab)
+source.onAnnounce((text) => {
+  chat.announce(text);
+  say(text);
 });
 hud.hooks.onCommand = (text) => void chat.submit(text);
 

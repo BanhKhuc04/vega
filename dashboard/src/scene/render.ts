@@ -212,14 +212,17 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     text(q('.greet h1'), d.title);
     text(q('.greet p'), d.summary);
     const ag = d.agenda as { time: string; title: string; hot?: boolean }[] | undefined;
-    heading(q('[data-p=b1] .hd [data-scr]'), 'today', ag && `${ag.length} event${ag.length === 1 ? '' : 's'}`);
+    // a single "—" row is the brain saying the list is empty ("Nothing on the calendar"), not one event
+    const nAg = ag?.filter((e) => e.time !== '—').length;
+    heading(q('[data-p=b1] .hd [data-scr]'), 'today', ag && `${nAg} event${nAg === 1 ? '' : 's'}`);
     list(q('[data-p=b1] .agenda'), ag, (e) => {
       const li = node('li', e.hot ? 'hot' : '');
       li.append(node('b', '', e.time), e.title);
       return li;
     });
     const inbox = d.inbox as { from: string; subject: string }[] | undefined;
-    heading(q('[data-p=b2] .hd [data-scr]'), 'inbox', inbox && `${inbox.length} that matter`);
+    const nIn = inbox?.filter((e) => e.from !== '—').length;
+    heading(q('[data-p=b2] .hd [data-scr]'), 'inbox', inbox && (nIn ? `${nIn} unread` : 'empty'));
     list(q('[data-p=b2] .agenda'), inbox, (e) => {
       const li = node('li');
       li.append(node('b', '', e.from), e.subject);
@@ -257,6 +260,8 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     }
     const ex = q('#aExplain');
     if (ex) ex.hidden = !d.explain;
+    const later = q('#aLater');
+    if (later) later.hidden = !d.snooze;
     const open = q('#aOpen');
     if (open) {
       open.hidden = !d.url; // https only (checked by the contract)

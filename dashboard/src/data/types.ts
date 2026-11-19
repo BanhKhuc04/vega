@@ -54,6 +54,8 @@ export interface VegaDataSource {
   onScene(listener: (s: SceneMessage) => void): () => void;
   /** Answers of the brain (`command_result`): command id and full text. */
   onResult(listener: (id: string, text: string) => void): () => void;
+  /** What the brain says on its own (a reminder, the morning briefing). */
+  onAnnounce(listener: (text: string) => void): () => void;
   /** Publishes a typed command. Returns its id, or null if it could not be sent. */
   sendCommand(text: string): string | null;
 }

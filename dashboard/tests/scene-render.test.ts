@@ -90,7 +90,7 @@ describe('renderScene fills the template from data', () => {
     expect($('.greet .k').textContent).toBe('Thu · 19 Nov · morning briefing');
     expect($('[data-p=b1] .hd [data-scr]').textContent).toBe('today // 2 events');
     expect(document.querySelector('[data-p=b1] .agenda li.hot b')?.textContent).toBe('15:30');
-    expect($('[data-p=b2] .hd [data-scr]').textContent).toBe('inbox // 1 that matter');
+    expect($('[data-p=b2] .hd [data-scr]').textContent).toBe('inbox // 1 unread');
     expect($('[data-p=b4] .t').textContent).toBe('3 passing · 0 failing');
     renderScene(example('focus'), document, hooks);
     expect($('#timer').dataset.total).toBe('3000');
@@ -127,12 +127,14 @@ describe('missing fields fall back to the template defaults', () => {
     });
   }
   it('alert buttons follow the data: Confirm/Cancel for a confirmation, Explain/Open for a failed build', () => {
-    const shown = () => ['#aConfirm', '#aCancel', '#aExplain', '#aOpen', '#aSnooze'].filter((s) => !$(s).hidden);
+    const shown = () => ['#aConfirm', '#aCancel', '#aExplain', '#aOpen', '#aLater', '#aSnooze'].filter((s) => !$(s).hidden);
     renderScene({ v: 1, scene: 'alert', data: { title: 'confirm action', confirm: true } }, document, hooks);
     expect(shown()).toEqual(['#aConfirm', '#aCancel', '#aSnooze']);
     renderScene({ v: 1, scene: 'alert', data: { title: 'build failed', explain: true, url: 'https://github.com/me/vega/actions/runs/4' } }, document, hooks);
     expect(shown()).toEqual(['#aExplain', '#aOpen', '#aSnooze']);
     expect($('#aOpen').dataset.url).toBe('https://github.com/me/vega/actions/runs/4');
+    renderScene({ v: 1, scene: 'alert', data: { title: 'reminder', error: 'gọi mẹ', snooze: true } }, document, hooks);
+    expect(shown()).toEqual(['#aLater', '#aSnooze']);
     renderScene({ v: 1, scene: 'alert', data: { title: 'plain' } }, document, hooks);
     expect(shown()).toEqual(['#aSnooze']);
     expect($('#aOpen').dataset.url).toBeUndefined();

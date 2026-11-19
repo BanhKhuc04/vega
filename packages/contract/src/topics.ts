@@ -2,7 +2,7 @@ export const ROOT = 'vega';
 /** Event stream (not retained). Latest-value events are also sent retained on `vega/system/events/<type>`. */
 export const SYSTEM_EVENTS = 'vega/system/events';
 export const SYSTEM_EVENTS_RETAINED = 'vega/system/events/+';
-export const EVENT_TYPES = ['ci', 'next_event', 'co2_series', 'command_result', 'llm_usage'] as const;
+export const EVENT_TYPES = ['ci', 'next_event', 'co2_series', 'command_result', 'llm_usage', 'announce'] as const;
 /** Retained slot for one kind of event, so the broker keeps the latest `ci` AND the latest `next_event`. */
 export const eventTopic = (type: (typeof EVENT_TYPES)[number]): string => `${SYSTEM_EVENTS}/${type}`;
 /** True for `vega/system/events` and `vega/system/events/<type>`. */
