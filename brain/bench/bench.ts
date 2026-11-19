@@ -77,9 +77,9 @@ export async function benchProvider(p: Provider, cases: Case[], opts: { timeoutM
     const t0 = performance.now();
     try {
       res = await chat(p, { messages, tools }, { timeoutMs: opts.timeoutMs ?? 30_000 });
-    } catch {
+    } catch (e) {
       row.errors++;
-      row.misses.push({ text: c.text, got: [{ tool: 'ERROR', args: {} }] });
+      row.misses.push({ text: c.text, got: [{ tool: 'ERROR', args: { message: (e as Error).message } }] }); // never contains the key (llm.ts)
       continue;
     }
     latencies.push(performance.now() - t0);

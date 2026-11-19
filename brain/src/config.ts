@@ -9,6 +9,10 @@ export interface Provider {
   /** USD per million input / output tokens. */
   priceIn: number;
   priceOut: number;
+  /** Which OpenAI API the endpoint speaks: Chat Completions (default) or Responses (some gateways block the former). */
+  api?: 'chat' | 'responses';
+  /** Cap on output tokens per call (reasoning included), so one call can never cost much. */
+  maxOut?: number;
 }
 
 export const TASKS = ['router', 'chat'] as const;
@@ -67,13 +71,16 @@ function providers(env: Env, warnings: string[]): Record<string, Provider> {
     const priceIn = Number(get('PRICE_IN'));
     const priceOut = Number(get('PRICE_OUT'));
     const apiKey = get('API_KEY');
+    const api = get('API') ?? 'chat';
+    const maxOut = num(get('MAX_OUTPUT_TOKENS'), 512, 16);
     const skip = (why: string) => warnings.push(`provider ${name} ignored: ${why}`);
     if (!baseUrl) skip(`set LLM_${N}_BASE_URL`);
     else if (!/^https:\/\//.test(baseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(baseUrl)) skip('base URL must be https (or http on localhost)');
     else if (!model) skip(`set LLM_${N}_MODEL`);
+    else if (api !== 'chat' && api !== 'responses') skip(`LLM_${N}_API must be chat or responses`);
     // without prices the daily budget could not be enforced
     else if (!(priceIn >= 0) || !(priceOut >= 0) || get('PRICE_IN') === undefined || get('PRICE_OUT') === undefined) skip(`set LLM_${N}_PRICE_IN and LLM_${N}_PRICE_OUT (USD per 1M tokens)`);
-    else out[name] = { name, baseUrl: baseUrl.replace(/\/+$/, ''), model, priceIn, priceOut, ...(apiKey && { apiKey }) };
+    else out[name] = { name, baseUrl: baseUrl.replace(/\/+$/, ''), model, priceIn, priceOut, api, maxOut, ...(apiKey && { apiKey }) };
   }
   return out;
 }

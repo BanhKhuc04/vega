@@ -28,7 +28,7 @@ describe('loadConfig', () => {
       LLM_LOCAL_PRICE_IN: '0',
       LLM_LOCAL_PRICE_OUT: '0',
     });
-    expect(c.providers.deepseek).toEqual({ name: 'deepseek', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'sk-test', model: 'some-model', priceIn: 0.27, priceOut: 1.1 });
+    expect(c.providers.deepseek).toEqual({ name: 'deepseek', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'sk-test', model: 'some-model', priceIn: 0.27, priceOut: 1.1, api: 'chat', maxOut: 512 });
     expect(c.providers.local!.baseUrl).toBe('http://localhost:11434/v1');
     expect(c.tasks).toEqual({ router: 'deepseek', chat: 'deepseek' });
     expect(c.warnings).toEqual([]);
@@ -83,11 +83,45 @@ describe('chat over HTTP (OpenAI-compatible)', () => {
     const tools = toolSpecs(simRegistry());
     const r = await chat(p, { messages: [{ role: 'user', content: 'hi' }], tools });
     expect(seen[0]!.auth).toBe('Bearer sk-secret');
-    expect(seen[0]!.body).toMatchObject({ model: 'fake-1', messages: [{ role: 'user', content: 'hi' }], tool_choice: 'auto', temperature: 0 });
+    expect(seen[0]!.body).toMatchObject({ model: 'fake-1', messages: [{ role: 'user', content: 'hi' }], tool_choice: 'auto', temperature: 0, max_tokens: 512 });
     expect((seen[0]!.body.tools as unknown[]).length).toBe(tools.length);
     expect(r.message.tool_calls![0]!.function.name).toBe('list_devices');
     expect(r.usage).toEqual({ in: 100, out: 20 });
     expect(costUsd(p, r.usage)).toBeCloseTo((100 * 1 + 20 * 2) / 1e6, 12);
+  });
+
+  it('speaks the Responses API when asked: same messages and tools in, tool calls and usage out', async () => {
+    seen = [];
+    reply = (res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ output: [{ type: 'reasoning' }, { type: 'function_call', call_id: 'c9', name: 'set_device', arguments: '{"device":"livingroom/light","on":true}' }], usage: { input_tokens: 69, output_tokens: 24 } }));
+    };
+    const rp = { ...p, api: 'responses' as const, maxOut: 100 };
+    const r = await chat(rp, {
+      messages: [
+        { role: 'system', content: 'sys' },
+        { role: 'user', content: 'bật đèn' },
+        { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'list_devices', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'c1', content: '{"ok":true}' },
+      ],
+      tools: toolSpecs(simRegistry()),
+    });
+    expect(seen[0]!.body).toMatchObject({
+      model: 'fake-1',
+      instructions: 'sys',
+      max_output_tokens: 100,
+      store: false,
+      input: [
+        { role: 'user', content: 'bật đèn' },
+        { type: 'function_call', call_id: 'c1', name: 'list_devices', arguments: '{}' },
+        { type: 'function_call_output', call_id: 'c1', output: '{"ok":true}' },
+      ],
+    });
+    expect((seen[0]!.body.tools as { type: string; name: string }[])[0]).toMatchObject({ type: 'function', name: 'list_devices' });
+    expect(r.message.tool_calls).toEqual([{ id: 'c9', type: 'function', function: { name: 'set_device', arguments: '{"device":"livingroom/light","on":true}' } }]);
+    expect(r.usage).toEqual({ in: 69, out: 24 });
+    reply = (res) => res.end(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'Xin chào' }] }] }));
+    expect((await chat(rp, { messages: [{ role: 'user', content: 'hi' }] })).message.content).toBe('Xin chào');
   });
 
   it('HTTP errors are errors, unreachable is offline, and the key never shows up in messages', async () => {
