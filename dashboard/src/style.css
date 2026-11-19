@@ -297,6 +297,7 @@ svg text.zap{animation:zapsvg .5s steps(1) 1}
 .qbtn b{font-weight:500;color:var(--hi)}.qbtn:hover{color:#fff;border-color:var(--a55)}
 .sample-tag{position:absolute;left:0;right:0;bottom:78px;margin:0;text-align:center;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
 .sample-tag[hidden]{display:none}
+.panel[hidden]{display:none}
 #app[data-quality=lite] .scanlines,#app[data-quality=css] .scanlines{display:none}
 #app[data-quality=lite] #rain,#app[data-quality=css] #rain{display:none}
 #app[data-quality=css] #gl{display:none}

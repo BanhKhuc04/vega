@@ -139,6 +139,16 @@ describe('missing fields fall back to the template defaults', () => {
     expect(shown()).toEqual(['#aSnooze']);
     expect($('#aOpen').dataset.url).toBeUndefined();
   });
+  it('a research run by the brain hides the chart and comparison panels it sends no data for', () => {
+    renderScene({ v: 1, scene: 'research', data: { title: 'q', steps: [{ label: 'Plan', state: 'run' }] } }, document, hooks);
+    expect($('[data-p=co2]').hidden).toBe(true);
+    expect($('[data-p=compare]').hidden).toBe(true);
+    renderScene({ v: 1, scene: 'research', data: { title: 'q', steps: [{ label: 'Plan', state: 'done' }], compare: { title: 'A vs B', columns: ['', 'A'], rows: [{ label: 'x', cells: [{ text: '1' }] }] } } }, document, hooks);
+    expect($('[data-p=compare]').hidden).toBe(false);
+    renderScene({ v: 1, scene: 'research' }, document, hooks);
+    expect($('[data-p=co2]').hidden).toBe(false);
+  });
+
   it('partial data only changes the fields given', () => {
     const before = $('[data-p=stat] > .t').textContent;
     renderScene({ v: 1, scene: 'research', data: { title: 'Only a title' } }, document, hooks);
