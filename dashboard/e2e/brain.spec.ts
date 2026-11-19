@@ -11,7 +11,11 @@ import type { Sim } from '../../tools/sim/src/simlib';
 import { loadConfig } from '../../brain/src/config';
 import { startBrain } from '../../brain/src/service';
 import type { Brain } from '../../brain/src/service';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fakeGithub } from '../../brain/tests/fakegithub';
+import { fakeGoogle } from '../../brain/tests/fakegoogle';
 import { T, watch } from './helpers';
 import type { Watch } from './helpers';
 
@@ -184,5 +188,56 @@ test('M3: a broken build on (fake) GitHub raises the Alert with Explain / Open; 
     expect(w.external).toEqual([]);
   } finally {
     await gh.close();
+  }
+});
+
+test('M4: calendar and mail answered locally, the briefing on screen, a reminder fires with Snooze and is read aloud', async ({ browser }) => {
+  const g = await fakeGoogle();
+  const dir = mkdtempSync(join(tmpdir(), 'vega-e2e-'));
+  const tokenFile = join(dir, 'google-token.json');
+  writeFileSync(tokenFile, JSON.stringify({ refresh_token: g.refreshToken }));
+  const d = new Date();
+  let clock = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10, 0).getTime(); // 10:00 today, after the briefing time
+  const hm = (h: number, m = 0) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m).getTime();
+  g.setEvents([{ summary: 'Họp nhóm', start: new Date(hm(14)).toISOString(), location: 'Phòng 302' }]);
+  g.setMail([{ from: '"Lan" <lan@x.com>', subject: 'Slide thứ 6' }]);
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', BRAIN_DB: join(dir, 'brain.db'), ...g.env(tokenFile) }), { now: () => clock });
+  try {
+    const { page, w } = await openPage(browser);
+    // the real calendar replaces the simulator's made-up next event
+    await expect(page.locator('[data-live="next"]')).toHaveText('14:00 Họp nhóm', { timeout: T(4000) });
+
+    let id = await say(page, 'hôm nay có lịch gì');
+    await expect(page.locator('#chat .msg.vega span').last()).toHaveText('Hôm nay: 14:00 Họp nhóm.', { timeout: T(4000) });
+    expect(brain.store.llmCallsFor(id)).toBe(0);
+    id = await say(page, 'có mail gì mới không');
+    await expect(page.locator('#chat .msg.vega span').last()).toHaveText('1 mail chưa đọc. Lan: Slide thứ 6.', { timeout: T(4000) });
+    expect(brain.store.llmCallsFor(id)).toBe(0);
+
+    await say(page, 'briefing');
+    await expect.poll(() => mode(page), { timeout: T(4000) }).toBe('briefing');
+    await expect(page.locator('.greet h1')).toHaveText('Good morning');
+    await expect(page.locator('[data-p=b1] .agenda li')).toHaveText(['14:00Họp nhóm']);
+    await expect(page.locator('[data-p=b2] .agenda li')).toHaveText(['LanSlide thứ 6']);
+
+    await say(page, 'nhắc tôi sau 1 phút uống nước');
+    await expect(page.locator('#chat .msg.vega span').last()).toHaveText(/^Được, 10:01 mình sẽ nhắc: uống nước \(#1\)\.$/, { timeout: T(4000) });
+    clock += 61_000;
+    await brain.assistant.tick(); // instead of waiting for the 15 s timer
+    await expect.poll(() => mode(page), { timeout: T(2000) }).toBe('alert');
+    await expect(page.locator('.alert-card .err')).toHaveText('uống nước');
+    await expect(page.locator('#aLater')).toBeVisible();
+    // said on its own: shown in the chat and read with the Vietnamese voice
+    await expect(page.locator('#chat .msg.vega span').last()).toHaveText('Nhắc bạn: uống nước');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __spoken: { text: string; lang: string }[] }).__spoken.at(-1))).toEqual({ text: 'Nhắc bạn: uống nước', lang: 'vi-VN' });
+
+    await page.locator('#aLater').click(); // Snooze 10 min
+    await expect(page.locator('#chat .msg.vega span').last()).toHaveText('Được, 10:11 mình nhắc lại: uống nước.', { timeout: T(4000) });
+    expect(brain.store.pendingReminders()).toMatchObject([{ id: 1, text: 'uống nước' }]);
+    expect(w.errors).toEqual([]);
+    expect(w.external).toEqual([]);
+  } finally {
+    await g.close();
   }
 });

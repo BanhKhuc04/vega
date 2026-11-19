@@ -223,7 +223,8 @@ export class Assistant {
     const at = this.now() + 10 * MIN;
     this.deps.store.rescheduleReminder(r.id, at);
     this.lastFired = null;
-    return L(lang, `Được, ${hhmm(at)} mình nhắc lại: ${r.text}.`, `OK, again at ${hhmm(at)}: ${r.text}.`);
+    const l = langOf(r.text, lang); // the Snooze button sends English "snooze": answer in the reminder's language
+    return L(l, `Được, ${hhmm(at)} mình nhắc lại: ${r.text}.`, `OK, again at ${hhmm(at)}: ${r.text}.`);
   }
 
   private fire(r: Reminder): void {
@@ -250,8 +251,13 @@ export class Assistant {
       this.focus.held.push({ scene, label, ...(speech && { speech }) });
       return;
     }
-    this.deps.bus.scene(scene);
+    this.show(scene, speech);
+  }
+
+  /** Speech first: the dev broker (aedes) drops a retained publish (the scene) followed at once by a plain one. */
+  private show(scene: SceneOut, speech?: string): void {
     if (speech) this.deps.bus.announce(speech);
+    this.deps.bus.scene(scene);
   }
 
   get focusing(): boolean {
@@ -291,9 +297,8 @@ export class Assistant {
     if (held.length) {
       this.later(() => {
         if (this.focus) return void this.focus.held.push(...held); // a new Focus started meanwhile
-        this.deps.bus.scene(held.at(-1)!.scene);
         const speech = held.map((h) => h.speech).filter(Boolean).join(' · ');
-        if (speech) this.deps.bus.announce(clip(speech, 300));
+        this.show(held.at(-1)!.scene, speech ? clip(speech, 300) : undefined);
       }, 10_000);
     }
     return { scene, text };
@@ -303,8 +308,7 @@ export class Assistant {
   private endFocus(): void {
     const end = this.stopFocus(this.deps.config.lang);
     if (!end) return;
-    this.deps.bus.scene(end.scene);
-    this.deps.bus.announce(end.text);
+    this.show(end.scene, end.text);
   }
 
   // --- briefing (G6): built here, no AI call ---

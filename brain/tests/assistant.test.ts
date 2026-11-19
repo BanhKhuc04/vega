@@ -156,7 +156,7 @@ describe('Assistant (fake Google, fake clock)', () => {
     expect(a.said).toEqual(['Nhắc bạn: uống nước']);
     await a.assistant.tick();
     expect(a.said.length).toBe(1); // fired once
-    expect((await a.agent.handle(owner('snooze'))).answer).toBe('OK, again at 14:16: uống nước.');
+    expect((await a.agent.handle(owner('snooze'))).answer).toBe('Được, 14:16 mình nhắc lại: uống nước.');
     t = at(14, 16);
     await a.assistant.tick();
     expect(a.said.at(-1)).toBe('Nhắc bạn: uống nước');
