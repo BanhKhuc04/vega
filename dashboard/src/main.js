@@ -545,12 +545,14 @@ $$('.vctl button').forEach((b) => b.addEventListener('click', () => { sfx.click(
 const INTRO = {
   idle() {
     $$('[data-count]').forEach((el) => countUp(el, parseFloat(el.dataset.count), +(el.dataset.dec || 0), !!el.dataset.sep, 1.6));
-    gsap.from('.ro', { x: (i, el) => (el.classList.contains('r') ? 30 : -30), opacity: 0, duration: .9, stagger: .1, ease: 'expo.out', delay: .3 });
-    gsap.from('#spark i', { scaleY: 0, transformOrigin: 'bottom', stagger: .02, duration: .5, ease: 'expo.out', delay: .6 });
+    // fromTo, not from: the intro can restart before it ends (a retained scene right after load), and `from` would take
+    // the half-faded values as its end state and leave the readings invisible
+    gsap.fromTo('.ro', { x: (i, el) => (el.classList.contains('r') ? 30 : -30), opacity: 0 }, { x: 0, opacity: 1, duration: .9, stagger: .1, ease: 'expo.out', delay: .3, overwrite: true });
+    gsap.fromTo('#spark i', { scaleY: 0 }, { scaleY: 1, transformOrigin: 'bottom', stagger: .02, duration: .5, ease: 'expo.out', delay: .6, overwrite: true });
     { const cap = $('.caption'); scramble(cap, cap.dataset.text || cap.textContent, 1); }
   },
   listen() {
-    gsap.from('#wave', { opacity: 0, scaleX: .3, duration: .6, ease: 'expo.out' });
+    gsap.fromTo('#wave', { opacity: 0, scaleX: .3 }, { opacity: 1, scaleX: 1, duration: .6, ease: 'expo.out', overwrite: true });
     const el = $('#transcript'); el.textContent = '';
     gsap.delayedCall(.5, () => typeText(el, el.dataset.text || '', 22));
   },
@@ -604,19 +606,13 @@ const INTRO = {
 
 /* ---------------- mode switching ---------------- */
 const app = $('#app');
-const dock = $('#dock');
-dock.innerHTML = Object.entries(MODES).map(([id, m]) => `<button type="button" data-mode="${id}" aria-pressed="${id === 'idle'}" style="--c:${FIXED[id] ? m.c : LEVELS[DEFAULT_LVL[id] || 'normal'].c}"><i></i>${m.label}</button>`).join('');
-$$('#dock button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
 function applyColour() {
   const col = FIXED[mode] ? MODES[mode] : LEVELS[level];
   app.style.setProperty('--accent', col.c);
   setPalette(col.pal);
-  $$('.lvl button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.l === level)));
-  $('.lvl').classList.toggle('off', !!FIXED[mode]);
 }
-function setLevel(l) { if (!LEVELS[l] || FIXED[mode]) return; level = l; applyColour(); sfx.click(); scramble($('#lvlTxt'), LEVELS[l].label.toUpperCase() + ' PRIORITY', .5); }
-$$('.lvl button').forEach((b) => b.addEventListener('click', () => setLevel(b.dataset.l)));
+function setLevel(l) { if (!LEVELS[l] || FIXED[mode]) return; level = l; applyColour(); }
 
 let statusOverride = null;
 function setMode(m, force) {
@@ -626,7 +622,6 @@ function setMode(m, force) {
   app.dataset.mode = m;
   level = DEFAULT_LVL[m] || 'normal';
   applyColour();
-  $$('#dock button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
   sfx.mode(m);
   scramble($('#status'), statusOverride || cfg.status, .5);
   if (cssOrbLive) cssOrbLive.setSpeed(cfg.look.ring);
@@ -643,23 +638,18 @@ function setMode(m, force) {
   INTRO[m] && INTRO[m]();
 }
 
-$('#micBtn').addEventListener('click', () => setMode(mode === 'listen' ? 'idle' : 'listen'));
+$('#micBtn').addEventListener('click', () => hooks.onMic && hooks.onMic());
 $('#fPause').addEventListener('click', () => { focusPaused = !focusPaused; $('#fPause').textContent = focusPaused ? 'Resume' : 'Pause'; sfx.click(); });
 $('#fEnd').addEventListener('click', () => setMode('idle'));
-$('#aExplain').addEventListener('click', () => { setMode('think'); gsap.delayedCall(1.8, () => { $('#rtitle').textContent = "Research: 'WiFiClient' not declared in relay.cpp"; setMode('research', true); }); });
-$('#aLogs').addEventListener('click', () => { $('#rtitle').textContent = 'Research: firmware-esp build #57 logs'; setMode('research', true); });
+// confirmation card (scene alert with `confirm`): the buttons answer the brain like typing yes / no would
+$('#aConfirm').addEventListener('click', () => hooks.onCommand && hooks.onCommand('yes'));
+$('#aCancel').addEventListener('click', () => hooks.onCommand && hooks.onCommand('no'));
 $('#aSnooze').addEventListener('click', () => setMode('idle'));
-const modeKeys = Object.keys(MODES);
-window.addEventListener('keydown', (e) => {
-  if (document.activeElement === $('#q')) return;
-  const n = parseInt(e.key, 10);
-  if (n >= 1 && n <= 9) setMode(modeKeys[n - 1]); else if (e.key === '0') setMode(modeKeys[9]); else if (e.key === '-') setMode(modeKeys[10]);
-});
 document.addEventListener('pointerover', (e) => { const t = /** @type {Element} */ (e.target); if (t.closest && t.closest('button')) sfx.hover(); });
 $('#cmd').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = $('#q').value.trim(); $('#q').value = '';
-  if (!q) { setMode('listen'); return; }
+  if (!q) { hooks.onMic && hooks.onMic(); return; }
   // the display only publishes the command; the brain decides what the screen shows (vega/ui/scene)
   hooks.onCommand && hooks.onCommand(q);
 });
@@ -689,7 +679,7 @@ export function start() {
 }
 
 /* ---------------- API for the data layer, scene renderer and header controls (boot.ts) ---------------- */
-export const hooks = { onCommand: null };
+export const hooks = { onCommand: null, onMic: null };
 export const api = {
   $,
   $$,

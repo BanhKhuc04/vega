@@ -27,9 +27,7 @@
     <div class="brand">
       <span class="logo">VEGA</span>
       <span class="status"><b class="dot"></b><span id="status">All systems nominal</span></span>
-      <div class="lvl" role="group" aria-label="Priority level"><button type="button" data-l="normal" aria-pressed="true" style="--c:#4FC3FF" aria-label="Normal priority"><i></i></button><button type="button" data-l="medium" aria-pressed="false" style="--c:#FFC24A" aria-label="Medium priority"><i></i></button><button type="button" data-l="high" aria-pressed="false" style="--c:#B57BFF" aria-label="High priority"><i></i></button><span id="lvlTxt">NORMAL PRIORITY</span></div>
     </div>
-    <nav class="dock" aria-label="Scenarios" id="dock"></nav>
     <div class="meta"><span id="clock">--:--:--</span><span class="pi" data-live="piText">PI · 52°C</span></div>
     <div class="sys">
       <span class="conn" id="conn" role="status" aria-live="polite" data-state="sim" title="Data connection"><i></i><b id="connTxt">SIM</b></span>
@@ -47,6 +45,7 @@
     <aside class="side right" aria-label="System">
       <div class="ro r"><span class="k">Device mesh</span><span class="v">MQTT <span data-count="6" data-live="meshOn">0</span>/<span data-live="meshTotal">6</span></span><span class="s" data-live="meshKinds">esp8266 ×5 · esp32-s3 ×1</span></div>
       <div class="ro r bad" data-live="cirow"><span class="k">CI/CD</span><span class="v sm" data-live="ci">1 failed build</span><span class="s" data-live="ciSub">firmware-esp · 4 min ago</span></div>
+      <div class="ro r" data-live="airow"><span class="k">AI budget · today</span><span class="v sm" data-live="ai">no AI calls yet</span><span class="s" data-live="aiSub">daily limit set in .env</span></div>
       <div class="ro r"><span class="k">Up next</span><span class="v sm" data-live="next">16:30 lab report</span><span class="s" data-live="nextSub">computer networks</span></div>
     </aside>
     <p class="caption" id="caption" data-text="Standing by · say “Hey Vega”">Standing by · say “Hey Vega”</p>
@@ -212,7 +211,7 @@
       <div class="hd"><span data-scr>critical // build failed</span><span class="id">firmware-esp #57 · main</span></div>
       <pre class="err">src/relay.cpp:42  error: 'WiFiClient' was not declared in this scope</pre>
       <p class="t">Desk LED switched to red. Last green build: #56, 2 hours ago.</p>
-      <div class="acts"><button type="button" class="pill danger" id="aExplain">Explain error</button><button type="button" class="pill ghost" id="aLogs">Open logs</button><button type="button" class="pill ghost" id="aSnooze">Snooze</button></div>
+      <div class="acts"><button type="button" class="pill danger" id="aConfirm" hidden>Confirm</button><button type="button" class="pill ghost" id="aCancel" hidden>Cancel</button><button type="button" class="pill ghost" id="aSnooze">Dismiss</button></div>
     </article>
   </section>
 
@@ -232,9 +231,12 @@
 
   <div class="x-layer" id="xLayer"></div>
 
+  <section class="chat" id="chat" aria-label="Conversation" aria-live="polite"></section>
+
   <form class="cmd" id="cmd">
     <label for="q" class="sr">Ask VEGA</label>
-    <input id="q" autocomplete="off" placeholder="Ask VEGA… try “research CO₂ sensors”">
+    <input id="q" autocomplete="off" placeholder="Ask VEGA…">
+    <button type="button" class="ico spk" id="spkBtn" aria-pressed="true" aria-label="Read answers aloud"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="wave1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
     <button type="button" class="ico" id="micBtn" aria-label="Talk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
     <button type="submit" class="ico send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
   </form>

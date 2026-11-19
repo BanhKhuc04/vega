@@ -35,6 +35,8 @@ export interface Snapshot {
   presence: boolean | null;
   devices: Device[];
   ci: { repo: string; failed: number; ts: number } | null;
+  /** The brain's AI spending today (cost ledger). */
+  ai: { day: string; spentUsd: number; budgetUsd: number; calls: number } | null;
   next: { title: string; detail: string | null; at: number } | null;
   co2Series: { room: string; values: number[]; thresholdPpm: number; maxPpm: number } | null;
   pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;
@@ -50,6 +52,8 @@ export interface VegaDataSource {
   subscribe(listener: (s: Snapshot) => void): () => void;
   /** Scenes pushed by the brain on `vega/ui/scene` (already validated). */
   onScene(listener: (s: SceneMessage) => void): () => void;
-  /** Publishes a typed command. Returns false if it could not be sent. */
-  sendCommand(text: string): boolean;
+  /** Answers of the brain (`command_result`): command id and full text. */
+  onResult(listener: (id: string, text: string) => void): () => void;
+  /** Publishes a typed command. Returns its id, or null if it could not be sent. */
+  sendCommand(text: string): string | null;
 }

@@ -23,13 +23,34 @@ khiển màn hình qua `vega/ui/scene`. Chưa có giọng nói, Telegram, Google
 
 Cần Node.js 22.
 
+### Dùng VEGA: một lệnh
+
 ```bash
 npm ci
-npm run dev          # http://localhost:5173, chế độ SIM: dữ liệu giả lập ngay trong trình duyệt, không cần broker
+npm run vega         # broker + thiết bị ảo + bộ não (đọc .env) + màn VEGA, trong một tiến trình. Mở địa chỉ nó in ra
 ```
 
-Header hiện trạng thái kết nối: `SIM` (không có broker), `LIVE`, `RECONNECTING`, `OFFLINE`. Dock, phím số 1–9/0/- và `#hash`
-(ví dụ `/#briefing`) vẫn chuyển cảnh bằng tay.
+Gõ vào ô **Ask VEGA…** rồi Enter, hoặc bấm **mic** để nói (tiếng Việt). Câu hỏi và câu trả lời hiện trong khung trò chuyện
+phía trên ô nhập, và VEGA **đọc to** câu trả lời (nút loa để bật/tắt). Hành động cần xác nhận hiện thẻ có nút **Confirm / Cancel**.
+
+| | Yêu cầu |
+|---|---|
+| Nhắn | trình duyệt nào cũng được |
+| Đọc to | giọng có sẵn của máy. Câu tiếng Việt cần giọng tiếng Việt: Microsoft Edge có sẵn, hoặc thêm trong Windows Settings › Time & language › Speech. Không có giọng hợp thì VEGA im lặng và báo trong khung chat |
+| Nói (mic) | Chrome hoặc Edge, có internet. Âm thanh do Google/Microsoft nhận dạng (Web Speech API). Chưa chạy trên kiosk Chromium của Pi; giọng nói chạy offline là việc của M5 |
+
+AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ chạy lệnh cục bộ. VEGA chưa nhớ hội thoại: mỗi câu được xử lý riêng.
+Cột phải của màn Idle có ô **AI budget · today**: số tiền AI đã dùng hôm nay, còn lại bao nhiêu so với trần `BUDGET_USD_DAY`, số lượt gọi
+(lấy từ sổ chi phí của bộ não). Màn hẹp hơn 900 px thì hai cột số liệu ẩn đi.
+
+### Chỉ màn hình, không broker
+
+```bash
+npm run dev          # http://localhost:5173, chế độ SIM: dữ liệu giả lập ngay trong trình duyệt, không có bộ não
+```
+
+Header hiện trạng thái kết nối: `SIM` (không có broker), `LIVE`, `RECONNECTING`, `OFFLINE`. `#hash` (ví dụ `/#briefing`) vẫn
+chuyển cảnh bằng tay để xem thử các màn; trên giao diện không còn nút chọn cảnh, vì bộ não quyết định cảnh.
 
 ### Với broker MQTT
 
@@ -85,7 +106,7 @@ Trỏ vào broker của Pi: `MQTT_URL=mqtt://pi.local:1883 MQTT_USER=brain MQTT_
 
 ### Ba mức chất lượng
 
-`?quality=full|lite|css`, nhớ bằng `localStorage` khi bấm nút `QUALITY` trên header (đổi tay sẽ tải lại trang).
+Mặc định `full`. Nút `QUALITY` trên header chuyển `full` ↔ `lite` và nhớ bằng `localStorage` (đổi tay sẽ tải lại trang). `css` chỉ dùng khi gọi rõ `?quality=css` (kiosk Pi).
 
 | Mức | Khác biệt |
 |---|---|
@@ -93,7 +114,7 @@ Trỏ vào broker của Pi: `MQTT_URL=mqtt://pi.local:1883 MQTT_USER=brain MQTT_
 | `lite` | không bloom, ~1.500 hạt, pixel ratio 1, tắt mưa ký tự và scanline |
 | `css` | **không tạo WebGL context**; quả cầu dựng bằng CSS/SVG |
 
-Tự hạ cấp khi không chọn tay: `full` dưới 30 FPS trong 3 giây → `lite`; `lite` dưới 24 FPS → `css`; không có WebGL → `css`;
+Tự hạ cấp khi không chọn tay: `full` dưới 30 FPS trong 3 giây → `lite` (không bao giờ tự rơi xuống `css`); không có WebGL → `css`;
 `prefers-reduced-motion` → `css` và tắt animation.
 
 ## Kiểm tra

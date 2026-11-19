@@ -29,7 +29,7 @@ test('?quality=css never creates a WebGL context and draws the orb with CSS/SVG'
   await expect(page.locator('#qTxt')).toHaveText('CSS');
   // the css orb follows the scene: it is moved and sized by the same state as the WebGL orb
   const idleBox = (await page.locator('#orbCss').boundingBox())!;
-  await page.locator('#dock button[data-mode="research"]').click();
+  await page.evaluate((m) => (location.hash = `#${m}`), 'research');
   await page.waitForTimeout(2200);
   const parkBox = (await page.locator('#orbCss').boundingBox())!;
   expect(parkBox.width).toBeLessThan(idleBox.width * 0.7);
@@ -40,7 +40,7 @@ test('?quality=css has no WebGL context in every scene', async ({ page }) => {
   await recordContexts(page);
   await page.goto('/?quality=css');
   for (const m of ['listen', 'think', 'research', 'locate', 'vision', 'briefing', 'focus', 'alert', 'success', 'sleep']) {
-    await page.locator(`#dock button[data-mode="${m}"]`).click();
+    await page.evaluate((m) => (location.hash = `#${m}`), m);
     await page.waitForTimeout(250);
   }
   expect((await contexts(page)).filter(isGl)).toEqual([]);
@@ -59,7 +59,7 @@ test('?quality=full creates WebGL, bloom on, rain and scanlines kept', async ({ 
 test('?quality=lite: WebGL without bloom, no code rain, no scanlines', async ({ page }) => {
   await recordContexts(page);
   await page.goto('/?quality=lite');
-  await page.locator('#dock button[data-mode="alert"]').click();
+  await page.evaluate((m) => (location.hash = `#${m}`), 'alert');
   await page.waitForTimeout(1500);
   expect(await tier(page)).toBe('lite');
   expect((await contexts(page)).filter(isGl).length).toBeGreaterThan(0);
@@ -76,7 +76,7 @@ test('prefers-reduced-motion: css tier, no WebGL, no running CSS animation', asy
   expect(await tier(page)).toBe('css');
   expect((await contexts(page)).filter(isGl)).toEqual([]);
   for (const m of ['idle', 'research', 'alert', 'sleep']) {
-    await page.locator(`#dock button[data-mode="${m}"]`).click();
+    await page.evaluate((m) => (location.hash = `#${m}`), m);
     await page.waitForTimeout(600);
     expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length), m).toBe(0);
   }
@@ -99,7 +99,7 @@ test('without WebGL support the page falls back to css by itself', async ({ page
   expect(wt.errors).toEqual([]);
 });
 
-test('a slow display is lowered automatically: full -> lite -> css', async ({ page }) => {
+test('a slow display is lowered automatically: full -> lite, and never to css', async ({ page }) => {
   await page.addInitScript(() => {
     // ~10 fps animation frames
     window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 100) as unknown as number;
@@ -107,8 +107,8 @@ test('a slow display is lowered automatically: full -> lite -> css', async ({ pa
   await page.goto('/');
   expect(await tier(page)).toBe('full');
   await expect.poll(() => tier(page), { timeout: 15_000, intervals: [250] }).toBe('lite');
-  await expect.poll(() => tier(page), { timeout: 20_000, intervals: [250] }).toBe('css');
-  await expect(page.locator('#orbCss')).toBeVisible();
+  await page.waitForTimeout(8000); // two more measuring windows at ~10 fps
+  expect(await tier(page)).toBe('lite');
   await expect(page.locator('#qBtn')).toHaveAttribute('aria-label', /set automatically/);
 });
 
@@ -130,9 +130,7 @@ test('the header button changes the tier by hand and the choice is remembered', 
   expect(new URL(page.url()).searchParams.has('quality')).toBe(false);
   await page.reload();
   expect(await tier(page)).toBe('lite'); // remembered
-  await page.locator('#qBtn').click(); // lite -> css
-  await expect(page.locator('#qTxt')).toHaveText('CSS');
-  await page.locator('#qBtn').click(); // css -> full
+  await page.locator('#qBtn').click(); // lite -> full (css is not on the button)
   await expect(page.locator('#qTxt')).toHaveText('FULL');
   expect(await page.evaluate(() => localStorage.getItem('vega.quality'))).toBe('full');
 });

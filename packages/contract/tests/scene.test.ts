@@ -64,7 +64,7 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
       builds: { passing: 2, failing: 1, repo: 'x' },
     },
     focus: { kicker: 'k', minutes: 25, hint: 'h' },
-    alert: { title: 't', ref: 'r', error: 'e', note: 'n' },
+    alert: { title: 't', ref: 'r', error: 'e', note: 'n', confirm: true },
     success: { title: 't', ref: 'r', checks: ['a'] },
     sleep: { title: 't', lightsOffSeconds: 30, alarm: '07:00', dnd: true },
   };
@@ -77,7 +77,7 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
     vision: { camera: 5 },
     briefing: { agenda: [{ time: '09:00' }] },
     focus: { minutes: 0 },
-    alert: { error: 5 },
+    alert: { confirm: 'yes' },
     success: { checks: 'all' },
     sleep: { lightsOffSeconds: -1 },
   };

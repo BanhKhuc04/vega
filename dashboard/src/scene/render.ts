@@ -251,6 +251,10 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     text(q('.alert-card .hd .id'), d.ref);
     text(q('.alert-card .err'), d.error);
     text(q('.alert-card > .t'), d.note);
+    for (const sel of ['#aConfirm', '#aCancel']) {
+      const b = q(sel);
+      if (b) b.hidden = !d.confirm; // Confirm / Cancel only on a confirmation card from the brain
+    }
   },
   success(d, q) {
     heading(q('[data-tpl=success] .hd [data-scr]'), 'deployed', d.title);

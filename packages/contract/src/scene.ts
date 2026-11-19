@@ -100,6 +100,8 @@ export const alertData = z.object({
   ref: sn(60).optional(),
   error: sn(300).optional(),
   note: sn(160).optional(),
+  /** A confirmation the brain is waiting for: the card shows Confirm / Cancel, which send "yes" / "no". */
+  confirm: z.boolean().optional(),
 });
 
 export const successData = z.object({

@@ -14,6 +14,7 @@ export function recordingBus() {
   const scenes: SceneMessage[] = [];
   const results: { id: string; text: string }[] = [];
   const sets: { device: string; on: boolean }[] = [];
+  const usage: Parameters<Bus['usage']>[0][] = [];
   const bus: Bus = {
     scene(s) {
       const r = parseScene({ v: 1, ...s });
@@ -22,9 +23,10 @@ export function recordingBus() {
     },
     result: (id, text) => results.push({ id, text }),
     setDevice: (room, id, on) => sets.push({ device: `${room}/${id}`, on }),
+    usage: (u) => usage.push(u),
   };
   const thinks = () => scenes.filter((s): s is Extract<SceneMessage, { scene: 'think' }> => s.scene === 'think');
-  return { bus, scenes, results, sets, thinks };
+  return { bus, scenes, results, sets, thinks, usage };
 }
 
 export function makeAgent(opts: { env?: Record<string, string>; chat?: ChatFn; config?: Partial<Config>; temp?: number; deps?: Partial<AgentDeps> } = {}) {

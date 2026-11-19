@@ -34,8 +34,26 @@ const commandResult = z.object({
   result: z.string().max(500),
 });
 
+/** AI spending of the brain on one local day, from its cost ledger (published after every LLM call). */
+const llmUsage = z.object({
+  v,
+  type: z.literal('llm_usage'),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  spent_usd: num.min(0),
+  budget_usd: num.min(0),
+  calls: z.number().int().min(0),
+  tokens_in: z.number().int().min(0),
+  tokens_out: z.number().int().min(0),
+});
+
 /** `vega/system/events`: one topic, discriminated by `type`. */
-export const systemEvent = z.discriminatedUnion('type', [ci, nextEvent, co2Series, commandResult]);
+export const systemEvent = z.discriminatedUnion('type', [ci, nextEvent, co2Series, commandResult, llmUsage]);
+
+/** Local calendar day `YYYY-MM-DD` (the brain's budget day; the display compares against it). */
+export function localDay(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 export type SystemEvent = z.infer<typeof systemEvent>;
 
 /** `vega/system/command`: published by the UI. */

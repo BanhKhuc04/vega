@@ -73,11 +73,15 @@ export class MockSource implements VegaDataSource {
   }
 
   onScene(_listener: (s: SceneMessage) => void): () => void {
-    return () => {}; // SIM has no brain; scenes come from the dock, hash and command bar
+    return () => {}; // SIM has no brain; scenes come from #hash only
   }
 
-  sendCommand(_text: string): boolean {
-    return false;
+  onResult(_listener: (id: string, text: string) => void): () => void {
+    return () => {};
+  }
+
+  sendCommand(_text: string): string | null {
+    return null;
   }
 
   private emit(): void {

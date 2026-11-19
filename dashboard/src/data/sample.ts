@@ -1,3 +1,4 @@
+import { localDay } from '@vega/contract';
 import type { Snapshot } from './types';
 
 /** CO₂ series used by the template's chart and sparkline (24 hourly values, scale 0–1500, threshold 1000). */
@@ -30,6 +31,7 @@ export function emptySnapshot(kind: 'mock' | 'mqtt', primaryRoom = 'bedroom'): S
     presence: null,
     devices: [],
     ci: null,
+    ai: null,
     next: null,
     co2Series: null,
     pi: null,
@@ -55,6 +57,7 @@ export function sampleSnapshot(now: number): Snapshot {
     presence: true,
     devices: kinds.map(([id, kind]) => ({ id, kind, online: true })),
     ci: { repo: 'firmware-esp', failed: 1, ts: now - 4 * 60_000 },
+    ai: { day: localDay(now), spentUsd: 0.0012, budgetUsd: 0.05, calls: 4 },
     next: { title: 'lab report', detail: 'computer networks', at: nextLocal(16, 30, now) },
     co2Series: { room: 'bedroom', values: SAMPLE_CO2, thresholdPpm: 1000, maxPpm: 1500 },
     pi: { cpuPct: BASELINE.cpuPct, tempC: BASELINE.piTempC, memPct: 41, uptimeS: 6 * 86400 },

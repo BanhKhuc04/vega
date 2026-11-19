@@ -2,9 +2,11 @@
  *  no code rain, no scanlines; css = no WebGL context at all, the orb is drawn with CSS/SVG. */
 export type Quality = 'full' | 'lite' | 'css';
 export const QUALITIES: readonly Quality[] = ['full', 'lite', 'css'];
+/** Tiers the owner can pick and the watchdog can fall to on a PC. `css` is only for `?quality=css` (the Pi kiosk),
+ *  no WebGL, or reduced motion: it never comes from a slow frame rate or the header button. */
+export const PICKABLE: readonly Quality[] = ['full', 'lite'];
 
 export const FULL_MIN_FPS = 30;
-export const LITE_MIN_FPS = 24;
 export const FPS_WINDOW_MS = 3000;
 export const FPS_WARMUP_MS = 1000;
 
@@ -20,7 +22,8 @@ const KEY = 'vega.quality';
 
 export function readStoredQuality(): Quality | null {
   try {
-    return parseQuality(localStorage.getItem(KEY));
+    const q = parseQuality(localStorage.getItem(KEY));
+    return q && PICKABLE.includes(q) ? q : null; // an old stored `css` no longer pins the page to css
   } catch {
     return null;
   }
@@ -62,10 +65,9 @@ export function probeWebGL(): boolean {
   }
 }
 
-/** The tier to fall back to for a measured FPS, or null if the current tier is fine. */
+/** The tier to fall back to for a measured FPS, or null if the current tier is fine. `lite` is the floor. */
 export function nextQuality(current: Quality, fps: number): Quality | null {
   if (current === 'full' && fps < FULL_MIN_FPS) return 'lite';
-  if (current === 'lite' && fps < LITE_MIN_FPS) return 'css';
   return null;
 }
 
