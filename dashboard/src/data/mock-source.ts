@@ -1,6 +1,6 @@
 import type { SceneMessage } from '@vega/contract';
 import { BASELINE, SAMPLE_CO2, sampleSnapshot } from './sample';
-import type { Snapshot, VegaDataSource } from './types';
+import type { ResultExtra, Snapshot, VegaDataSource } from './types';
 
 export interface MockOptions {
   now?: () => number;
@@ -76,7 +76,7 @@ export class MockSource implements VegaDataSource {
     return () => {}; // SIM has no brain; scenes come from #hash only
   }
 
-  onResult(_listener: (id: string, text: string) => void): () => void {
+  onResult(_listener: (id: string, text: string, extra: ResultExtra) => void): () => void {
     return () => {};
   }
 

@@ -1,7 +1,7 @@
 import mqtt from 'mqtt';
 import type { MqttClient } from 'mqtt';
 import { PAYLOAD_VERSION, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
-import type { SceneMessage } from '@vega/contract';
+import type { SceneMessage, SourceRef } from '@vega/contract';
 
 /** A scene as the brain writes it: the envelope fields `v` and `ts` are added on publish. */
 export type SceneOut = SceneMessage extends infer S ? (S extends SceneMessage ? Omit<S, 'v' | 'ts'> : never) : never;
@@ -9,7 +9,8 @@ export type SceneOut = SceneMessage extends infer S ? (S extends SceneMessage ? 
 /** Everything the brain sends. Every payload is built and validated with @vega/contract before it leaves. */
 export interface Bus {
   scene(s: SceneOut): void;
-  result(id: string, text: string): void;
+  /** The answer to a command; `speak` is read aloud instead of the text, `sources` are the links it cites. */
+  result(id: string, text: string, extra?: { speak?: string; sources?: SourceRef[] }): void;
   setDevice(room: string, id: string, on: boolean): void;
   /** Stats of the machine the brain runs on (the Pi). */
   pi(s: { cpuPct: number; memPct: number; tempC: number | null; uptimeS: number }): void;
@@ -33,8 +34,15 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
       const msg = sceneMessage.parse({ v, ts: new Date(now()).toISOString(), ...s });
       client.publish(UI_SCENE, JSON.stringify(msg), { retain: true });
     },
-    result(id, text) {
-      const msg = systemEvent.parse({ v, type: 'command_result', id, result: text.slice(0, 500) });
+    result(id, text, extra = {}) {
+      const msg = systemEvent.parse({
+        v,
+        type: 'command_result',
+        id,
+        result: text.slice(0, 2000),
+        ...(extra.speak && { speak: extra.speak.slice(0, 300) }),
+        ...(extra.sources?.length && { sources: extra.sources.slice(0, 8) }),
+      });
       client.publish(eventTopic('command_result'), JSON.stringify(msg), { retain: true });
     },
     setDevice(room, id, on) {

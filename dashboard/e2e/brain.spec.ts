@@ -16,6 +16,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fakeGithub } from '../../brain/tests/fakegithub';
 import { fakeGoogle } from '../../brain/tests/fakegoogle';
+import { CO2_PAGES, fakeTavily } from '../../brain/tests/faketavily';
+import type { ChatFn } from '../../brain/src/agent';
 import { T, watch } from './helpers';
 import type { Watch } from './helpers';
 
@@ -239,5 +241,40 @@ test('M4: calendar and mail answered locally, the briefing on screen, a reminder
     expect(w.external).toEqual([]);
   } finally {
     await g.close();
+  }
+});
+
+test('M6: "nghiên cứu …" walks the Research screen and answers with 3+ clickable sources; only the summary is read aloud', async ({ browser }) => {
+  const tv = await fakeTavily();
+  tv.setDefault(CO2_PAGES);
+  const summary = 'SCD40 dễ dùng nhất với ESP8266, MH-Z19B rẻ nhất, SenseAir S8 ổn định nhất.';
+  const chat: ChatFn = async (_p, req) => {
+    const system = req.messages.find((m) => m.role === 'system')?.content ?? '';
+    const content = system.startsWith('You plan web searches')
+      ? JSON.stringify({ queries: ['cảm biến CO2 rẻ ESP8266', 'cheap CO2 sensor ESP8266'] })
+      : JSON.stringify({ summary, answer: 'SCD40 dùng I2C, 3.3 V [1][4]. MH-Z19B rẻ nhất, khoảng 15 USD [2]. SenseAir S8 ổn định nhất [3].' });
+    return { message: { role: 'assistant', content }, usage: { in: 500, out: 150 } };
+  };
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', BRAIN_DB: ':memory:', ...tv.env }), { chat });
+  try {
+    const { page, w } = await openPage(browser);
+    await say(page, 'nghiên cứu cảm biến CO2 rẻ nhất cho ESP8266');
+    await expect.poll(() => mode(page), { timeout: T(4000) }).toBe('research');
+    await expect(page.locator('#rtitle')).toHaveText('nghiên cứu cảm biến CO2 rẻ nhất cho ESP8266');
+    const links = page.locator('#chat .msg.vega .src a');
+    await expect(links).toHaveCount(4, { timeout: T(4000) });
+    expect(await links.evaluateAll((as) => as.map((a) => [(a as HTMLAnchorElement).href, (a as HTMLAnchorElement).target]))).toEqual([
+      ['https://sensors.example.com/co2-compare', '_blank'],
+      ['https://blog.example.net/scd40-esp8266', '_blank'],
+      ['https://winsen.example.cn/mh-z19b', '_blank'],
+      ['https://www.homelab.example.org/s8-review', '_blank'],
+    ]);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __spoken: { text: string }[] }).__spoken.at(-1)?.text)).toBe(summary);
+    expect(tv.seen.length).toBe(2);
+    expect(w.errors).toEqual([]);
+    expect(w.external).toEqual([]);
+  } finally {
+    await tv.close();
   }
 });

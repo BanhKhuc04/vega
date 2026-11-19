@@ -16,7 +16,7 @@ export interface Provider {
   maxOut?: number;
 }
 
-export const TASKS = ['router', 'chat'] as const;
+export const TASKS = ['router', 'chat', 'research'] as const;
 export type Task = (typeof TASKS)[number];
 
 export interface Config {
@@ -31,7 +31,7 @@ export interface Config {
   confirmTtlS: number;
   llmTimeoutMs: number;
   providers: Record<string, Provider>;
-  /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran. null = no LLM. */
+  /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran; `research` plans and writes research (M6). null = no LLM. */
   tasks: Record<Task, string | null>;
   /** GitHub Actions watching (M3). null = off (no token or no repos). */
   github: GithubConfig | null;
@@ -41,6 +41,10 @@ export interface Config {
   google: GoogleConfig | null;
   /** Open-Meteo forecast for the briefing (M4). null = no coordinates. */
   weather: { lat: number; lon: number; apiUrl: string } | null;
+  /** Web search (M6, Tavily). null = no key: research is off. */
+  search: { apiKey: string; apiUrl: string; maxMonth: number } | null;
+  /** Limits of one research: USD for all its LLM calls, output tokens of the answer. */
+  research: { maxUsd: number; maxOut: number };
   /** Local time of the daily briefing, `HH:MM`. */
   briefingAt: string;
   /** Language of what VEGA says on its own (the briefing, reminders): `vi` or `en`. */
@@ -174,6 +178,10 @@ export function loadConfig(env: Env = process.env): Config {
     return null;
   };
   const router = pick(env.LLM_ROUTER, 'router');
+  const chatTask = env.LLM_CHAT ? pick(env.LLM_CHAT, 'chat') : router;
+  const searchKey = env.TAVILY_API_KEY?.trim();
+  const searchUrl = (env.TAVILY_API_URL?.trim() || 'https://api.tavily.com').replace(/\/+$/, '');
+  if (searchKey && !SAFE_URL.test(searchUrl)) warnings.push('TAVILY_API_URL must be https (or http on localhost): research is off');
   const dbPath = env.BRAIN_DB || 'brain.db';
   const briefingAt = /^([01]\d|2[0-3]):[0-5]\d$/.test(env.BRIEFING_AT ?? '') ? env.BRIEFING_AT! : '07:00';
   if (env.BRIEFING_AT && briefingAt !== env.BRIEFING_AT) warnings.push(`BRIEFING_AT=${env.BRIEFING_AT}: expected HH:MM, using 07:00`);
@@ -188,7 +196,9 @@ export function loadConfig(env: Env = process.env): Config {
     confirmTtlS: num(env.CONFIRM_TTL_S, 30, 5),
     llmTimeoutMs: num(env.LLM_TIMEOUT_MS, 20_000, 1000),
     providers: provs,
-    tasks: { router, chat: env.LLM_CHAT ? pick(env.LLM_CHAT, 'chat') : router },
+    tasks: { router, chat: chatTask, research: env.LLM_RESEARCH ? pick(env.LLM_RESEARCH, 'research') : chatTask },
+    search: searchKey && SAFE_URL.test(searchUrl) ? { apiKey: searchKey, apiUrl: searchUrl, maxMonth: num(env.SEARCH_MAX_MONTH, 900, 1) } : null,
+    research: { maxUsd: num(env.RESEARCH_MAX_USD, 0.01), maxOut: num(env.RESEARCH_MAX_OUTPUT_TOKENS, 800, 100) },
     github: github(env, warnings),
     piStats: env.PI_STATS === '1',
     google: google(env, dbPath, warnings),

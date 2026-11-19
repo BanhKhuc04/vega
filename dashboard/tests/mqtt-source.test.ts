@@ -136,10 +136,17 @@ describe('MqttSource', () => {
   it('passes the brain answers (command_result) on with their command id', async () => {
     const { client, src } = await setup();
     const got: [string, string][] = [];
-    src.onResult((id, text) => got.push([id, text]));
+    const extras: unknown[] = [];
+    src.onResult((id, text, extra) => {
+      got.push([id, text]);
+      extras.push(extra);
+    });
     msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-1', result: 'Xin chào!' }));
     msg(client, 'vega/system/events/command_result', '{broken');
-    expect(got).toEqual([['UI-1', 'Xin chào!']]);
+    msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-2', result: 'A [1]', speak: 'A.', sources: [{ n: 1, title: 'T', url: 'https://x.example.com/' }] }));
+    msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-3', result: 'bad', sources: [{ n: 1, title: 'T', url: 'javascript:alert(1)' }] }));
+    expect(got).toEqual([['UI-1', 'Xin chào!'], ['UI-2', 'A [1]']]);
+    expect(extras).toEqual([{ speak: null, sources: [] }, { speak: 'A.', sources: [{ n: 1, title: 'T', url: 'https://x.example.com/' }] }]);
   });
 
   it('passes on what the brain says on its own (announce)', async () => {

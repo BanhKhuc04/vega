@@ -3,6 +3,7 @@ import type { CoreStateMsg, DeviceKind, Risk } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
 import { netStats, piStats, systemEvent } from './system';
+import type { SourceRef } from './system';
 import { CORE_STATE, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
 
 /** One MQTT message, decoded and validated. */
@@ -13,7 +14,7 @@ export type Update =
   | { type: 'ci'; repo: string; failed: number; ts: number }
   | { type: 'nextEvent'; title: string; detail: string | null; at: number }
   | { type: 'co2Series'; room: string; values: number[]; thresholdPpm: number; maxPpm: number }
-  | { type: 'commandResult'; id: string; result: string }
+  | { type: 'commandResult'; id: string; result: string; speak: string | null; sources: SourceRef[] }
   | { type: 'announce'; text: string; ts: number }
   | { type: 'llmUsage'; day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }
   | { type: 'core'; state: CoreStateMsg['state'] }
@@ -59,7 +60,7 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
         case 'co2_series':
           return { type: 'co2Series', room: e.room, values: e.values, thresholdPpm: e.threshold_ppm ?? 1000, maxPpm: e.max_ppm ?? 1500 };
         case 'command_result':
-          return { type: 'commandResult', id: e.id, result: e.result };
+          return { type: 'commandResult', id: e.id, result: e.result, speak: e.speak ?? null, sources: e.sources ?? [] };
         case 'announce':
           return { type: 'announce', text: e.text, ts: t(e.ts, now) };
         case 'llm_usage':

@@ -146,6 +146,12 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
         if (!thr.getAttribute('style')) thr.removeAttribute('style');
       }
     }
+    // a research the brain runs (it sends its steps): a panel it has no data for is hidden, not filled with the template sample
+    const live = d.steps !== undefined;
+    const co2Panel = q('[data-p=co2]');
+    if (co2Panel) co2Panel.hidden = live && !c;
+    const cmpPanel = q('[data-p=compare]');
+    if (cmpPanel) cmpPanel.hidden = live && !d.compare;
     // steps
     list(q('#steps'), d.steps, (x: { label: string; state: string }) => {
       const li = node('li', '', x.label);

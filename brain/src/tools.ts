@@ -22,7 +22,8 @@ export type ToolCall =
   | { name: 'list_reminders'; args: Record<string, never> }
   | { name: 'cancel_reminder'; args: { id: number } }
   | { name: 'snooze'; args: Record<string, never> }
-  | { name: 'focus_stop'; args: Record<string, never> };
+  | { name: 'focus_stop'; args: Record<string, never> }
+  | { name: 'web_search'; args: { query: string } };
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
@@ -47,7 +48,7 @@ export interface PersonalTools {
  * Tool definitions for the LLM, generated from the registry: the device and room enums are whatever the devices
  * declared, so a new device needs no code. `physical: false` leaves out the tools that act on the world.
  */
-export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools } = {}): ToolSpec[] {
+export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools; search?: boolean } = {}): ToolSpec[] {
   const fn = (name: ToolName, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ToolSpec => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
@@ -66,6 +67,11 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
     specs.push(
       fn('ci_status', 'State of the GitHub Actions builds of the watched repositories (which workflows fail, with commit).'),
       fn('ci_explain', 'Read the log of the latest failed build (optionally of one repository) to explain why it failed.', { repo: { type: 'string', enum: opts.ciRepos } }),
+    );
+  }
+  if (opts.search) {
+    specs.push(
+      fn('web_search', 'Search the web once for recent facts (prices, news, versions). Returns up to 5 numbered results; cite them as [1], [2] in the answer. At most one search per question.', { query: { type: 'string', description: 'A few words.' } }, ['query']),
     );
   }
   const p = opts.personal;
@@ -119,6 +125,9 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
     case 'snooze':
     case 'focus_stop':
       return { ok: true, call: { name, args: {} } };
+    case 'web_search':
+      if (typeof a.query !== 'string' || !a.query.trim() || a.query.length > 300) return { ok: false, error: 'query must be 1-300 characters' };
+      return { ok: true, call: { name, args: { query: a.query.trim() } } };
     case 'calendar_list':
       if (a.day !== 'today' && a.day !== 'tomorrow' && a.day !== 'next') return { ok: false, error: 'day must be today, tomorrow or next' };
       return { ok: true, call: { name, args: { day: a.day } } };
@@ -169,6 +178,7 @@ export function chipLabel(c: ToolCall): string {
     : c.name === 'calendar_list' ? c.args.day
     : c.name === 'add_reminder' ? hhmm(c.args.at)
     : c.name === 'cancel_reminder' ? `#${c.args.id}`
+    : c.name === 'web_search' ? c.args.query
     : '';
   return `${c.name}${arg ? ` ${arg}` : ''}`.slice(0, 40);
 }

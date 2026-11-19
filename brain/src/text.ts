@@ -9,6 +9,10 @@ export function fold(s: string): string {
     .trim();
 }
 
+/** Wraps outside content (a log, an email, a web page) so it cannot close its own tag. */
+export const wrapExternal = (x: { source: string; content: string }) =>
+  `<external source="${x.source.replace(/[^\w.-]/g, '')}">\n${x.content.replace(/<\/?external/gi, '‹external')}\n</external>`;
+
 /** Cuts `s` to `max` characters on a word boundary, with an ellipsis. */
 export function clip(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();

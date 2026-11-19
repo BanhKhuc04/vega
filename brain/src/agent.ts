@@ -7,12 +7,15 @@ import { RateLimiter, reply } from './guard';
 import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
 import { routeLocal } from './local';
+import { research } from './research';
+import { WebSearch, hostOf } from './search';
 import { parseReminder } from './remind';
 import { label, needsConfirm, roomLabel } from './registry';
 import type { Metric, Registry } from './registry';
 import { dayOf } from './store';
 import type { Store } from './store';
-import { clip } from './text';
+import { clip, fold, wrapExternal } from './text';
+import type { SourceRef } from '@vega/contract';
 import { PHYSICAL, chipLabel, parseToolCall, toolSpecs } from './tools';
 import type { ToolCall } from './tools';
 
@@ -35,6 +38,10 @@ export interface Outcome {
   path: Path;
   calls: ToolCall[];
   llmCalls: number;
+  /** Read aloud instead of the answer (a research summary). */
+  speak?: string;
+  /** Links the answer cites as [n]. */
+  sources?: SourceRef[];
 }
 export interface ToolResult {
   ok: boolean;
@@ -53,6 +60,10 @@ interface Run {
   confirmed: boolean;
   /** Language of the command, for the M4 answers. */
   lang: Lang;
+  cmdId: string;
+  /** Web results the LLM saw this run (quick search, M6): at most one search per command. */
+  sources: SourceRef[];
+  searched: boolean;
 }
 interface Chip {
   label: string;
@@ -86,7 +97,7 @@ export const SYSTEM_PROMPT = [
 /** Vietnamese if the command has Vietnamese letters, English if it has English words, else the configured language. */
 export function commandLang(text: string, fallback: Lang): Lang {
   if (/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(text)) return 'vi';
-  return /\b(the|what|whats|is|are|my|any|me|remind|weather|today|tomorrow|stop|new|have|do|reminders?|briefing|calendar|schedule|inbox|snooze|focus)\b/i.test(text) ? 'en' : fallback;
+  return /\b(the|what|whats|is|are|my|any|me|remind|weather|today|tomorrow|stop|new|have|do|reminders?|briefing|calendar|schedule|inbox|snooze|focus|research|compare|look|how|which|best)\b/i.test(text) ? 'en' : fallback;
 }
 
 const METRIC_TEXT: Record<Metric, (room: string, v: number) => string> = {
@@ -96,9 +107,14 @@ const METRIC_TEXT: Record<Metric, (room: string, v: number) => string> = {
 };
 const METRIC_NAME: Record<Metric, string> = { temp: 'temperature', humidity: 'humidity', co2: 'CO₂' };
 
-/** Wraps outside content so it cannot close its own tag. */
-const wrapExternal = (x: ExternalData) =>
-  `<external source="${x.source.replace(/[^\w.-]/g, '')}">\n${x.content.replace(/<\/?external/gi, '‹external')}\n</external>`;
+/** "nghiên cứu …", "tìm hiểu …", "so sánh …", "research …", "/research …": the question, or null. */
+export function researchQuestion(text: string): string | null {
+  const f = fold(text);
+  const slash = /^\s*\/research\s+\S/i.test(text);
+  // the trigger word must be followed by what to research
+  if (!slash && !/^(?:(?:vega oi|hey vega|vega) )?(?:nghien cuu|tim hieu|so sanh|research|look up|compare) (?:ve )?\S/.test(f)) return null;
+  return text.replace(/^\s*\/research\s*/i, '').trim();
+}
 
 /**
  * One command in, one answer out. Local router first (no LLM); otherwise the LLM picks tools in a short loop.
@@ -112,17 +128,19 @@ export class Agent {
   private budgetShown = '';
   private readonly limiter: RateLimiter;
   private pending: { calls: ToolCall[]; expires: number } | null = null;
+  private readonly search: WebSearch | null;
   constructor(private readonly deps: AgentDeps) {
     this.chat = deps.chat ?? httpChat;
     this.log = deps.log ?? (() => {});
     this.now = deps.now ?? Date.now;
     this.limiter = new RateLimiter(deps.config.ratePerMin);
+    this.search = deps.config.search ? new WebSearch(deps.config.search, deps.store, this.now) : null;
   }
 
   async handle(cmd: Command): Promise<Outcome> {
     const { config } = this.deps;
     const now = this.now();
-    const run: Run = { screen: null, pending: [], trusted: cmd.origin === 'owner' && !cmd.external?.length, confirmed: false, lang: commandLang(cmd.text, config.lang) };
+    const run: Run = { screen: null, pending: [], trusted: cmd.origin === 'owner' && !cmd.external?.length, confirmed: false, lang: commandLang(cmd.text, config.lang), cmdId: cmd.id, sources: [], searched: false };
     const done = (out: Outcome) => (this.answer(cmd, out, run), out);
 
     const rl = this.limiter.take(now);
@@ -152,6 +170,8 @@ export class Agent {
       if (rem) local = [{ name: 'add_reminder', args: rem }];
     }
     chips[0]!.state = 'done';
+    const question = !local && run.trusted ? researchQuestion(cmd.text) : null;
+    if (question) return done(await this.runResearch(question, cmd, run));
     const explain = local?.find((c) => c.name === 'ci_explain');
     let out = local ? await this.runLocal(local.filter((c) => c !== explain), chips, run) : await this.runLlm(cmd, chips, run);
     if (explain) {
@@ -176,6 +196,25 @@ export class Agent {
       out = { ...out, path: 'confirm', answer: clip(`Confirm: ${what}? Reply "yes" within ${config.confirmTtlS} s.`, 200) };
     }
     return done(out);
+  }
+
+  /** Research with sources (M6): the pages are outside content, so the run is no longer trusted and offers no tool. */
+  private async runResearch(question: string, cmd: Command, run: Run): Promise<Outcome> {
+    run.trusted = false;
+    const call: ToolCall = { name: 'web_search', args: { query: clip(question, 300) } };
+    if (!this.search) return { answer: L(run.lang, 'Chưa bật tìm web: thêm TAVILY_API_KEY vào .env (README, mục M6).', 'Web search is not set up: add TAVILY_API_KEY to .env (README, section M6).'), path: 'local', calls: [], llmCalls: 0 };
+    const r = await research(question, cmd.id, run.lang, {
+      config: this.deps.config,
+      store: this.deps.store,
+      search: this.search,
+      chat: this.chat,
+      now: this.now,
+      scene: (s) => this.deps.bus.scene(s),
+      publishUsage: () => this.publishUsage(),
+      log: this.log,
+    });
+    run.screen = r.screen;
+    return { answer: r.answer, path: r.path, calls: [call], llmCalls: r.llmCalls, sources: r.sources, ...(r.speak && { speak: r.speak }) };
   }
 
   private async runLocal(calls: ToolCall[], chips: Chip[], run: Run): Promise<Outcome> {
@@ -237,7 +276,7 @@ export class Agent {
     const a = this.deps.assistant;
     const personal = a ? { google: !!config.google, weather: !!config.weather } : undefined;
     // with outside content in play, physical tools are not even offered (recomputed: a tool result can taint the run)
-    const tools = () => toolSpecs(registry, { physical: run.trusted, ciRepos, ...(personal && { personal }) });
+    const tools = () => toolSpecs(registry, { physical: run.trusted, ciRepos, ...(personal && { personal }), search: !!this.search && !run.searched });
     // the date and time, so the LLM can turn "Friday at 5" into a reminder time
     if (a) messages.splice(1, 0, { role: 'system', content: `Local time now: ${new Date(this.now()).toString()}.` });
     let lastTexts: string[] = [];
@@ -275,7 +314,7 @@ export class Agent {
       const tcs = res.message.tool_calls ?? [];
       if (tcs.length === 0) {
         this.think(chips);
-        return { answer: res.message.content?.trim() || lastTexts.join(' · ') || 'Done.', path: 'llm', calls, llmCalls };
+        return { answer: res.message.content?.trim() || lastTexts.join(' · ') || 'Done.', path: 'llm', calls, llmCalls, ...(run.sources.length && { sources: run.sources }) };
       }
       messages.push(res.message);
       lastTexts = [];
@@ -303,6 +342,19 @@ export class Agent {
 
   /** Runs any tool: the CI ones talk to GitHub, calendar and mail may refresh first (async); the rest is local. */
   private async execAny(c: ToolCall, run: Run): Promise<ToolResult> {
+    if (c.name === 'web_search') {
+      if (!this.search) return { ok: false, text: 'Web search is not set up.' };
+      if (run.searched) return { ok: false, text: 'Only one web search per question.' };
+      run.searched = true;
+      try {
+        const hits = await this.search.search(c.args.query, run.cmdId, 5);
+        run.sources = hits.map((h, i) => ({ n: i + 1, title: h.title, url: h.url }));
+        if (!hits.length) return { ok: true, text: 'No results.' };
+        return { ok: true, text: hits.map((h, i) => `[${i + 1}] ${h.title} (${hostOf(h.url)})\n${clip(h.text, 500)}`).join('\n\n'), external: 'web' };
+      } catch (e) {
+        return { ok: false, text: `Web search failed: ${(e as Error).message}` };
+      }
+    }
     const a = this.deps.assistant;
     if (a && c.name === 'briefing') {
       await a.refresh();
@@ -353,6 +405,8 @@ export class Agent {
         return a ? { ok: true, text: a.cancelReminder(c.args.id, run.lang) } : off();
       case 'snooze':
         return a ? { ok: true, text: a.snooze(run.lang) } : off();
+      case 'web_search':
+        return { ok: false, text: 'web_search runs asynchronously' }; // handled by execAny
       case 'focus_stop': {
         const end = a?.stopFocus(run.lang);
         if (!end) return { ok: true, text: L(run.lang, 'Không có phiên tập trung nào.', 'Not focusing.') };
@@ -443,7 +497,7 @@ export class Agent {
   private answer(cmd: Command, out: Outcome, run: Run): void {
     // during Focus an answer goes to the chat and the Focus screen comes back
     this.deps.bus.scene(run.screen ?? this.deps.assistant?.focusScene() ?? { scene: 'idle', data: { caption: clip(out.answer, 80) } });
-    this.deps.bus.result(cmd.id, out.answer);
+    this.deps.bus.result(cmd.id, out.answer, { ...(out.speak && { speak: out.speak }), ...(out.sources?.length && { sources: out.sources }) });
     this.deps.store.logCommand({ id: cmd.id, ts: this.now(), text: cmd.text, origin: cmd.origin, path: out.path, answer: out.answer, tools: out.calls.map(chipLabel), llmCalls: out.llmCalls });
     this.log(`[brain] ${cmd.id} ${out.path} (${out.llmCalls} LLM) "${cmd.text}" -> ${out.answer}`);
   }

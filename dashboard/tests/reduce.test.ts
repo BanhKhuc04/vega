@@ -70,7 +70,7 @@ describe('applyUpdate', () => {
   it('scenes and command results do not touch state', () => {
     const s = fresh();
     expect(applyUpdate(s, up('vega/ui/scene', { v: 1, scene: 'idle' }))).toBe(s);
-    expect(applyUpdate(s, { type: 'commandResult', id: 'a', result: 'x' })).toBe(s);
+    expect(applyUpdate(s, { type: 'commandResult', id: 'a', result: 'x', speak: null, sources: [] })).toBe(s);
     expect(applyUpdate(s, { type: 'llmUsage', day: '2026-11-19', spentUsd: 0.001, budgetUsd: 0.05, calls: 2, tokensIn: 900, tokensOut: 60 }).ai).toEqual({ day: '2026-11-19', spentUsd: 0.001, budgetUsd: 0.05, calls: 2 });
   });
 });

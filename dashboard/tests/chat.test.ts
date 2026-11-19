@@ -28,6 +28,22 @@ describe('Chat', () => {
     expect(lines()).toEqual(['msg you | Youxin chào', 'msg vega | VEGAXin chào! Tôi có thể giúp gì?']);
   });
 
+  it('cited sources become links that open in a new tab; text stays text', () => {
+    const c = make();
+    c.submit('nghiên cứu cảm biến CO2');
+    c.result('UI-1', 'SCD40 [1], S8 [2].', [
+      { n: 1, title: 'SCD40 <b>vs</b> MH-Z19B', url: 'https://www.sensors.example.com/co2' },
+      { n: 2, title: 'S8 review', url: 'https://homelab.example.org/s8' },
+    ]);
+    const links = [...root.querySelectorAll<HTMLAnchorElement>('.msg.vega .src a')];
+    expect(links.map((a) => [a.textContent, a.href, a.target, a.rel])).toEqual([
+      ['[1] SCD40 <b>vs</b> MH-Z19B', 'https://www.sensors.example.com/co2', '_blank', 'noopener noreferrer'],
+      ['[2] S8 review', 'https://homelab.example.org/s8', '_blank', 'noopener noreferrer'],
+    ]);
+    expect(root.querySelector('.src b')).toBeNull(); // the title is text, not markup
+    expect([...root.querySelectorAll('.src small')].map((s) => s.textContent)).toEqual([' · sensors.example.com', ' · homelab.example.org']);
+  });
+
   it('ignores answers it did not ask for (another tab, an old retained one)', () => {
     const c = make();
     expect(c.result('UI-other', 'nope')).toBe(false);

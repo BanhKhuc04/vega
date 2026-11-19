@@ -27,11 +27,22 @@ const co2Series = z.object({
   threshold_ppm: num.positive().optional(),
   max_ppm: num.positive().optional(),
 });
+/** A source the answer cites as [n] (M6): https only, so a display can link it safely. */
+export const sourceRef = z.object({
+  n: z.number().int().min(1).max(99),
+  title: z.string().min(1).max(120),
+  url: z.string().max(500).regex(/^https:\/\/\S+$/),
+});
+export type SourceRef = z.infer<typeof sourceRef>;
+
 const commandResult = z.object({
   v,
   type: z.literal('command_result'),
   id: z.string().min(1).max(64),
-  result: z.string().max(500),
+  result: z.string().max(2000),
+  /** What to read aloud when it differs from `result` (a research summary without the citations). */
+  speak: z.string().min(1).max(300).optional(),
+  sources: z.array(sourceRef).min(1).max(8).optional(),
 });
 
 /** AI spending of the brain on one local day, from its cost ledger (published after every LLM call). */
