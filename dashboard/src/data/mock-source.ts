@@ -80,6 +80,10 @@ export class MockSource implements VegaDataSource {
     return () => {};
   }
 
+  onAnnounce(_listener: (text: string) => void): () => void {
+    return () => {};
+  }
+
   sendCommand(_text: string): string | null {
     return null;
   }

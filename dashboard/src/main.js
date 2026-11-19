@@ -645,6 +645,7 @@ $('#fEnd').addEventListener('click', () => setMode('idle'));
 $('#aConfirm').addEventListener('click', () => hooks.onCommand && hooks.onCommand('yes'));
 $('#aCancel').addEventListener('click', () => hooks.onCommand && hooks.onCommand('no'));
 $('#aExplain').addEventListener('click', () => hooks.onCommand && hooks.onCommand('sao fail'));
+$('#aLater').addEventListener('click', () => { if (hooks.onCommand) hooks.onCommand('snooze'); setMode('idle'); });
 $('#aOpen').addEventListener('click', () => {
   const url = $('#aOpen').dataset.url;
   if (url && url.startsWith('https://')) window.open(url, '_blank', 'noopener,noreferrer');

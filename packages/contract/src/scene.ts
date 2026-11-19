@@ -106,6 +106,8 @@ export const alertData = z.object({
   explain: z.boolean().optional(),
   /** Page with the details (a CI run): the card shows Open, which opens it in a new tab. https only. */
   url: z.string().max(300).regex(/^https:\/\/\S+$/).optional(),
+  /** A reminder: the card shows Snooze 10 min, which sends "snooze". */
+  snooze: z.boolean().optional(),
 });
 
 export const successData = z.object({

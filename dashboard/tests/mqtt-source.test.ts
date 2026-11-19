@@ -142,6 +142,15 @@ describe('MqttSource', () => {
     expect(got).toEqual([['UI-1', 'Xin chào!']]);
   });
 
+  it('passes on what the brain says on its own (announce)', async () => {
+    const { client, src } = await setup();
+    const got: string[] = [];
+    src.onAnnounce((text) => got.push(text));
+    msg(client, 'vega/system/events/announce', JSON.stringify({ v: 1, type: 'announce', text: 'Nhắc bạn: gọi mẹ', ts: new Date().toISOString() }));
+    msg(client, 'vega/system/events/announce', JSON.stringify({ v: 1, type: 'announce', text: '', ts: new Date().toISOString() }));
+    expect(got).toEqual(['Nhắc bạn: gọi mẹ']);
+  });
+
   it('stop() closes the client', async () => {
     const { client, src } = await setup();
     src.stop();

@@ -127,12 +127,14 @@ describe('missing fields fall back to the template defaults', () => {
     });
   }
   it('alert buttons follow the data: Confirm/Cancel for a confirmation, Explain/Open for a failed build', () => {
-    const shown = () => ['#aConfirm', '#aCancel', '#aExplain', '#aOpen', '#aSnooze'].filter((s) => !$(s).hidden);
+    const shown = () => ['#aConfirm', '#aCancel', '#aExplain', '#aOpen', '#aLater', '#aSnooze'].filter((s) => !$(s).hidden);
     renderScene({ v: 1, scene: 'alert', data: { title: 'confirm action', confirm: true } }, document, hooks);
     expect(shown()).toEqual(['#aConfirm', '#aCancel', '#aSnooze']);
     renderScene({ v: 1, scene: 'alert', data: { title: 'build failed', explain: true, url: 'https://github.com/me/vega/actions/runs/4' } }, document, hooks);
     expect(shown()).toEqual(['#aExplain', '#aOpen', '#aSnooze']);
     expect($('#aOpen').dataset.url).toBe('https://github.com/me/vega/actions/runs/4');
+    renderScene({ v: 1, scene: 'alert', data: { title: 'reminder', error: 'gọi mẹ', snooze: true } }, document, hooks);
+    expect(shown()).toEqual(['#aLater', '#aSnooze']);
     renderScene({ v: 1, scene: 'alert', data: { title: 'plain' } }, document, hooks);
     expect(shown()).toEqual(['#aSnooze']);
     expect($('#aOpen').dataset.url).toBeUndefined();

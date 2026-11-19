@@ -257,6 +257,8 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     }
     const ex = q('#aExplain');
     if (ex) ex.hidden = !d.explain;
+    const later = q('#aLater');
+    if (later) later.hidden = !d.snooze;
     const open = q('#aOpen');
     if (open) {
       open.hidden = !d.url; // https only (checked by the contract)

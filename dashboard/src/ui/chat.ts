@@ -58,6 +58,11 @@ export class Chat {
     return true;
   }
 
+  /** Something the brain says on its own (a reminder, the briefing). */
+  announce(text: string): void {
+    this.add('vega', 'VEGA', text);
+  }
+
   /** A line from VEGA itself (a problem with voice, for instance). */
   note(text: string): void {
     this.add('sys', 'VEGA', text);
