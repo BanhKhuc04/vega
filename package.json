@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "vega": "tsx brain/src/dev.ts",
+    "google-login": "tsx brain/src/google-login.ts",
     "dev": "npm run dev -w dashboard",
     "build": "npm run build -w dashboard",
     "preview": "npm run preview -w dashboard",
