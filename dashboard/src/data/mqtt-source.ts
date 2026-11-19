@@ -38,6 +38,7 @@ export class MqttSource implements VegaDataSource {
   private snap: Snapshot;
   private listeners = new Set<(s: Snapshot) => void>();
   private sceneListeners = new Set<(s: SceneMessage) => void>();
+  private resultListeners = new Set<(id: string, text: string) => void>();
   private client: MqttLikeClient | null = null;
   private connected = false;
   private everConnected = false;
@@ -113,13 +114,18 @@ export class MqttSource implements VegaDataSource {
     return () => this.sceneListeners.delete(listener);
   }
 
-  sendCommand(text: string): boolean {
+  onResult(listener: (id: string, text: string) => void): () => void {
+    this.resultListeners.add(listener);
+    return () => this.resultListeners.delete(listener);
+  }
+
+  sendCommand(text: string): string | null {
     const clean = text.trim();
-    if (!clean || !this.connected || !this.client) return false;
+    if (!clean || !this.connected || !this.client) return null;
     const ts = this.now();
     const id = `UI-${ts.toString(36)}-${this.seq++}`;
     this.client.publish(SYSTEM_COMMAND, JSON.stringify({ v: PAYLOAD_VERSION, id, text: clean, ts: new Date(ts).toISOString() }));
-    return true;
+    return id;
   }
 
   /** Exposed for tests. */
@@ -129,6 +135,10 @@ export class MqttSource implements VegaDataSource {
     if (u.type === 'scene') {
       this.warned = false;
       for (const l of this.sceneListeners) l(u.scene);
+      return;
+    }
+    if (u.type === 'commandResult') {
+      for (const l of this.resultListeners) l(u.id, u.result);
       return;
     }
     if (u.type === 'sceneInvalid') {

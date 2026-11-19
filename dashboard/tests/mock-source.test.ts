@@ -58,7 +58,7 @@ describe('MockSource (SIM mode)', () => {
     off();
     src.step();
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(src.sendCommand('x')).toBe(false);
+    expect(src.sendCommand('x')).toBeNull();
     expect(typeof src.onScene(() => {})).toBe('function');
   });
 });

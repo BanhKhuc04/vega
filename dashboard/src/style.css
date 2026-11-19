@@ -166,6 +166,22 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--hi);outline-off
 .cmd:focus-within{border-color:var(--accent)}
 .cmd input{flex:1;height:36px;border:0;outline:0;background:transparent;color:var(--ink);font:14px 'JetBrains Mono',monospace}
 .cmd input::placeholder{color:#6F84A8}
+/* conversation panel above the command bar; only on the Idle screen (other scenes use the same space) */
+.chat{position:absolute;left:50%;bottom:80px;transform:translateX(-50%);width:min(520px,calc(100% - 32px));max-height:min(28vh,240px);overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--a20);background:rgba(3,6,14,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:29;font:12.5px/1.5 'JetBrains Mono',monospace;color:var(--ink);transition:opacity .3s;scrollbar-width:thin}
+.chat[hidden]{display:none}
+#app:not([data-mode=idle]) .chat{opacity:0;pointer-events:none}
+#app.chatting .caption{visibility:hidden}
+.chat .msg{margin:0;display:flex;gap:10px;align-items:baseline}
+.chat .msg b{flex:none;width:38px;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.chat .msg span{flex:1;min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.chat .vega b{color:var(--accent)}
+.chat .vega span{color:#fff}
+.chat .sys span{color:#FFC24A}
+.chat .wait span::after{content:' …';color:var(--dim)}
+.chat .fail span{color:var(--dim);text-decoration:line-through}
+.cmd .spk[aria-pressed=false] .wave1,.cmd .spk[aria-pressed=false] .wave2{opacity:.15}
+.cmd .ico:disabled{opacity:.35;cursor:not-allowed}
+.cmd .ico.on{color:#fff;background:var(--a35)}
 .ico{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--a35);background:transparent;color:var(--hi);display:grid;place-items:center}
 .ico:hover{border-color:var(--accent);color:#fff}
 .ico.send{background:var(--accent);border-color:var(--accent);color:#03050B}

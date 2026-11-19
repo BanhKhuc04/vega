@@ -18,7 +18,7 @@ export interface HudApi {
 }
 export interface HudModule {
   api: HudApi;
-  hooks: { onCommand: ((text: string) => void) | null };
+  hooks: { onCommand: ((text: string) => void) | null; onMic: (() => void) | null };
   start(): void;
 }
 

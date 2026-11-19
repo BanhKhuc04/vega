@@ -120,16 +120,26 @@ describe('MqttSource', () => {
 
   it('publishes typed commands only while connected', async () => {
     const { client, src } = await setup();
-    expect(src.sendCommand('early')).toBe(false);
+    expect(src.sendCommand('early')).toBeNull();
     client.fire('connect');
-    expect(src.sendCommand(' turn off the light ')).toBe(true);
+    const id = src.sendCommand(' turn off the light ');
+    expect(id).toMatch(/^UI-/);
     const [topic, payload] = client.pubs[0]!;
     expect(topic).toBe(SYSTEM_COMMAND);
-    expect(JSON.parse(payload)).toMatchObject({ v: 1, text: 'turn off the light' });
-    expect(src.sendCommand('  ')).toBe(false);
+    expect(JSON.parse(payload)).toMatchObject({ v: 1, id, text: 'turn off the light' });
+    expect(src.sendCommand('  ')).toBeNull();
     client.fire('close');
-    expect(src.sendCommand('x')).toBe(false);
+    expect(src.sendCommand('x')).toBeNull();
     expect(client.pubs).toHaveLength(1);
+  });
+
+  it('passes the brain answers (command_result) on with their command id', async () => {
+    const { client, src } = await setup();
+    const got: [string, string][] = [];
+    src.onResult((id, text) => got.push([id, text]));
+    msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-1', result: 'Xin chào!' }));
+    msg(client, 'vega/system/events/command_result', '{broken');
+    expect(got).toEqual([['UI-1', 'Xin chào!']]);
   });
 
   it('stop() closes the client', async () => {

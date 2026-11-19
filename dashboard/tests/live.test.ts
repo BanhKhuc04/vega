@@ -115,8 +115,8 @@ describe('LiveBinder', () => {
     const { binder } = mk();
     const before = document.body.innerHTML;
     binder.render(emptySnapshot('mqtt'), NOW);
-    const after = document.body.innerHTML.replace(' hidden=""', '');
-    expect(after).toBe(before.replace(' hidden=""', ''));
+    const after = document.body.innerHTML.replaceAll(' hidden=""', '');
+    expect(after).toBe(before.replaceAll(' hidden=""', ''));
     expect(document.querySelector<HTMLElement>('#sampleTag')!.hidden).toBe(false);
   });
 });
