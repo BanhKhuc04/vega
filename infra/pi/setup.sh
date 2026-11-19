@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VEGA on a Raspberry Pi 3 (Raspberry Pi OS Lite, 64-bit). Safe to run again: every step checks first.
+# VEGA on a Raspberry Pi 3 or 4 (Raspberry Pi OS Lite, 64-bit). Safe to run again: every step checks first.
 #
 #   sudo ./infra/pi/setup.sh               # Docker, zram, secrets, stack, Chromium kiosk
 #   sudo ./infra/pi/setup.sh --no-kiosk    # everything except the kiosk
@@ -90,16 +90,27 @@ step_docker() {
 }
 
 step_zram() {
-  say "zram swap (the Pi 3 has 1 GB of RAM)"
+  say "zram swap (compressed swap in RAM)"
+  # Raspberry Pi OS Trixie sets up zram itself (rpi-swap); zram-tools would then fail on the busy /dev/zram0
+  if swapon --noheadings --show=NAME 2>/dev/null | grep -q zram || dpkg -s rpi-swap >/dev/null 2>&1; then
+    echo "   provided by the OS, keeping it"
+    if systemctl is-enabled zramswap >/dev/null 2>&1; then
+      echo "   turning off the extra zramswap service an earlier run installed"
+      run systemctl disable --now zramswap || true
+      run systemctl reset-failed zramswap || true
+    fi
+    return
+  fi
   run apt-get install -y zram-tools
   if write_if_changed /etc/default/zramswap 0644 <<'CONF'; then
 # managed by VEGA infra/pi/setup.sh
 ALGO=zstd
 PERCENTAGE=50
 CONF
-    run systemctl restart zramswap
+    # swap helps a 1 GB Pi 3 but is not required: a failure here must not stop the install
+    run systemctl restart zramswap || echo "   zram did not start, carrying on without it"
   fi
-  run systemctl enable zramswap
+  run systemctl enable zramswap || true
 }
 
 step_env() {
@@ -174,7 +185,7 @@ step_mosquitto_users() {
 }
 
 step_stack() {
-  say "Starting the stack (the first build of vega-ui takes a few minutes on a Pi 3)"
+  say "Starting the stack (the first build takes 10-20 minutes on a Pi)"
   run "${COMPOSE[@]}" up -d --build
 }
 
