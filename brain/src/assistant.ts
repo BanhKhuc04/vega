@@ -356,10 +356,18 @@ export class Assistant {
         kicker: new Date(now).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }),
         title: hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening',
         summary: clip(parts.slice(1).join(' ') || greet, 200),
-        ...(today.length && { agenda: today.slice(0, 8).map((e) => ({ time: e.allDay ? 'all day' : hhmm(e.start), title: clip(e.title, 60), ...(e === upcoming && { hot: true }) })) }),
-        ...(this.googleOn && this.mail.length && { inbox: this.mail.slice(0, 6).map((m) => ({ from: clip(m.from, 30), subject: clip(m.subject, 100) })) }),
-        ...(roomText && { room: clip(`${roomLabel(reg, room)} ${roomText}`, 200) }),
-        ...(st && { builds: { passing: st.passing.length, failing: st.failing.length, ...(st.failing[0] && { repo: st.failing[0].repo.slice(0, 60) }) } }),
+        // every panel gets real data or says it is empty: a missing field would show the template's sample content
+        agenda: today.length
+          ? today.slice(0, 8).map((e) => ({ time: e.allDay ? 'all day' : hhmm(e.start), title: clip(e.title, 60), ...(e === upcoming && { hot: true }) }))
+          : [{ time: '—', title: this.googleOn && this.calendarAt ? 'Nothing on the calendar' : 'Calendar not connected' }],
+        inbox:
+          this.googleOn && this.mailAt
+            ? this.mail.length
+              ? this.mail.slice(0, 6).map((m) => ({ from: clip(m.from, 30), subject: clip(m.subject, 100) }))
+              : [{ from: '—', subject: 'No new mail' }]
+            : [{ from: '—', subject: 'Gmail not connected' }],
+        room: clip(roomText ? `${roomLabel(reg, room)} ${roomText}` : 'No room readings yet', 200),
+        builds: st ? { passing: st.passing.length, failing: st.failing.length, ...(st.failing[0] && { repo: st.failing[0].repo.slice(0, 60) }) } : { passing: 0, failing: 0 },
       },
     };
     return { scene, speech };

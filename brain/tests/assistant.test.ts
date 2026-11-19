@@ -81,7 +81,7 @@ describe('Assistant (fake Google, fake clock)', () => {
       registry,
       store,
       config,
-      google: new GoogleApi(new GoogleAuth(config.google!), config.google!),
+      google: config.google ? new GoogleApi(new GoogleAuth(config.google), config.google) : null,
       weather: () => fetchWeather(config.weather!),
       now,
       later: (fn) => later.push(fn),
@@ -124,6 +124,18 @@ describe('Assistant (fake Google, fake clock)', () => {
     t = at(7, 30);
     await a.assistant.tick();
     expect(a.scenes.filter((s) => s.scene === 'briefing').length).toBe(1);
+  });
+
+  it('an empty day, no mail, no Google: the briefing says so instead of showing the template sample', async () => {
+    g.setEvents([]);
+    g.setMail([]);
+    t = at(9, 30);
+    let a = setup();
+    await a.agent.handle(owner('briefing'));
+    expect(a.scenes.at(-1)!.data).toMatchObject({ agenda: [{ time: '—', title: 'Nothing on the calendar' }], inbox: [{ from: '—', subject: 'No new mail' }], builds: { passing: 0, failing: 0 } });
+    a = setup({ env: { GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '' } });
+    await a.agent.handle(owner('briefing'));
+    expect(a.scenes.at(-1)!.data).toMatchObject({ agenda: [{ title: 'Calendar not connected' }], inbox: [{ subject: 'Gmail not connected' }] });
   });
 
   it('started after the briefing time: no catching up that day; "briefing" on demand still works', async () => {

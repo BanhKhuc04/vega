@@ -90,7 +90,7 @@ describe('renderScene fills the template from data', () => {
     expect($('.greet .k').textContent).toBe('Thu · 19 Nov · morning briefing');
     expect($('[data-p=b1] .hd [data-scr]').textContent).toBe('today // 2 events');
     expect(document.querySelector('[data-p=b1] .agenda li.hot b')?.textContent).toBe('15:30');
-    expect($('[data-p=b2] .hd [data-scr]').textContent).toBe('inbox // 1 that matter');
+    expect($('[data-p=b2] .hd [data-scr]').textContent).toBe('inbox // 1 unread');
     expect($('[data-p=b4] .t').textContent).toBe('3 passing · 0 failing');
     renderScene(example('focus'), document, hooks);
     expect($('#timer').dataset.total).toBe('3000');
