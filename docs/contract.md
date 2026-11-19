@@ -158,7 +158,7 @@ Rules a display follows (`dashboard/src/scene`):
 | `vision` | `camera` |
 | `briefing` | `kicker`, `title`, `summary`, `agenda[{time,title,hot}]`, `inbox[{from,subject}]`, `room`, `builds{passing,failing,repo}` |
 | `focus` | `kicker`, `minutes` (1–180), `hint` |
-| `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`) |
+| `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`), `explain` (boolean: the card shows Explain, which sends "sao fail"), `url` (https only: the card shows Open, which opens it in a new tab) |
 | `success` | `title`, `ref`, `checks[]` |
 | `sleep` | `title`, `lightsOffSeconds`, `alarm`, `dnd` |
 
@@ -178,6 +178,8 @@ template's simulated pictures; real ones arrive with M7/M8.
 | `vega/system/command` (lệnh của chủ nhân) | `vega/ui/scene` (retained): cảnh `think` cho từng bước, rồi câu trả lời |
 | | `vega/system/events/command_result` (retained): câu trả lời đầy đủ, cùng `id` với lệnh |
 | | `vega/system/events/llm_usage` (retained): tổng chi phí AI hôm nay, sau mỗi lượt gọi |
+| `vega/system/pi` (cho `/status`) | `vega/system/events/ci` (retained, M3): trạng thái CI thật từ GitHub, mỗi 60 giây |
+| | `vega/system/pi` (retained, khi `PI_STATS=1`): nhiệt độ, CPU, RAM, uptime của Pi, mỗi 30 giây |
 
 Một lệnh đi qua màn hình như sau:
 

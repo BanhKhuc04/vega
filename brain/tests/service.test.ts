@@ -8,6 +8,7 @@ import { runSim } from '../../tools/sim/src/simlib';
 import type { Sim } from '../../tools/sim/src/simlib';
 import { loadConfig } from '../src/config';
 import { startBrain } from '../src/service';
+import { fakeGithub } from './fakegithub';
 import type { Brain } from '../src/service';
 
 const wait = async (cond: () => boolean, ms = 5000) => {
@@ -24,17 +25,22 @@ describe('brain service over a real (in-process) broker with the simulator', () 
   let brain: Brain;
   let spy: MqttClient;
   const last = new Map<string, string>();
+  const scenes: { scene: string; data?: Record<string, unknown> }[] = [];
   const cmd = (id: string, text: string, opts: { ts?: string; retain?: boolean } = {}) =>
     spy.publish(SYSTEM_COMMAND, JSON.stringify({ v: 1, id, text, ts: opts.ts ?? new Date().toISOString() }), { retain: opts.retain ?? false });
   const result = () => last.get(eventTopic('command_result'));
 
   beforeEach(async () => {
     last.clear();
+    scenes.length = 0;
     broker = await startBroker({ port: 0, wsPort: -1 });
     const url = `mqtt://127.0.0.1:${broker.port}`;
     spy = mqtt.connect(url, { reconnectPeriod: 0 });
     await new Promise<void>((r) => spy.once('connect', () => r()));
-    spy.on('message', (t, p) => last.set(t, p.toString()));
+    spy.on('message', (t, p) => {
+      last.set(t, p.toString());
+      if (t === 'vega/ui/scene' && p.length) scenes.push(JSON.parse(p.toString()));
+    });
     await spy.subscribeAsync(['vega/#']);
     sim = await runSim({ url, intervalMs: 60_000, piIntervalMs: 60_000 }); // one reading each: stable values
     brain = startBrain(loadConfig({ MQTT_URL: url, LLM_ROUTER: 'mock', BRAIN_DB: ':memory:' }));
@@ -55,6 +61,26 @@ describe('brain service over a real (in-process) broker with the simulator', () 
     await wait(() => JSON.parse(last.get(deviceTopic('livingroom', 'light', 'state'))!).on === true);
     expect(brain.store.llmCallsFor('UI-1')).toBe(0);
     expect(brain.store.lastCommands(1)[0]).toMatchObject({ id: 'UI-1', path: 'local', llmCalls: 0 });
+  });
+
+  it('watches GitHub: the CI/CD row follows the real runs, a broken build raises the Alert scene', async () => {
+    const gh = await fakeGithub();
+    gh.setRuns('me/vega', [{ id: 1, workflow_id: 1, name: 'ci', conclusion: 'success' }]);
+    const b2 = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, BRAIN_DB: ':memory:', GITHUB_TOKEN: gh.token, GITHUB_REPOS: 'me/vega', GITHUB_API_URL: gh.apiUrl }));
+    try {
+      await wait(() => !!last.get(eventTopic('ci')) && JSON.parse(last.get(eventTopic('ci'))!).repo === 'me/vega');
+      expect(JSON.parse(last.get(eventTopic('ci'))!)).toMatchObject({ type: 'ci', repo: 'me/vega', failed: 0 });
+      gh.setRuns('me/vega', [{ id: 2, workflow_id: 1, name: 'ci', conclusion: 'failure', message: 'oops' }]);
+      await b2.ci!.pollOnce();
+      await wait(() => JSON.parse(last.get(eventTopic('ci'))!).failed === 1);
+      // (the shared test sim still runs its own demo rule; `npm run vega` turns it off when GitHub is watched)
+      await wait(() => scenes.some((s) => s.scene === 'alert' && s.data?.url));
+      expect(scenes.find((s) => s.scene === 'alert' && s.data?.url)).toMatchObject({ data: { ref: 'me/vega · ci', url: 'https://github.com/me/vega/actions/runs/2', explain: true } });
+      expect(JSON.stringify([...last.values()])).not.toContain(gh.token); // the token never reaches MQTT
+    } finally {
+      await b2.stop();
+      await gh.close();
+    }
   });
 
   it('ignores retained, stale and malformed commands', async () => {

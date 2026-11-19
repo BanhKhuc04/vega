@@ -11,6 +11,7 @@ import type { Sim } from '../../tools/sim/src/simlib';
 import { loadConfig } from '../../brain/src/config';
 import { startBrain } from '../../brain/src/service';
 import type { Brain } from '../../brain/src/service';
+import { fakeGithub } from '../../brain/tests/fakegithub';
 import { T, watch } from './helpers';
 import type { Watch } from './helpers';
 
@@ -42,7 +43,8 @@ test.beforeEach(async () => {
     }
   });
   await spy.subscribeAsync('vega/#');
-  sim = await runSim({ url, intervalMs: 60_000, piIntervalMs: 60_000 }); // one reading each, so the expected values hold still
+  // one reading each, so the expected values hold still; the brain (not the sim's demo rule) decides CI scenes here
+  sim = await runSim({ url, intervalMs: 60_000, piIntervalMs: 60_000, initialCi: 'none', sceneRule: false });
   brain = startBrain(loadConfig({ MQTT_URL: url, LLM_ROUTER: 'mock', BRAIN_DB: ':memory:' }));
   await expect.poll(() => brain.registry.switches().length && brain.registry.sensors('co2').length, { timeout: 5000 }).toBe(2);
 });
@@ -147,4 +149,40 @@ test('a high-risk device waits for the Confirm button on screen before it switch
   await expect(page.locator('#chat .msg.vega span').last()).toHaveText('Kitchen plug on');
   await expect(page.locator('#caption')).toHaveText('Kitchen plug on', { timeout: T(4000) });
   expect(w.errors).toEqual([]);
+});
+
+test('M3: a broken build on (fake) GitHub raises the Alert with Explain / Open; Explain answers in the chat; green again shows Success', async ({ browser }) => {
+  const gh = await fakeGithub();
+  gh.setRuns('me/vega', [{ id: 1, workflow_id: 1, name: 'ci', conclusion: 'success' }]);
+  gh.setLog(2, ['Run npm test', 'FAIL tests/relay.test.ts', "  error: expected 'on' to be 'off'", 'tắt hết thiết bị', '##[error]Process completed with exit code 1.'].join('\n'));
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', BRAIN_DB: ':memory:', GITHUB_TOKEN: gh.token, GITHUB_REPOS: 'me/vega', GITHUB_API_URL: gh.apiUrl }));
+  try {
+    const { page, w } = await openPage(browser);
+    await expect(page.locator('[data-live="ci"]')).toHaveText('all builds passing', { timeout: T(4000) });
+    await expect(page.locator('[data-live="ciSub"]')).toHaveText(/^me\/vega · /);
+
+    gh.setRuns('me/vega', [{ id: 2, workflow_id: 1, name: 'ci', conclusion: 'failure', message: 'feat: relay timeout', actor: 'khuc' }]);
+    await brain.ci!.pollOnce(); // instead of waiting a minute
+    await expect.poll(() => mode(page), { timeout: T(2000) }).toBe('alert');
+    await expect(page.locator('.alert-card .err')).toHaveText('abcdef2 feat: relay timeout — khuc');
+    await expect(page.locator('.alert-card .hd .id')).toHaveText('me/vega · ci');
+    await expect(page.locator('#aOpen')).toBeVisible();
+    await expect(page.locator('#aOpen')).toHaveAttribute('data-url', 'https://github.com/me/vega/actions/runs/2');
+    await expect(page.locator('[data-live="ci"]')).toHaveText('1 failed build');
+
+    await page.locator('#aExplain').click(); // same as asking "sao fail"
+    await expect(page.locator('#chat .msg.you span').last()).toHaveText('sao fail');
+    await expect(page.locator('#chat .msg.vega span').last()).not.toHaveText('', { timeout: T(4000) });
+    expect(relayOn('livingroom', 'light')).toBe(false); // "tắt hết thiết bị" in the log switched nothing
+    expect(relayOn('kitchen', 'plug')).toBe(false);
+
+    gh.setRuns('me/vega', [{ id: 3, workflow_id: 1, name: 'ci', conclusion: 'success' }]);
+    await brain.ci!.pollOnce();
+    await expect.poll(() => mode(page), { timeout: T(2000) }).toBe('success');
+    expect(w.errors).toEqual([]);
+    expect(w.external).toEqual([]);
+  } finally {
+    await gh.close();
+  }
 });

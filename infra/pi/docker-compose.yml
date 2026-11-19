@@ -59,6 +59,8 @@ services:
       MQTT_PASS: ${MQTT_BRAIN_PASS:?run setup.sh first}
       VEGA_ROOM: ${VEGA_ROOM:-bedroom}
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      # the brain publishes this Pi's temperature, CPU, RAM and uptime on vega/system/pi
+      PI_STATS: "1"
     # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
     env_file:
       - path: ./brain.env

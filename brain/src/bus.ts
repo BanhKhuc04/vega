@@ -1,6 +1,6 @@
 import mqtt from 'mqtt';
 import type { MqttClient } from 'mqtt';
-import { PAYLOAD_VERSION, SYSTEM_COMMAND, UI_SCENE, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
+import { PAYLOAD_VERSION, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
 import type { SceneMessage } from '@vega/contract';
 
 /** A scene as the brain writes it: the envelope fields `v` and `ts` are added on publish. */
@@ -11,12 +11,16 @@ export interface Bus {
   scene(s: SceneOut): void;
   result(id: string, text: string): void;
   setDevice(room: string, id: string, on: boolean): void;
+  /** Stats of the machine the brain runs on (the Pi). */
+  pi(s: { cpuPct: number; memPct: number; tempC: number | null; uptimeS: number }): void;
+  /** CI state for the screen's CI/CD row (retained). */
+  ci(repo: string, failed: number): void;
   /** Today's AI spending (retained, for the screen). */
   usage(u: { day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }): void;
 }
 
 /** Topics the brain listens to. */
-export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_COMMAND];
+export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_PI, SYSTEM_COMMAND];
 
 export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
   const v = PAYLOAD_VERSION;
@@ -31,6 +35,14 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
     },
     setDevice(room, id, on) {
       client.publish(deviceTopic(room, id, 'set'), JSON.stringify(relaySet.parse({ v, on })));
+    },
+    pi(s) {
+      const msg = piStats.parse({ v, ts: new Date(now()).toISOString(), cpu_pct: s.cpuPct, mem_pct: s.memPct, uptime_s: s.uptimeS, ...(s.tempC !== null && { temp_c: s.tempC }) });
+      client.publish(SYSTEM_PI, JSON.stringify(msg), { retain: true });
+    },
+    ci(repo, failed) {
+      const msg = systemEvent.parse({ v, type: 'ci', repo, failed, ts: new Date(now()).toISOString() });
+      client.publish(eventTopic('ci'), JSON.stringify(msg), { retain: true });
     },
     usage(u) {
       const msg = systemEvent.parse({ v, type: 'llm_usage', day: u.day, spent_usd: u.spentUsd, budget_usd: u.budgetUsd, calls: u.calls, tokens_in: u.tokensIn, tokens_out: u.tokensOut });

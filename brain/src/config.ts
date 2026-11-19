@@ -32,8 +32,37 @@ export interface Config {
   providers: Record<string, Provider>;
   /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran. null = no LLM. */
   tasks: Record<Task, string | null>;
+  /** GitHub Actions watching (M3). null = off (no token or no repos). */
+  github: GithubConfig | null;
+  /** Publish this machine's stats on vega/system/pi (the brain on the Pi). */
+  piStats: boolean;
   /** Settings that were ignored, with the reason (logged at start). */
   warnings: string[];
+}
+
+export interface GithubConfig {
+  /** Fine-grained, read-only token (Actions + Metadata). Never logged. */
+  token: string;
+  /** `owner/repo` */
+  repos: string[];
+  apiUrl: string;
+  intervalMs: number;
+}
+
+const REPO = /^[\w.-]+\/[\w.-]+$/;
+const SAFE_URL = /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/;
+
+function github(env: Env, warnings: string[]): GithubConfig | null {
+  const token = env.GITHUB_TOKEN?.trim();
+  const list = (env.GITHUB_REPOS ?? '').split(',').map((r) => r.trim()).filter(Boolean);
+  if (!token && !list.length) return null;
+  const repos = list.filter((r) => REPO.test(r));
+  for (const r of list.filter((r) => !REPO.test(r))) warnings.push(`GITHUB_REPOS: "${r}" ignored, expected owner/repo`);
+  const apiUrl = (env.GITHUB_API_URL?.trim() || 'https://api.github.com').replace(/\/+$/, '');
+  if (!token) return warnings.push('GITHUB_REPOS set but GITHUB_TOKEN missing: CI watching is off'), null;
+  if (!repos.length) return warnings.push('GITHUB_TOKEN set but GITHUB_REPOS has no owner/repo: CI watching is off'), null;
+  if (!SAFE_URL.test(apiUrl)) return warnings.push('GITHUB_API_URL must be https (or http on localhost): CI watching is off'), null;
+  return { token, repos, apiUrl, intervalMs: num(env.GITHUB_POLL_S, 60, 30) * 1000 };
 }
 
 /** Base URLs of common OpenAI-compatible providers, so `.env` only needs the key, the model and the prices. */
@@ -108,6 +137,8 @@ export function loadConfig(env: Env = process.env): Config {
     llmTimeoutMs: num(env.LLM_TIMEOUT_MS, 20_000, 1000),
     providers: provs,
     tasks: { router, chat: env.LLM_CHAT ? pick(env.LLM_CHAT, 'chat') : router },
+    github: github(env, warnings),
+    piStats: env.PI_STATS === '1',
     warnings,
   };
 }

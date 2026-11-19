@@ -43,6 +43,30 @@ AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ ch�
 Cột phải của màn Idle có ô **AI budget · today**: số tiền AI đã dùng hôm nay, còn lại bao nhiêu so với trần `BUDGET_USD_DAY`, số lượt gọi
 (lấy từ sổ chi phí của bộ não). Màn hẹp hơn 900 px thì hai cột số liệu ẩn đi.
 
+### Theo dõi CI trên GitHub (M3)
+
+Thêm vào `.env` (hoặc `infra/pi/brain.env` trên Pi):
+
+```bash
+GITHUB_TOKEN=github_pat_...        # fine-grained, CHỈ ĐỌC: Actions (read) + Metadata (read), chỉ cho các repo cần theo dõi
+GITHUB_REPOS=owner/repo,owner/repo2
+```
+
+Bộ não hỏi GitHub mỗi 60 giây (dùng ETag: kết quả không đổi thì GitHub trả 304, không tốn hạn mức) và xét lần chạy
+**đã hoàn tất mới nhất của từng workflow** trên nhánh mặc định.
+
+| Việc | Kết quả |
+|---|---|
+| Build vừa hỏng | màn **Alert**: repo, workflow, commit, người push; nút **Explain** và **Open on GitHub** |
+| Hỏi `sao fail` / `vì sao build lỗi` / `why did it fail` (hoặc bấm Explain) | VEGA đọc khoảng 150 dòng log quanh lỗi và giải thích ngắn gọn. Không có AI thì trả lời bằng bước bị hỏng và dòng lỗi đầu tiên |
+| Hỏi `ci thế nào` / `build status` | trạng thái các workflow, chạy cục bộ, 0 đồng |
+| Gõ `/status` (hoặc `tình trạng hệ thống`) | Pi (nhiệt độ, CPU, RAM, uptime), thiết bị online, CI, AI budget hôm nay, chạy cục bộ |
+| Build xanh lại | màn **Success** |
+| GitHub không trả lời quá 5 phút | ô CI/CD ghi thêm `stale`; không bắn Alert giả |
+
+Log và thông điệp commit do người khác viết, nên VEGA coi chúng là dữ liệu ngoài: khi chúng có mặt thì không lệnh vật lý nào
+được chạy (`docs/security.md`).
+
 ### Chỉ màn hình, không broker
 
 ```bash

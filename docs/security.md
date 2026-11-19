@@ -56,7 +56,21 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - Mỗi lần gọi LLM ghi một dòng `{model, tokens, usd}` vào SQLite. Vượt trần ngày (`BUDGET_USD_DAY`) thì chỉ dùng cục bộ
   tới nửa đêm, màn hiện chip `BUDGET` một lần. Provider thiếu giá bị bỏ qua, vì không có giá thì không giữ được trần.
 
-## 5. Việc còn lại (ngoài M1)
+## 5. Token GitHub và nội dung từ CI (M3)
+
+- `GITHUB_TOKEN` là token **fine-grained, chỉ đọc**: quyền Actions (read) và Metadata (read), chỉ cho các repo trong
+  `GITHUB_REPOS`. VEGA không cần quyền ghi nào.
+- Token chỉ nằm trong header `Authorization` của request tới API GitHub. Nó không bao giờ xuất hiện trong log, thông báo lỗi
+  hay MQTT (có test). Khi tải log, GitHub chuyển hướng sang kho lưu trữ, và request thứ hai đó được gửi **không kèm token**.
+- `GITHUB_API_URL` chỉ nhận `https` (hoặc `http` tới localhost, dùng cho test).
+- Token sai hoặc thiếu quyền (401/403), hay chạm hạn mức: bộ não ghi một dòng cảnh báo rồi tạm dừng 10 phút trước khi thử lại.
+- Log CI và thông điệp commit là **dữ liệu ngoài**:
+  - "Sao fail" đưa log vào LLM trong thẻ `<external source="ci-log">`, và lượt xử lý đó không có tool vật lý.
+  - Nếu LLM tự gọi `ci_status` / `ci_explain` giữa chừng, kết quả cũng được bọc như dữ liệu ngoài, và từ đó **không còn tool
+    vật lý nào chạy được** trong lượt xử lý đó. Kể cả khi model cố gọi, bộ não vẫn từ chối.
+  - Kiểm chứng: `brain/tests/ci-agent.test.ts` và e2e "M3" (log chứa "tắt hết thiết bị" không bật/tắt được thiết bị nào).
+
+## 6. Việc còn lại
 
 - TLS cho MQTT và truy cập từ xa (M8).
 - User MQTT và ACL riêng cho từng thiết bị (M2), để một ESP không tự khai `risk: low` thay cho thiết bị khác.

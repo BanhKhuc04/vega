@@ -64,7 +64,7 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
       builds: { passing: 2, failing: 1, repo: 'x' },
     },
     focus: { kicker: 'k', minutes: 25, hint: 'h' },
-    alert: { title: 't', ref: 'r', error: 'e', note: 'n', confirm: true },
+    alert: { title: 't', ref: 'r', error: 'e', note: 'n', confirm: true, explain: true, url: 'https://github.com/me/vega/actions/runs/4' },
     success: { title: 't', ref: 'r', checks: ['a'] },
     sleep: { title: 't', lightsOffSeconds: 30, alarm: '07:00', dnd: true },
   };
@@ -77,7 +77,7 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
     vision: { camera: 5 },
     briefing: { agenda: [{ time: '09:00' }] },
     focus: { minutes: 0 },
-    alert: { confirm: 'yes' },
+    alert: { url: 'javascript:alert(1)' },
     success: { checks: 'all' },
     sleep: { lightsOffSeconds: -1 },
   };

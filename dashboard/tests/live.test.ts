@@ -48,6 +48,10 @@ describe('liveText', () => {
     const off = { ...s, devices: s.devices.map((d, i) => (i === 0 ? { ...d, online: false } : d)) };
     expect(liveText(off, NOW)).toMatchObject({ meshOn: '5', meshTotal: '6', meshText: 'MESH · 5/6 ONLINE' });
   });
+  it('CI news older than 5 minutes is marked stale', () => {
+    expect(liveText({ ...sampleSnapshot(NOW), ci: { repo: 'me/vega', failed: 0, ts: NOW - 60_000 } }, NOW).ciSub).toBe('me/vega · 1 min ago');
+    expect(liveText({ ...sampleSnapshot(NOW), ci: { repo: 'me/vega', failed: 0, ts: NOW - 6 * 60_000 } }, NOW).ciSub).toBe('me/vega · 6 min ago · stale');
+  });
   it('green CI, below threshold, away', () => {
     const s = { ...sampleSnapshot(NOW), ci: { repo: 'x', failed: 0, ts: NOW }, presence: false };
     s.env = { ...s.env!, co2Ppm: 640 };

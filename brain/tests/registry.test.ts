@@ -24,7 +24,8 @@ describe('Registry', () => {
 
   it('ignores what is not a device message, or breaks the contract', () => {
     const r = new Registry();
-    expect(r.apply('vega/system/pi', JSON.stringify({ v: 1, cpu_pct: 3 }))).toBe(false);
+    expect(r.apply('vega/system/pi', JSON.stringify({ v: 1, cpu_pct: 3 }))).toBe(true); // Pi stats are kept (for /status), not as a device
+    expect(r.pi).toEqual({ cpuPct: 3, tempC: null, memPct: null, uptimeS: null });
     expect(r.apply('vega/x/y/state', '{bad')).toBe(false);
     expect(r.apply('vega/x/y/meta', JSON.stringify({ v: 1, kind: 'esp8266', risk: 'whatever' }))).toBe(false);
     expect(r.all()).toEqual([]);

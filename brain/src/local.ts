@@ -13,6 +13,11 @@ const SCENES: [SceneName, string[]][] = [
   ['sleep', ['di ngu', 'ngu thoi', 'chuc ngu ngon', 'che do ngu', 'good night', 'goodnight', 'bedtime', 'go to sleep', 'sleep mode', 'sleep']],
   ['focus', ['che do tap trung', 'tap trung', 'focus mode', 'focus', 'pomodoro', 'deep work']],
 ];
+const CI: [('ci_explain' | 'ci_status' | 'system_status'), string[]][] = [
+  ['ci_explain', ['tai sao build loi', 'vi sao build loi', 'sao build loi', 'tai sao ci fail', 'vi sao ci fail', 'tai sao fail', 'vi sao fail', 'sao lai fail', 'sao fail', 'giai thich loi build', 'giai thich loi', 'why did the build fail', 'why did ci fail', 'why did it fail', 'explain the error', 'explain the failure']],
+  ['ci_status', ['tinh trang build', 'trang thai build', 'tinh trang ci', 'trang thai ci', 'build the nao', 'ci the nao', 'build status', 'ci status', 'builds', 'build', 'ci']], // "thế nào" is a filler phrase: "ci thế nào" leaves "ci"
+  ['system_status', ['trang thai he thong', 'tinh trang he thong', 'system status', 'he thong', 'trang thai', 'tinh trang', 'status']], // "/status"
+];
 const METRICS: [Metric, string[]][] = [
   ['humidity', ['do am', 'am khong', 'am bao nhieu', 'how humid', 'humidity', 'humid']],
   ['co2', ['chat luong khong khi', 'khong khi', 'ngot ngat', 'air quality', 'co2']],
@@ -25,7 +30,7 @@ const LIST = ['danh sach thiet bi', 'nhung thiet bi nao', 'thiet bi nao', 'thiet
 /** Multi-word fillers go first so "làm ơn" never reads as the English verb "on". */
 const FILLER_PHRASES = ['lam on', 'giup minh', 'giup toi', 'giup em', 'cho minh', 'cho toi', 'cho em', 'can you', 'could you', 'bay gio', 'hien tai', 'the nao', 'what is', 'is it'];
 const FILLERS = new Set(
-  'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu'.split(' '),
+  'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu'.split(' '),
 );
 const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
 
@@ -89,6 +94,13 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
     const c = new Clause(raw);
     while (c.take(FILLER_PHRASES));
     let understood = false;
+
+    for (const [name, phrases] of CI) {
+      if (c.take(phrases)) {
+        calls.push({ name, args: {} });
+        understood = true;
+      }
+    }
 
     for (const [name, phrases] of SCENES) {
       if (c.take(phrases)) {
