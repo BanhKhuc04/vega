@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-19 |
-| **Trạng thái** | Chờ duyệt |
+| **Trạng thái** | Đã duyệt (2026-11-19) |
 | **Dựa trên** | 0002 (phương án 1.0, mục M6, màn Research, D4, D6), 0004 (M1), 0006 (M4, đã merge) |
 | **Nhánh** | `feat/m6-research`, từ `main` |
 

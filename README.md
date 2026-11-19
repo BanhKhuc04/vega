@@ -102,6 +102,31 @@ Briefing) hiện trong khung chat và được đọc to trên **mọi** màn đ
 VEGA chỉ lấy phần đầu thư (`format=metadata`), không bao giờ tải nội dung thư, không gửi mail, không sửa lịch. Tiêu đề lịch và mail
 là dữ liệu ngoài: dù có ghi "tắt hết thiết bị" cũng không điều khiển được gì (`docs/security.md`).
 
+### Nghiên cứu có nguồn (M6)
+
+Gõ hoặc nói `nghiên cứu …`, `tìm hiểu …`, `so sánh …`, `research …` (hoặc `/research …`). VEGA:
+1. nhờ AI đề ra tối đa 3 câu tìm;
+2. tìm trên web bằng Tavily, giữ tối đa 8 trang (tối đa 2 trang mỗi website);
+3. nhờ AI viết câu trả lời ngắn kèm trích dẫn `[1] [2] [3]`.
+
+Màn **Research** hiện từng bước. Câu so sánh có thêm bảng. Trong khung chat, mỗi nguồn là một link mở ở tab mới. VEGA chỉ đọc to phần
+tóm tắt.
+
+- **Trích dẫn kiểm tra được:** số trích dẫn không có thật bị xoá, URL do AI tự viết bị xoá, link luôn lấy từ kết quả tìm. Dưới 3
+  website thì câu trả lời ghi rõ "chỉ tìm được N nguồn".
+- **Chi phí:**
+  - Mỗi lần nghiên cứu tối đa `RESEARCH_MAX_USD` (mặc định $0.01) và vẫn chịu trần ngày. VEGA bớt nguồn cho vừa trần.
+  - Tìm web tối đa `SEARCH_MAX_MONTH` lượt mỗi tháng (mặc định 900, dưới 1.000 credit miễn phí của Tavily).
+  - Câu trả lời ghi số nguồn và tiền đã tốn.
+- **Tra nhanh:** trong câu hỏi thường, AI được tìm web **một lần** khi cần thông tin mới (giá, phiên bản, tin tức). Câu trả lời kèm link.
+- **Bật tính năng:**
+  1. Tạo tài khoản miễn phí ở [tavily.com](https://tavily.com) (không cần thẻ).
+  2. Thêm `TAVILY_API_KEY=tvly-...` vào `.env` (trên Pi là `infra/pi/brain.env`).
+  3. Model riêng cho nghiên cứu là tuỳ chọn: `LLM_RESEARCH=<provider>`, mặc định dùng provider của `LLM_CHAT`.
+
+Câu hỏi nghiên cứu được gửi tới Tavily và nhà cung cấp AI. Nội dung trang web là dữ liệu ngoài: không lệnh nào trong đó điều khiển
+được thiết bị hay lời nhắc (`docs/security.md`).
+
 ### Chỉ màn hình, không broker
 
 ```bash

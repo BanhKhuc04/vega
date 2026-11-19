@@ -81,6 +81,7 @@ Events are discriminated by `type`, and the payload is the same on `vega/system/
 { "v": 1, "type": "next_event", "title": "lab report", "detail": "computer networks", "at": "2026-11-18T09:30:00Z" }
 { "v": 1, "type": "co2_series", "room": "bedroom", "values": [980, 1080, 1190], "threshold_ppm": 1000, "max_ppm": 1500 }
 { "v": 1, "type": "command_result", "id": "UI-m3k2x9-0", "result": "Light is off" }
+{ "v": 1, "type": "command_result", "id": "UI-m3k2x9-1", "result": "SCD40 dùng I2C [1]. MH-Z19B rẻ nhất [2]…", "speak": "SCD40 dễ dùng nhất…", "sources": [{ "n": 1, "title": "SCD40 on ESP8266", "url": "https://example.net/scd40" }] }
 { "v": 1, "type": "llm_usage", "day": "2026-11-19", "spent_usd": 0.0017, "budget_usd": 0.05, "calls": 14, "tokens_in": 9800, "tokens_out": 640 }
 { "v": 1, "type": "announce", "text": "Nhắc bạn: gọi mẹ", "ts": "2026-11-19T08:00:00Z" }
 ```
@@ -88,6 +89,10 @@ Events are discriminated by `type`, and the payload is the same on `vega/system/
 `announce` (M4, not retained) is something the brain says on its own: a reminder, the morning briefing, "Focus done". Every
 open screen adds it to the chat and reads it aloud. Answers to a command still come as `command_result`, read only by the
 screen that sent the command.
+
+`command_result` (contract v4, M6): `result` up to 2000 characters. Optional `speak` (≤ 300) is read aloud instead of `result`
+(a research summary without its citations). Optional `sources` (≤ 8, `{ n, title, url }`, `url` https only) are the pages the
+answer cites as `[n]`; the chat shows them as links that open in a new tab.
 
 `llm_usage` (retained, published by the brain when it connects and after every LLM call) is today's total from its cost
 ledger; `day` is the brain's local day. The Idle screen shows it as "AI budget · today" (used, left, calls); a `day` that
