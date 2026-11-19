@@ -126,6 +126,17 @@ describe('missing fields fall back to the template defaults', () => {
       expect(sectionsHtml()).toEqual(before);
     });
   }
+  it('alert buttons follow the data: Confirm/Cancel for a confirmation, Explain/Open for a failed build', () => {
+    const shown = () => ['#aConfirm', '#aCancel', '#aExplain', '#aOpen', '#aSnooze'].filter((s) => !$(s).hidden);
+    renderScene({ v: 1, scene: 'alert', data: { title: 'confirm action', confirm: true } }, document, hooks);
+    expect(shown()).toEqual(['#aConfirm', '#aCancel', '#aSnooze']);
+    renderScene({ v: 1, scene: 'alert', data: { title: 'build failed', explain: true, url: 'https://github.com/me/vega/actions/runs/4' } }, document, hooks);
+    expect(shown()).toEqual(['#aExplain', '#aOpen', '#aSnooze']);
+    expect($('#aOpen').dataset.url).toBe('https://github.com/me/vega/actions/runs/4');
+    renderScene({ v: 1, scene: 'alert', data: { title: 'plain' } }, document, hooks);
+    expect(shown()).toEqual(['#aSnooze']);
+    expect($('#aOpen').dataset.url).toBeUndefined();
+  });
   it('partial data only changes the fields given', () => {
     const before = $('[data-p=stat] > .t').textContent;
     renderScene({ v: 1, scene: 'research', data: { title: 'Only a title' } }, document, hooks);

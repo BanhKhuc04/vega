@@ -644,6 +644,11 @@ $('#fEnd').addEventListener('click', () => setMode('idle'));
 // confirmation card (scene alert with `confirm`): the buttons answer the brain like typing yes / no would
 $('#aConfirm').addEventListener('click', () => hooks.onCommand && hooks.onCommand('yes'));
 $('#aCancel').addEventListener('click', () => hooks.onCommand && hooks.onCommand('no'));
+$('#aExplain').addEventListener('click', () => hooks.onCommand && hooks.onCommand('sao fail'));
+$('#aOpen').addEventListener('click', () => {
+  const url = $('#aOpen').dataset.url;
+  if (url && url.startsWith('https://')) window.open(url, '_blank', 'noopener,noreferrer');
+});
 $('#aSnooze').addEventListener('click', () => setMode('idle'));
 document.addEventListener('pointerover', (e) => { const t = /** @type {Element} */ (e.target); if (t.closest && t.closest('button')) sfx.hover(); });
 $('#cmd').addEventListener('submit', (e) => {

@@ -92,7 +92,8 @@ export function liveText(s: Snapshot, now: number): LiveText {
   if (s.ci) {
     out.ciBad = s.ci.failed > 0;
     out.ci = s.ci.failed > 0 ? `${s.ci.failed} failed build${s.ci.failed > 1 ? 's' : ''}` : 'all builds passing';
-    out.ciSub = `${s.ci.repo} · ${fmtAgo(now - s.ci.ts)}`;
+    // the brain re-checks every minute; 5 minutes without news means GitHub (or the network) is not answering
+    out.ciSub = `${s.ci.repo} · ${fmtAgo(now - s.ci.ts)}${now - s.ci.ts > 5 * 60_000 ? ' · stale' : ''}`;
   } else missing.push(true);
 
   if (s.next) {

@@ -255,6 +255,14 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
       const b = q(sel);
       if (b) b.hidden = !d.confirm; // Confirm / Cancel only on a confirmation card from the brain
     }
+    const ex = q('#aExplain');
+    if (ex) ex.hidden = !d.explain;
+    const open = q('#aOpen');
+    if (open) {
+      open.hidden = !d.url; // https only (checked by the contract)
+      if (d.url) open.dataset.url = d.url;
+      else delete open.dataset.url;
+    }
   },
   success(d, q) {
     heading(q('[data-tpl=success] .hd [data-scr]'), 'deployed', d.title);
