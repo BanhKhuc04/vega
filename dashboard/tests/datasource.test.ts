@@ -22,6 +22,8 @@ describe('createDataSource', () => {
       opts: { url: string; username: string; password: string; primaryRoom: string };
     };
     expect(src.opts).toMatchObject({ url: 'ws://url:2', username: 'ui', password: 'secret', primaryRoom: 'office' });
+    const https = createDataSource({}, '?source=mqtt', {}, 'vega.tail1234.ts.net', { https: true, host: 'vega.tail1234.ts.net' }) as unknown as { opts: { url: string } };
+    expect(https.opts.url).toBe('wss://vega.tail1234.ts.net/mqtt'); // a secure page: same address, through nginx
     const cfg = createDataSource({ VITE_MQTT_URL: 'ws://env:1' }, '?source=mqtt', {}, 'h') as unknown as { opts: { url: string } };
     expect(cfg.opts.url).toBe('ws://env:1');
   });

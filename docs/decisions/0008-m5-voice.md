@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-19 |
-| **Trạng thái** | Chờ duyệt |
+| **Trạng thái** | Đã duyệt (2026-11-19) |
 | **Dựa trên** | 0002 (phương án 1.0, mục M5, D7, D9), PR #5 (giọng nói của trình duyệt), PR #9 (VEGA chạy trên Pi 4) |
 | **Nhánh** | `feat/m5-voice`, từ `main` |
 
