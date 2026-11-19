@@ -139,6 +139,6 @@ describe('header chrome', () => {
     expect(document.querySelector('#qBtn')?.getAttribute('aria-label')).toBe('Render quality: full. Activate to change');
   });
   it('cycles full -> lite -> css -> full', () => {
-    expect(['full', 'lite', 'css'].map((q) => nextTier(q as 'full'))).toEqual(['lite', 'css', 'full']);
+    expect(['full', 'lite', 'css'].map((q) => nextTier(q as 'full'))).toEqual(['lite', 'full', 'full']); // the button toggles full <-> lite
   });
 });

@@ -1,5 +1,5 @@
 import type { ConnState, Snapshot } from '../data/types';
-import { QUALITIES, writeStoredQuality } from '../quality';
+import { PICKABLE, writeStoredQuality } from '../quality';
 import type { Quality } from '../quality';
 import type { HudApi } from '../hud';
 
@@ -26,8 +26,8 @@ export function renderConn(s: Pick<Snapshot, 'conn'>, root: ParentNode = documen
 }
 
 export function nextTier(q: Quality): Quality {
-  const i = QUALITIES.indexOf(q);
-  return QUALITIES[(i + 1) % QUALITIES.length]!;
+  const i = PICKABLE.indexOf(q); // css (kiosk) -> full
+  return PICKABLE[(i + 1) % PICKABLE.length]!;
 }
 
 export function renderQuality(q: Quality, auto: boolean, root: ParentNode = document): void {
@@ -36,7 +36,7 @@ export function renderQuality(q: Quality, auto: boolean, root: ParentNode = docu
   if (!btn || !txt) return;
   txt.textContent = q.toUpperCase();
   btn.setAttribute('aria-label', `Render quality: ${q}${auto ? ' (set automatically)' : ''}. Activate to change`);
-  btn.title = auto ? 'Lowered automatically because the display was slow. Click to change' : 'Render quality: full / lite / css. Click to change';
+  btn.title = auto ? 'Lowered automatically because the display was slow. Click to change' : 'Render quality: full / lite. Click to change';
 }
 
 /** Manual change: remembered, then the page reloads so WebGL can be created (or not) from scratch. */

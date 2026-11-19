@@ -43,10 +43,9 @@ describe('nextQuality (auto downgrade)', () => {
     expect(nextQuality('full', 30)).toBeNull();
     expect(nextQuality('full', 60)).toBeNull();
   });
-  it('lite < 24 fps -> css', () => {
-    expect(nextQuality('lite', 23.9)).toBe('css');
-    expect(nextQuality('lite', 24)).toBeNull();
-    expect(nextQuality('lite', 29)).toBeNull(); // lite only cares about its own floor
+  it('lite is the floor: a slow frame rate never drops to css', () => {
+    expect(nextQuality('lite', 5)).toBeNull();
+    expect(nextQuality('lite', 29)).toBeNull();
   });
   it('css never goes lower', () => expect(nextQuality('css', 1)).toBeNull());
 });
@@ -75,7 +74,7 @@ describe('FpsMeter with simulated frame times', () => {
     expect(r[0]!).toBeGreaterThan(18);
     expect(r[0]!).toBeLessThan(22);
     expect(nextQuality('full', r[0]!)).toBe('lite');
-    expect(nextQuality('lite', 20)).toBe('css');
+    expect(nextQuality('lite', 20)).toBeNull(); // lite is the floor
   });
   it('a display slower than one frame per second is still measured, as very slow', () => {
     const r = run(0.6, 40);
