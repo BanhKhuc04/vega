@@ -136,6 +136,7 @@ export class Agent {
       run.screen = {
         scene: 'alert',
         ttl: config.confirmTtlS,
+        status: 'Waiting for your confirmation',
         data: {
           title: 'confirm action',
           confirm: true,

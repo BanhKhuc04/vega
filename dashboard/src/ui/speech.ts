@@ -76,16 +76,23 @@ export class Voice {
     }
   }
 
-  /** Reads `text` aloud, cutting off whatever was being read. */
-  speak(text: string): void {
+  /**
+   * Reads `text` aloud, cutting off whatever was being read. Returns false when the machine has no voice for its
+   * language: an English voice reading Vietnamese is noise, so it stays silent instead.
+   */
+  speak(text: string): boolean {
     const { speechSynthesis: synth, SpeechSynthesisUtterance: Utter } = this.win;
-    if (!this.enabled || !synth || !Utter || !text.trim()) return;
+    if (!this.enabled || !synth || !Utter || !text.trim()) return true;
+    const lang = langOf(text);
+    const voices = synth.getVoices();
+    const voice = pickVoice(voices, lang);
+    if (!voice && voices.length > 0) return false; // an empty list means voices are still loading: let the browser pick
     synth.cancel();
     const u = new Utter(text);
-    u.lang = langOf(text);
-    const voice = pickVoice(synth.getVoices(), u.lang);
+    u.lang = lang;
     if (voice) u.voice = voice;
     synth.speak(u);
+    return true;
   }
 
   get listening(): boolean {

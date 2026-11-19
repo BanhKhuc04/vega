@@ -58,6 +58,11 @@ export class Chat {
     return true;
   }
 
+  /** A line from VEGA itself (a problem with voice, for instance). */
+  note(text: string): void {
+    this.add('sys', 'VEGA', text);
+  }
+
   private add(kind: 'you' | 'vega' | 'sys', who: string, text: string): HTMLElement {
     const { root } = this.deps;
     const p = document.createElement('p');

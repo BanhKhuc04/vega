@@ -73,6 +73,16 @@ describe('Voice', () => {
     expect(f.spoken).toHaveLength(1);
   });
 
+  it('stays silent (and says so) when no installed voice speaks the language', () => {
+    const f = fakeWindow({ voices: [{ lang: 'en-US', name: 'Zira' }] });
+    const v = new Voice(f.win);
+    expect(v.speak('Xin chào! Tôi có thể giúp gì?')).toBe(false);
+    expect(f.spoken).toEqual([]);
+    expect(v.speak('Bedroom 25.0°C')).toBe(true);
+    expect(f.spoken[0]).toMatchObject({ lang: 'en-US', voice: { name: 'Zira' } });
+    expect(new Voice(fakeWindow({ voices: [] }).win).speak('Xin chào')).toBe(true); // voices not loaded yet: try anyway
+  });
+
   it('the speaker button turns reading off and is remembered', () => {
     const f = fakeWindow();
     const v = new Voice(f.win);

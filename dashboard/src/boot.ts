@@ -61,8 +61,13 @@ source.onScene((scene) => controller.handle(scene));
 const input = document.querySelector<HTMLInputElement>('#q')!;
 const chat = new Chat({ root: document.querySelector<HTMLElement>('#chat')!, input, send: (text) => source.sendCommand(text) });
 const voice = new Voice();
+let toldNoVoice = false;
 source.onResult((id, text) => {
-  if (chat.result(id, text)) voice.speak(text); // only answers to this screen's own commands are read aloud
+  if (!chat.result(id, text)) return; // only answers to this screen's own commands are read aloud
+  if (!voice.speak(text) && !toldNoVoice) {
+    toldNoVoice = true;
+    chat.note('No Vietnamese voice on this computer, so answers are not read aloud. Open VEGA in Microsoft Edge, or add the Vietnamese voice in Windows Settings › Time & language › Speech.');
+  }
 });
 hud.hooks.onCommand = (text) => void chat.submit(text);
 
@@ -95,7 +100,12 @@ hud.hooks.onMic = () => {
       if (final) voice.stopListening();
     },
     onError(error) {
-      if (error !== 'no-speech' && error !== 'aborted') console.warn(`[vega] voice input: ${error}`);
+      if (error === 'no-speech' || error === 'aborted') return;
+      chat.note(
+        error === 'not-allowed' || error === 'service-not-allowed'
+          ? 'Microphone blocked: allow it for this page in the browser, then press the mic again.'
+          : `Voice input failed (${error}). It needs Chrome or Edge and an internet connection.`,
+      );
     },
     onEnd() {
       mic.classList.remove('on');
