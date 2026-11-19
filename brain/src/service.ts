@@ -3,6 +3,7 @@ import { Agent } from './agent';
 import type { ChatFn } from './agent';
 import { BRAIN_SUBSCRIPTIONS, connect, mqttBus } from './bus';
 import type { Config } from './config';
+import { CiWatcher, GithubClient, ciEvent, ciScene } from './github';
 import { Registry } from './registry';
 import { Store } from './store';
 
@@ -12,6 +13,8 @@ const MAX_AGE_MS = 30_000;
 export interface Brain {
   registry: Registry;
   store: Store;
+  /** GitHub Actions watcher, when configured. */
+  ci: CiWatcher | null;
   /** Resolves once every command received so far has been answered. */
   idle(): Promise<void>;
   stop(): Promise<void>;
@@ -23,13 +26,35 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   const registry = new Registry();
   const store = new Store(cfg.dbPath);
   const client = connect(cfg.mqttUrl, { ...(cfg.mqttUser && { username: cfg.mqttUser }), ...(cfg.mqttPass && { password: cfg.mqttPass }) });
-  const agent = new Agent({ bus: mqttBus(client), registry, config: cfg, store, log, ...(opts.chat && { chat: opts.chat }) });
   let queue: Promise<unknown> = Promise.resolve(); // one command at a time, in arrival order
+  const bus = mqttBus(client);
+  const gh = cfg.github;
+  const ci = gh
+    ? new CiWatcher(new GithubClient(gh), {
+        repos: gh.repos,
+        log,
+        onState(state, change) {
+          const e = ciEvent(state, gh.repos);
+          bus.ci(e.repo, e.failed);
+          if (change) {
+            log(`[ci] builds ${change}: ${state.failing.map((r) => `${r.repo}/${r.workflow}`).join(', ') || 'all green'}`);
+            bus.scene(ciScene(state, change));
+          }
+        },
+      })
+    : null;
+  let started = false;
+  const agent = new Agent({ bus, registry, config: cfg, store, log, ...(opts.chat && { chat: opts.chat }) });
 
   client.on('connect', () => {
     log(`[brain] connected to ${cfg.mqttUrl}`);
     client.subscribe(BRAIN_SUBSCRIPTIONS);
     agent.publishUsage();
+    if (ci && !started) {
+      started = true;
+      log(`[ci] watching ${gh!.repos.join(', ')} every ${gh!.intervalMs / 1000} s`);
+      ci.start(gh!.intervalMs);
+    }
   });
   client.on('error', (e) => log(`[brain] mqtt error: ${e.message}`));
   client.on('message', (topic, payload, packet) => {
@@ -52,13 +77,15 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   return {
     registry,
     store,
+    ci,
     idle: () => queue.then(() => {}),
     stop: () =>
-      new Promise<void>((res) =>
+      new Promise<void>((res) => {
+        ci?.stop();
         client.end(false, {}, () => {
           store.close();
           res();
-        }),
-      ),
+        });
+      }),
   };
 }

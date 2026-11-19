@@ -102,6 +102,10 @@ export const alertData = z.object({
   note: sn(160).optional(),
   /** A confirmation the brain is waiting for: the card shows Confirm / Cancel, which send "yes" / "no". */
   confirm: z.boolean().optional(),
+  /** The card shows Explain, which asks the brain why (a failed build). */
+  explain: z.boolean().optional(),
+  /** Page with the details (a CI run): the card shows Open, which opens it in a new tab. https only. */
+  url: z.string().max(300).regex(/^https:\/\/\S+$/).optional(),
 });
 
 export const successData = z.object({

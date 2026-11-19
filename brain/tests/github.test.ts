@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config';
-import { CiWatcher, GithubClient, trimLog } from '../src/github';
-import type { CiState } from '../src/github';
+import { CiWatcher, GithubClient, ciEvent, ciScene, trimLog } from '../src/github';
+import type { CiState, Run } from '../src/github';
+import { parseScene } from '@vega/contract';
 import { fakeGithub } from './fakegithub';
 
 describe('config', () => {
@@ -14,6 +15,24 @@ describe('config', () => {
     expect(loadConfig({ GITHUB_TOKEN: 't', GITHUB_REPOS: 'me/vega', GITHUB_API_URL: 'http://evil.example' }).github).toBeNull();
     expect(loadConfig({ GITHUB_TOKEN: 't', GITHUB_REPOS: 'me/vega', GITHUB_POLL_S: '5' }).github!.intervalMs).toBe(60_000); // under 30 s: ignored, default
     expect(loadConfig({ GITHUB_TOKEN: 't', GITHUB_REPOS: 'me/vega', GITHUB_POLL_S: '120' }).github!.intervalMs).toBe(120_000);
+  });
+});
+
+describe('ciEvent / ciScene', () => {
+  const run = (o: Partial<Run>): Run => ({ repo: 'me/vega', workflow: 'ci', conclusion: 'failure', runId: 4, url: 'https://github.com/me/vega/actions/runs/4', sha: 'abcdef4', message: 'feat: break it', actor: 'khuc', at: 2, ...o });
+  it('one slot for every watched repo', () => {
+    expect(ciEvent({ failing: [], passing: [], checkedAt: 0 }, ['me/vega'])).toEqual({ repo: 'me/vega', failed: 0 });
+    expect(ciEvent({ failing: [], passing: [], checkedAt: 0 }, ['me/vega', 'me/fw'])).toEqual({ repo: '2 repos', failed: 0 });
+    expect(ciEvent({ failing: [run({ repo: 'me/fw' })], passing: [], checkedAt: 0 }, ['me/vega', 'me/fw'])).toEqual({ repo: 'me/fw', failed: 1 });
+  });
+  it('alert names the newest broken run and offers Explain / Open; success lists the green workflows; both are valid scenes', () => {
+    const state: CiState = { failing: [run({ runId: 3, at: 1, workflow: 'old' }), run({})], passing: [], checkedAt: 0 };
+    const a = ciScene(state, 'failed');
+    expect(a).toMatchObject({ scene: 'alert', data: { title: 'build failed', ref: 'me/vega · ci', error: 'abcdef4 feat: break it — khuc', explain: true, url: 'https://github.com/me/vega/actions/runs/4' } });
+    expect(parseScene({ v: 1, ...a }).ok).toBe(true);
+    const s = ciScene({ failing: [], passing: [run({ conclusion: 'success' })], checkedAt: 0 }, 'recovered');
+    expect(s).toMatchObject({ scene: 'success', data: { title: 'me/vega', checks: ['ci · me/vega'] } });
+    expect(parseScene({ v: 1, ...s }).ok).toBe(true);
   });
 });
 

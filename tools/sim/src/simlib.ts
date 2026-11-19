@@ -38,6 +38,8 @@ export interface SimOptions {
   rng?: () => number;
   /** `none`: publish nothing; `pass`/`fail`: the CI state to start from (default `pass`). */
   initialCi?: 'none' | 'pass' | 'fail';
+  /** The temporary CI -> alert/success scene rule (default on). Off when the brain watches real CI (M3). */
+  sceneRule?: boolean;
   log?: (msg: string) => void;
 }
 
@@ -158,7 +160,7 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
   sys.on('message', (topic, payload, packet) => {
     const u = parseMessage(topic, payload.toString());
     if (topic === 'vega/system/command') return log(`[sim] command: ${payload.toString()}`);
-    if (!u || u.type !== 'ci') return;
+    if (!u || u.type !== 'ci' || opts.sceneRule === false) return;
     // old state replayed on subscribe, or the echo of our own startup state (lastFailed holds it already):
     // either may arrive after newer events, so neither may trigger a scene
     if (packet.retain) return;

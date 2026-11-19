@@ -2,6 +2,7 @@
  * GitHub Actions watching (Brief 0005): plain `fetch` to the REST API every minute, with ETags so unchanged answers
  * come back as 304 and do not count against the rate limit. The token is only ever put in the request header.
  */
+import type { SceneOut } from './bus';
 import type { GithubConfig } from './config';
 
 export class GithubError extends Error {
@@ -226,6 +227,43 @@ export class CiWatcher {
     const text = await this.gh.logs(`/repos/${run.repo}/actions/jobs/${job.id}/logs`);
     return { run, job: job.name, step, excerpt: trimLog(text) };
   }
+}
+
+/** The `ci` event for the screen's CI/CD row: one slot for all watched repos. */
+export function ciEvent(state: CiState, repos: string[]): { repo: string; failed: number } {
+  const failingRepos = [...new Set(state.failing.map((r) => r.repo))];
+  const label = (list: string[]) => (list.length === 1 ? list[0]! : `${list.length} repos`);
+  return { repo: label(failingRepos.length ? failingRepos : repos).slice(0, 80), failed: Math.min(999, state.failing.length) };
+}
+
+const cut = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n - 1)}…`);
+
+/** The scene for a change: Alert with the newest broken run, or Success when everything is green again. */
+export function ciScene(state: CiState, change: 'failed' | 'recovered'): SceneOut {
+  if (change === 'recovered') {
+    const repos = [...new Set(state.passing.map((r) => r.repo))];
+    return {
+      scene: 'success',
+      ttl: 20,
+      status: 'Builds green again',
+      data: { title: cut(repos.length === 1 ? repos[0]! : `${repos.length} repos`, 60), ref: 'all builds green', checks: state.passing.slice(0, 6).map((r) => cut(`${r.workflow} · ${r.repo}`, 80)) },
+    };
+  }
+  const run = [...state.failing].sort((a, b) => b.at - a.at)[0]!;
+  return {
+    scene: 'alert',
+    ttl: 300,
+    status: 'Build failed',
+    id: `ci-${run.runId}`,
+    data: {
+      title: 'build failed',
+      ref: cut(`${run.repo} · ${run.workflow}`, 60),
+      error: cut(`${run.sha} ${run.message}${run.actor ? ` — ${run.actor}` : ''}`.trim(), 300),
+      note: cut(state.failing.length > 1 ? `${state.failing.length} workflows failing. Press Explain or ask "why did it fail".` : 'Press Explain or ask "why did it fail".', 160),
+      explain: true,
+      url: run.url.slice(0, 300),
+    },
+  };
 }
 
 const TS = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?/;
