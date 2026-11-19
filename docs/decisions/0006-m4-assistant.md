@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-19 |
-| **Trạng thái** | Chờ duyệt |
+| **Trạng thái** | Đã duyệt (2026-11-19) |
 | **Dựa trên** | 0002 (phương án 1.0, mục M4, màn Briefing và Focus), 0004 (M1), 0005 (M3, đã merge) |
 | **Nhánh** | `feat/m4-assistant`, từ `main` |
 

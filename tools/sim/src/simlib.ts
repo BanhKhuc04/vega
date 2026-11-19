@@ -40,6 +40,8 @@ export interface SimOptions {
   initialCi?: 'none' | 'pass' | 'fail';
   /** The temporary CI -> alert/success scene rule (default on). Off when the brain watches real CI (M3). */
   sceneRule?: boolean;
+  /** Publish a made-up next calendar event (default on). Off when the brain reads the real calendar (M4). */
+  nextEvent?: boolean;
   log?: (msg: string) => void;
 }
 
@@ -152,7 +154,7 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
   const pubCi = (failed: number, repo: string) => pub(sys, eventTopic('ci'), ciPayload(failed, repo));
   let startupCi = opts.initialCi === 'none' ? null : ciPayload(lastFailed, 'firmware-esp');
   if (startupCi) pub(sys, eventTopic('ci'), startupCi);
-  pub(sys, eventTopic('next_event'), { v, type: 'next_event', title: 'lab report', detail: 'computer networks', at: nextLocalAt(16, 30, t0).toISOString() });
+  if (opts.nextEvent !== false) pub(sys, eventTopic('next_event'), { v, type: 'next_event', title: 'lab report', detail: 'computer networks', at: nextLocalAt(16, 30, t0).toISOString() });
   pub(sys, eventTopic('co2_series'), { v, type: 'co2_series', room: 'bedroom', values: CO2_BY_HOUR, threshold_ppm: 1000, max_ppm: 1500 });
 
   const scene = (msg: object) => pub(sys, UI_SCENE, { v, ts: now().toISOString(), ...msg });

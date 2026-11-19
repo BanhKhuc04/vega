@@ -2,7 +2,7 @@ import { METRICS, label } from './registry';
 import type { Metric, Registry } from './registry';
 import type { ToolSpec } from './llm';
 
-export type ToolName = 'list_devices' | 'get_sensor' | 'set_device' | 'run_scene' | 'ci_status' | 'ci_explain' | 'system_status';
+export type ToolName = ToolCall['name'];
 export const SCENE_NAMES = ['sleep', 'focus'] as const;
 export type SceneName = (typeof SCENE_NAMES)[number];
 
@@ -10,19 +10,44 @@ export type ToolCall =
   | { name: 'list_devices'; args: Record<string, never> }
   | { name: 'get_sensor'; args: { metric: Metric; room?: string } }
   | { name: 'set_device'; args: { device: string; on: boolean } }
-  | { name: 'run_scene'; args: { name: SceneName } }
+  | { name: 'run_scene'; args: { name: SceneName; minutes?: number } }
   | { name: 'ci_status'; args: Record<string, never> }
   | { name: 'ci_explain'; args: { repo?: string } }
-  | { name: 'system_status'; args: Record<string, never> };
+  | { name: 'system_status'; args: Record<string, never> }
+  | { name: 'calendar_list'; args: { day: 'today' | 'tomorrow' | 'next' } }
+  | { name: 'mail_list'; args: Record<string, never> }
+  | { name: 'weather'; args: Record<string, never> }
+  | { name: 'briefing'; args: Record<string, never> }
+  | { name: 'add_reminder'; args: { at: number; text: string } }
+  | { name: 'list_reminders'; args: Record<string, never> }
+  | { name: 'cancel_reminder'; args: { id: number } }
+  | { name: 'snooze'; args: Record<string, never> }
+  | { name: 'focus_stop'; args: Record<string, never> };
 
-/** Tools that change something in the physical world. They only run on a direct command from the owner. */
-export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene']);
+/**
+ * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
+ * They only run on a direct command from the owner, never with outside content (mail, calendar, logs) in play.
+ */
+export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene', 'add_reminder', 'cancel_reminder']);
+
+/** "2026-11-19T15:30" (local) or an ISO time with offset -> ms; NaN if neither. */
+export function parseWhen(s: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?$/.exec(s.trim());
+  if (m) return new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!).getTime();
+  return /(Z|[+-]\d{2}:?\d{2})$/.test(s.trim()) ? Date.parse(s) : NaN;
+}
+
+/** What the personal-assistant tools can reach (M4). */
+export interface PersonalTools {
+  google: boolean;
+  weather: boolean;
+}
 
 /**
  * Tool definitions for the LLM, generated from the registry: the device and room enums are whatever the devices
  * declared, so a new device needs no code. `physical: false` leaves out the tools that act on the world.
  */
-export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[] } = {}): ToolSpec[] {
+export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools } = {}): ToolSpec[] {
   const fn = (name: ToolName, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ToolSpec => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
@@ -43,6 +68,21 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
       fn('ci_explain', 'Read the log of the latest failed build (optionally of one repository) to explain why it failed.', { repo: { type: 'string', enum: opts.ciRepos } }),
     );
   }
+  const p = opts.personal;
+  if (p?.google) {
+    specs.push(
+      fn('calendar_list', "The owner's Google Calendar events: today, tomorrow, or the next one.", { day: { type: 'string', enum: ['today', 'tomorrow', 'next'] } }, ['day']),
+      fn('mail_list', 'Unread mail in the Primary inbox of the last day: sender and subject only.'),
+    );
+  }
+  if (p?.weather) specs.push(fn('weather', "Current weather and today's forecast at home."));
+  if (p) specs.push(fn('list_reminders', 'List the reminders still to come, with their number.'));
+  if (opts.physical !== false && p) {
+    specs.push(
+      fn('add_reminder', 'Remind the owner of something at a time. `at` is local time, "YYYY-MM-DDTHH:MM".', { at: { type: 'string' }, text: { type: 'string', description: 'What to remind, in the words of the owner, short.' } }, ['at', 'text']),
+      fn('cancel_reminder', 'Cancel a reminder by its number.', { id: { type: 'integer' } }, ['id']),
+    );
+  }
   if (opts.physical !== false) {
     if (switches.length) {
       specs.push(
@@ -52,7 +92,9 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
         }, ['device', 'on']),
       );
     }
-    specs.push(fn('run_scene', 'Run a home scene: sleep (lights off, sleep screen) or focus (focus timer).', { name: { type: 'string', enum: [...SCENE_NAMES] } }, ['name']));
+    specs.push(
+      fn('run_scene', 'Run a home scene: sleep (lights off, sleep screen) or focus (focus timer that holds notifications).', { name: { type: 'string', enum: [...SCENE_NAMES] }, minutes: { type: 'integer', description: 'Focus length, 1-180 (default 25).' } }, ['name']),
+    );
   }
   return specs;
 }
@@ -70,7 +112,25 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
   switch (name) {
     case 'list_devices':
     case 'system_status':
+    case 'mail_list':
+    case 'weather':
+    case 'briefing':
+    case 'list_reminders':
+    case 'snooze':
+    case 'focus_stop':
       return { ok: true, call: { name, args: {} } };
+    case 'calendar_list':
+      if (a.day !== 'today' && a.day !== 'tomorrow' && a.day !== 'next') return { ok: false, error: 'day must be today, tomorrow or next' };
+      return { ok: true, call: { name, args: { day: a.day } } };
+    case 'add_reminder': {
+      const at = typeof a.at === 'string' ? parseWhen(a.at) : NaN;
+      if (!Number.isFinite(at)) return { ok: false, error: 'at must be local time "YYYY-MM-DDTHH:MM"' };
+      if (typeof a.text !== 'string' || !a.text.trim() || a.text.length > 200) return { ok: false, error: 'text must be 1-200 characters' };
+      return { ok: true, call: { name, args: { at, text: a.text.trim() } } };
+    }
+    case 'cancel_reminder':
+      if (!Number.isInteger(a.id) || (a.id as number) < 1) return { ok: false, error: 'id must be a reminder number' };
+      return { ok: true, call: { name, args: { id: a.id as number } } };
     case 'get_sensor': {
       if (!(METRICS as readonly unknown[]).includes(a.metric)) return { ok: false, error: `metric must be one of ${METRICS.join(', ')}` };
       if (a.room !== undefined && (typeof a.room !== 'string' || !reg.rooms().includes(a.room))) return { ok: false, error: 'unknown room' };
@@ -81,9 +141,11 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
       if (typeof a.on !== 'boolean') return { ok: false, error: 'on must be true or false' };
       return { ok: true, call: { name, args: { device: a.device, on: a.on } } };
     }
-    case 'run_scene':
+    case 'run_scene': {
       if (!(SCENE_NAMES as readonly unknown[]).includes(a.name)) return { ok: false, error: `name must be one of ${SCENE_NAMES.join(', ')}` };
-      return { ok: true, call: { name, args: { name: a.name as SceneName } } };
+      if (a.minutes !== undefined && (!Number.isInteger(a.minutes) || (a.minutes as number) < 1 || (a.minutes as number) > 180)) return { ok: false, error: 'minutes must be 1-180' };
+      return { ok: true, call: { name, args: { name: a.name as SceneName, ...(a.name === 'focus' && typeof a.minutes === 'number' && { minutes: a.minutes }) } } };
+    }
     case 'ci_status':
       if (!ciRepos.length) return { ok: false, error: 'CI watching is not set up' };
       return { ok: true, call: { name, args: {} } };
@@ -98,7 +160,15 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
 
 /** Short text for a chip on the Think screen, e.g. "set_device livingroom/light". */
 export function chipLabel(c: ToolCall): string {
+  const hhmm = (ms: number) => new Date(ms).toTimeString().slice(0, 5);
   const arg =
-    c.name === 'get_sensor' ? `${c.args.metric}${c.args.room ? ` ${c.args.room}` : ''}` : c.name === 'set_device' ? c.args.device : c.name === 'run_scene' ? c.args.name : c.name === 'ci_explain' ? (c.args.repo ?? '') : '';
+    c.name === 'get_sensor' ? `${c.args.metric}${c.args.room ? ` ${c.args.room}` : ''}`
+    : c.name === 'set_device' ? c.args.device
+    : c.name === 'run_scene' ? `${c.args.name}${c.args.minutes ? ` ${c.args.minutes}m` : ''}`
+    : c.name === 'ci_explain' ? (c.args.repo ?? '')
+    : c.name === 'calendar_list' ? c.args.day
+    : c.name === 'add_reminder' ? hhmm(c.args.at)
+    : c.name === 'cancel_reminder' ? `#${c.args.id}`
+    : '';
   return `${c.name}${arg ? ` ${arg}` : ''}`.slice(0, 40);
 }

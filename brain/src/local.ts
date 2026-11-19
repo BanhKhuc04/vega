@@ -18,6 +18,20 @@ const CI: [('ci_explain' | 'ci_status' | 'system_status'), string[]][] = [
   ['ci_status', ['tinh trang build', 'trang thai build', 'tinh trang ci', 'trang thai ci', 'build the nao', 'ci the nao', 'build status', 'ci status', 'builds', 'build', 'ci']], // "thế nào" is a filler phrase: "ci thế nào" leaves "ci"
   ['system_status', ['trang thai he thong', 'tinh trang he thong', 'system status', 'he thong', 'trang thai', 'tinh trang', 'status']], // "/status"
 ];
+/** Personal assistant (M4): questions that read, and the reminder / Focus controls. Checked before scenes and devices. */
+const INFO: [ToolCall, string[]][] = [
+  [{ name: 'briefing', args: {} }, ['tom tat hom nay', 'tom tat buoi sang', 'tom tat ngay', 'morning briefing', 'daily briefing', 'briefing', 'tom tat']],
+  [{ name: 'list_reminders', args: {} }, ['danh sach nhac nho', 'nhac nho cua toi', 'nhung loi nhac', 'loi nhac', 'nhac nho', 'my reminders', 'list reminders', 'list my reminders', 'reminders']],
+  [{ name: 'snooze', args: {} }, ['nhac lai sau', 'hoan nhac', 'snooze']],
+  [{ name: 'focus_stop', args: {} }, ['dung tap trung', 'ket thuc tap trung', 'huy tap trung', 'thoi tap trung', 'stop focusing', 'stop focus', 'end focus']],
+  [{ name: 'mail_list', args: {} }, ['mail chua doc', 'thu chua doc', 'email moi', 'mail moi', 'thu moi', 'hop thu', 'unread emails', 'unread email', 'unread mail', 'new emails', 'new email', 'new mail', 'any mail', 'inbox', 'emails', 'email', 'mail', 'gmail']],
+  [{ name: 'weather', args: {} }, ['du bao thoi tiet', 'thoi tiet', 'du bao', 'troi co mua khong', 'co mua khong', 'troi mua', 'weather forecast', 'weather', 'forecast', 'will it rain', 'is it raining']],
+];
+const CALENDAR = ['lich lam viec', 'lich hen', 'lich trinh', 'su kien', 'lich', 'what s on', 'whats on', 'calendar', 'agenda', 'schedule', 'meetings', 'events'];
+const CANCEL_REMINDER = ['huy loi nhac', 'xoa loi nhac', 'huy nhac nho', 'xoa nhac nho', 'huy nhac', 'xoa nhac', 'cancel reminder', 'delete reminder', 'remove reminder'];
+/** Words that may trail a question that only reads ("có mail gì mới không"); never taken next to a device command. */
+const INFO_TAIL = ['moi khong', 'chua doc', 'khong', 'moi', 'nao', 'ra sao', 'sao', 'for me', 'my', 'any', 'do i have', 'have', 'i'];
+
 const METRICS: [Metric, string[]][] = [
   ['humidity', ['do am', 'am khong', 'am bao nhieu', 'how humid', 'humidity', 'humid']],
   ['co2', ['chat luong khong khi', 'khong khi', 'ngot ngat', 'air quality', 'co2']],
@@ -30,7 +44,7 @@ const LIST = ['danh sach thiet bi', 'nhung thiet bi nao', 'thiet bi nao', 'thiet
 /** Multi-word fillers go first so "làm ơn" never reads as the English verb "on". */
 const FILLER_PHRASES = ['lam on', 'giup minh', 'giup toi', 'giup em', 'cho minh', 'cho toi', 'cho em', 'can you', 'could you', 'bay gio', 'hien tai', 'the nao', 'what is', 'is it'];
 const FILLERS = new Set(
-  'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu'.split(' '),
+  'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu gi'.split(' '),
 );
 const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
 
@@ -49,6 +63,12 @@ class Clause {
       }
     }
     return null;
+  }
+  /** Removes the first match of `re` (which must match surrounding spaces); returns its groups. */
+  takeRe(re: RegExp): RegExpExecArray | null {
+    const m = re.exec(this.s);
+    if (m) this.s = `${this.s.slice(0, m.index)} ${this.s.slice(m.index + m[0].length)} `;
+    return m;
   }
   /** Words that are left and are not filler. */
   rest(): string[] {
@@ -94,6 +114,25 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
     const c = new Clause(raw);
     while (c.take(FILLER_PHRASES));
     let understood = false;
+    let info = false; // only read something: trailing question words may go
+
+    for (const [call, phrases] of INFO) {
+      if (c.take(phrases)) {
+        calls.push(call);
+        understood = info = true;
+      }
+    }
+    if (c.take(CALENDAR)) {
+      const day = c.take(['tiep theo', 'sap toi', 'next']) ? 'next' : c.take(['ngay mai', 'mai', 'tomorrow']) ? 'tomorrow' : (c.take(['hom nay', 'today']), 'today');
+      calls.push({ name: 'calendar_list', args: { day } });
+      understood = info = true;
+    }
+    if (c.take(CANCEL_REMINDER)) {
+      const n = c.takeRe(/ (?:so )?(\d{1,6}) /);
+      if (!n) return null; // which one? the LLM can ask
+      calls.push({ name: 'cancel_reminder', args: { id: Number(n[1]) } });
+      understood = true;
+    }
 
     for (const [name, phrases] of CI) {
       if (c.take(phrases)) {
@@ -104,7 +143,11 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
 
     for (const [name, phrases] of SCENES) {
       if (c.take(phrases)) {
-        calls.push({ name: 'run_scene', args: { name } });
+        // "tập trung 45 phút", "focus for 1 hour"
+        const d = name === 'focus' ? c.takeRe(/ (?:trong |for )?(\d{1,3}) (phut|p|minutes|minute|mins|min|tieng|gio|hours|hour|h) /) : null;
+        const minutes = d ? Number(d[1]) * (/^(tieng|gio|hours|hour|h)$/.test(d[2]!) ? 60 : 1) : undefined;
+        if (minutes !== undefined && (minutes < 1 || minutes > 180)) return null;
+        calls.push({ name: 'run_scene', args: { name, ...(minutes && { minutes }) } });
         understood = true;
       }
     }
@@ -121,7 +164,8 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
     const off = c.take(OFF) !== null;
     if (on && off) return null;
     const devicePhrase = c.take(deviceKeys);
-    if (on || off || devicePhrase || all) {
+    // "có mail gì mới không": "mới" is not "mọi" (all) when the clause only reads something
+    if (on || off || devicePhrase || (all && !info)) {
       const want: boolean | null = on ? true : off ? false : lastOn;
       if (want === null) return null;
       let keys = devicePhrase ? devicePhrases.get(devicePhrase)! : all ? switches.map((d) => d.key) : [];
@@ -139,6 +183,7 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
       understood = true;
     }
 
+    if (info && !calls.some((x) => x.name === 'set_device')) while (c.take(INFO_TAIL));
     if (c.rest().length > 0) return null;
     if (!understood) continue; // only filler ("Vega ơi,")
   }
