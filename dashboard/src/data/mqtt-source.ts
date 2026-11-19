@@ -3,7 +3,7 @@ import type { SceneMessage } from '@vega/contract';
 import { MiniMqttClient } from './minimqtt';
 import { applyUpdate } from './reduce';
 import { emptySnapshot } from './sample';
-import type { ConnState, Snapshot, VegaDataSource } from './types';
+import type { ConnState, ResultExtra, Snapshot, VegaDataSource } from './types';
 
 /** The small slice of an MQTT client API we use; lets tests inject a fake. */
 export interface MqttLikeClient {
@@ -38,7 +38,7 @@ export class MqttSource implements VegaDataSource {
   private snap: Snapshot;
   private listeners = new Set<(s: Snapshot) => void>();
   private sceneListeners = new Set<(s: SceneMessage) => void>();
-  private resultListeners = new Set<(id: string, text: string) => void>();
+  private resultListeners = new Set<(id: string, text: string, extra: ResultExtra) => void>();
   private announceListeners = new Set<(text: string) => void>();
   private client: MqttLikeClient | null = null;
   private connected = false;
@@ -115,7 +115,7 @@ export class MqttSource implements VegaDataSource {
     return () => this.sceneListeners.delete(listener);
   }
 
-  onResult(listener: (id: string, text: string) => void): () => void {
+  onResult(listener: (id: string, text: string, extra: ResultExtra) => void): () => void {
     this.resultListeners.add(listener);
     return () => this.resultListeners.delete(listener);
   }
@@ -144,7 +144,7 @@ export class MqttSource implements VegaDataSource {
       return;
     }
     if (u.type === 'commandResult') {
-      for (const l of this.resultListeners) l(u.id, u.result);
+      for (const l of this.resultListeners) l(u.id, u.result, { speak: u.speak, sources: u.sources });
       return;
     }
     if (u.type === 'announce') {

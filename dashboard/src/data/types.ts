@@ -1,6 +1,11 @@
-import type { CoreStateMsg, DeviceKind, SceneMessage } from '@vega/contract';
+import type { CoreStateMsg, DeviceKind, SceneMessage, SourceRef } from '@vega/contract';
 
 export type CoreState = CoreStateMsg['state'];
+/** Extra parts of an answer: what to read aloud (null = the text itself) and the sources it cites. */
+export interface ResultExtra {
+  speak: string | null;
+  sources: SourceRef[];
+}
 /** What the header chip shows. */
 export type ConnState = 'live' | 'reconnecting' | 'offline' | 'sim';
 export type KnownKind = DeviceKind | 'unknown';
@@ -52,8 +57,8 @@ export interface VegaDataSource {
   subscribe(listener: (s: Snapshot) => void): () => void;
   /** Scenes pushed by the brain on `vega/ui/scene` (already validated). */
   onScene(listener: (s: SceneMessage) => void): () => void;
-  /** Answers of the brain (`command_result`): command id and full text. */
-  onResult(listener: (id: string, text: string) => void): () => void;
+  /** Answers of the brain (`command_result`): command id, full text, and what to read aloud / the cited sources. */
+  onResult(listener: (id: string, text: string, extra: ResultExtra) => void): () => void;
   /** What the brain says on its own (a reminder, the morning briefing). */
   onAnnounce(listener: (text: string) => void): () => void;
   /** Publishes a typed command. Returns its id, or null if it could not be sent. */

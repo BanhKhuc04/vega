@@ -68,8 +68,9 @@ const say = (text: string) => {
     chat.note('No Vietnamese voice on this computer, so answers are not read aloud. Open VEGA in Microsoft Edge, or add the Vietnamese voice in Windows Settings › Time & language › Speech.');
   }
 };
-source.onResult((id, text) => {
-  if (chat.result(id, text)) say(text); // only answers to this screen's own commands are read aloud
+source.onResult((id, text, extra) => {
+  // only answers to this screen's own commands are read aloud; a research answer reads its summary, not the sources
+  if (chat.result(id, text, extra.sources)) say(extra.speak ?? text);
 });
 // reminders and the briefing: every open screen shows and reads them (nobody asked from a particular tab)
 source.onAnnounce((text) => {

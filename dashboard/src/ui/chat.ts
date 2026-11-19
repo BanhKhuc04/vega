@@ -1,3 +1,5 @@
+import type { SourceRef } from '@vega/contract';
+
 /**
  * The conversation panel: what the owner sent and what VEGA answered (`command_result`, matched by command id).
  * Text only ever goes in through `textContent`. A command that could not be sent is said so, and put back in the box.
@@ -9,6 +11,32 @@ export interface ChatDeps {
   send(text: string): string | null;
   timeoutMs?: number;
   maxLines?: number;
+}
+
+/** "[1] Title · example.com", each a link opened in a new tab. Text only through textContent; https only (contract). */
+function sourceList(sources: SourceRef[]): HTMLElement {
+  const ol = document.createElement('ol');
+  ol.className = 'src';
+  for (const s of sources) {
+    if (!/^https:\/\//.test(s.url)) continue;
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = s.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    let host: string;
+    try {
+      host = new URL(s.url).hostname.replace(/^www\./, '');
+    } catch {
+      continue;
+    }
+    a.textContent = `[${s.n}] ${s.title}`;
+    const h = document.createElement('small');
+    h.textContent = ` · ${host}`;
+    li.append(a, h);
+    ol.append(li);
+  }
+  return ol;
 }
 
 export class Chat {
@@ -48,13 +76,15 @@ export class Chat {
   }
 
   /** An answer from the brain. Returns true if it answers a command sent from this tab (so it may be read aloud). */
-  result(id: string, text: string): boolean {
+  result(id: string, text: string, sources: SourceRef[] = []): boolean {
     const p = this.pending.get(id);
     if (!p) return false; // another tab's command, or an old retained answer
     this.pending.delete(id);
     if (p.timer) clearTimeout(p.timer);
     p.line.classList.remove('wait');
-    this.add('vega', 'VEGA', text);
+    const line = this.add('vega', 'VEGA', text);
+    if (sources.length) line.querySelector('span')!.append(sourceList(sources));
+    this.deps.root.scrollTop = this.deps.root.scrollHeight;
     return true;
   }
 

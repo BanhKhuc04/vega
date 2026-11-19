@@ -179,6 +179,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--hi);outline-off
 .chat .sys span{color:#FFC24A}
 .chat .wait span::after{content:' …';color:var(--dim)}
 .chat .fail span{color:var(--dim);text-decoration:line-through}
+.chat .src{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;white-space:normal}
+.chat .src a{color:var(--hi);text-decoration:underline;text-underline-offset:2px}
+.chat .src small{color:var(--dim);font-size:10.5px}
 .cmd .spk[aria-pressed=false] .wave1,.cmd .spk[aria-pressed=false] .wave2{opacity:.15}
 .cmd .ico:disabled{opacity:.35;cursor:not-allowed}
 .cmd .ico.on{color:#fff;background:var(--a35)}
