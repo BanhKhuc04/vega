@@ -27,7 +27,7 @@ describe('B7 · risk ranking and confirmation', () => {
     expect(out.path).toBe('confirm');
     expect(out.answer).toBe('Confirm: turn off Kitchen plug? Reply "yes" within 30 s.');
     expect(t.sets).toEqual([]);
-    expect(t.scenes.at(-1)).toMatchObject({ scene: 'alert', ttl: 30, data: { title: 'confirm action', error: 'Turn off Kitchen plug?' } });
+    expect(t.scenes.at(-1)).toMatchObject({ scene: 'alert', ttl: 30, data: { title: 'confirm action', error: 'Turn off Kitchen plug?', confirm: true } });
     const yes = await t.agent.handle(owner('có'));
     expect(yes).toMatchObject({ path: 'confirmed', answer: 'Kitchen plug off' });
     expect(t.sets).toEqual([{ device: 'kitchen/plug', on: false }]);
