@@ -9,6 +9,7 @@ import { GoogleApi, GoogleAuth } from './google';
 import { piStatsReader } from './pistats';
 import { Registry } from './registry';
 import { Store } from './store';
+import { voiceServer } from './voice';
 import { fetchWeather } from './weather';
 
 /** A command older than this (or retained) is a replay, not the owner speaking now. */
@@ -21,6 +22,8 @@ export interface Brain {
   ci: CiWatcher | null;
   /** Calendar, mail, weather, briefing, reminders, Focus. */
   assistant: Assistant;
+  /** Port of the `/voice/stt` endpoint once listening, null when VOICE_PORT is not set. */
+  voicePort: Promise<number | null>;
   /** Resolves once every command received so far has been answered. */
   idle(): Promise<void>;
   stop(): Promise<void>;
@@ -68,6 +71,20 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   let started = false;
   let piTimer: ReturnType<typeof setInterval> | null = null;
   const agent = new Agent({ bus, registry, config: cfg, store, log, ci, assistant, ...(opts.chat && { chat: opts.chat }), ...(opts.now && { now: opts.now }) });
+  const vh = cfg.voiceHttp;
+  const voice = vh ? voiceServer({ config: cfg, store, log, onSpent: () => agent.publishUsage(), ...(opts.now && { now: opts.now }) }) : null;
+  const voicePort = new Promise<number | null>((resolve) => {
+    if (!voice || !vh) return resolve(null);
+    voice.on('error', (e) => {
+      log(`[voice] cannot listen on ${vh.host}:${vh.port} (${e.message}): voice input falls back to the browser`);
+      resolve(null);
+    });
+    voice.listen(vh.port, vh.host, () => {
+      const port = (voice.address() as { port: number }).port;
+      log(`[voice] /voice/stt on ${vh.host}:${port} · speech to text ${cfg.stt ? `${cfg.stt.provider} ${cfg.stt.model}, ${cfg.stt.maxMinDay} min/day` : 'off (no STT_API_KEY)'}`);
+      resolve(port);
+    });
+  });
 
   client.on('connect', () => {
     log(`[brain] connected to ${cfg.mqttUrl}`);
@@ -110,9 +127,11 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     store,
     ci,
     assistant,
+    voicePort,
     idle: () => queue.then(() => {}),
     stop: () =>
       new Promise<void>((res) => {
+        voice?.close();
         ci?.stop();
         assistant!.stop();
         if (piTimer) clearInterval(piTimer);

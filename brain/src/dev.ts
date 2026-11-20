@@ -21,7 +21,7 @@ const broker = await startBroker({ port: Number(process.env.MQTT_PORT ?? 1883), 
   process.exit(1);
 });
 const url = `mqtt://127.0.0.1:${broker.port}`;
-const cfg = loadConfig({ ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '' });
+const cfg = loadConfig({ ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '', VOICE_PORT: process.env.VOICE_PORT || '8091', VOICE_HOST: '127.0.0.1' });
 // with real CI watched, the simulator neither fakes a CI state nor runs its demo CI -> scene rule
 const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }), ...(cfg.google && { nextEvent: false }) });
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
@@ -30,7 +30,13 @@ const brain = startBrain(cfg, { log });
 process.env.VITE_DATA_SOURCE = 'mqtt';
 process.env.VITE_MQTT_URL = `ws://127.0.0.1:${broker.wsPort}`;
 const root = fileURLToPath(new URL('../../dashboard/', import.meta.url));
-const ui = await createServer({ root, configFile: `${root}vite.config.ts`, ...(process.env.PORT && { server: { port: Number(process.env.PORT) } }) });
+// the page asks its own address for /voice/*, as behind nginx on the Pi. Piper on a PC: VOICE_TTS_URL=http://127.0.0.1:5002
+const voicePort = await brain.voicePort;
+const proxy = {
+  ...(voicePort && { '/voice/stt': `http://127.0.0.1:${voicePort}` }),
+  ...(process.env.VOICE_TTS_URL && { '/voice/tts': process.env.VOICE_TTS_URL }),
+};
+const ui = await createServer({ root, configFile: `${root}vite.config.ts`, server: { proxy, ...(process.env.PORT && { port: Number(process.env.PORT) }) } });
 await ui.listen();
 console.log(`\nVEGA is running · AI: ${cfg.tasks.router ?? 'none (local commands only)'} · budget $${cfg.budgetUsdDay}/day`);
 ui.printUrls();

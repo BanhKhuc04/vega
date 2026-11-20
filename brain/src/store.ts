@@ -51,6 +51,10 @@ export class Store {
         ts INTEGER NOT NULL, month TEXT NOT NULL, command_id TEXT NOT NULL, provider TEXT NOT NULL, query TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS searches_month ON searches (month);
+      CREATE TABLE IF NOT EXISTS stt_usage (
+        ts INTEGER NOT NULL, day TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL, seconds REAL NOT NULL, usd REAL NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS stt_usage_day ON stt_usage (day);
       CREATE TABLE IF NOT EXISTS reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
         done INTEGER NOT NULL DEFAULT 0
@@ -70,17 +74,32 @@ export class Store {
       .run(r.ts, dayOf(r.ts), r.commandId, r.task, r.provider, r.model, r.tokensIn, r.tokensOut, r.usd);
   }
 
-  /** USD spent on LLM calls on a local day. */
-  spentUsd(day: string): number {
-    const row = this.db.prepare('SELECT COALESCE(SUM(usd), 0) AS usd FROM llm_usage WHERE day = ?').get(day) as { usd: number };
-    return row.usd;
+  /** One transcription (M5): counted against the daily minutes and, with the LLM calls, the daily budget. */
+  logStt(ts: number, provider: string, model: string, seconds: number, usd: number): void {
+    this.db.prepare('INSERT INTO stt_usage (ts, day, provider, model, seconds, usd) VALUES (?, ?, ?, ?, ?, ?)').run(ts, dayOf(ts), provider, model, seconds, usd);
   }
 
-  /** Totals of one local day: what the screen shows as "AI budget". */
+  /** Seconds of audio transcribed on a local day. */
+  sttSecondsOn(day: string): number {
+    return (this.db.prepare('SELECT COALESCE(SUM(seconds), 0) AS s FROM stt_usage WHERE day = ?').get(day) as { s: number }).s;
+  }
+
+  private sttUsd(day: string): number {
+    return (this.db.prepare('SELECT COALESCE(SUM(usd), 0) AS usd FROM stt_usage WHERE day = ?').get(day) as { usd: number }).usd;
+  }
+
+  /** USD spent on AI on a local day: LLM calls and speech to text. */
+  spentUsd(day: string): number {
+    const row = this.db.prepare('SELECT COALESCE(SUM(usd), 0) AS usd FROM llm_usage WHERE day = ?').get(day) as { usd: number };
+    return row.usd + this.sttUsd(day);
+  }
+
+  /** Totals of one local day: what the screen shows as "AI budget" (usd includes speech to text; calls and tokens are LLM only). */
   usageOn(day: string): { usd: number; calls: number; tokensIn: number; tokensOut: number } {
-    return this.db
+    const u = this.db
       .prepare('SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS calls, COALESCE(SUM(tokens_in), 0) AS tokensIn, COALESCE(SUM(tokens_out), 0) AS tokensOut FROM llm_usage WHERE day = ?')
       .get(day) as { usd: number; calls: number; tokensIn: number; tokensOut: number };
+    return { ...u, usd: u.usd + this.sttUsd(day) };
   }
 
   /** LLM calls recorded for one command (the ledger is the proof that local commands cost nothing). */
