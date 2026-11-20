@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Server } from 'node:http';
-import { loadConfig } from '../src/config';
+import { STT_PROMPT, loadConfig } from '../src/config';
 import type { Config } from '../src/config';
 import { Store, dayOf } from '../src/store';
-import { SttFailed, speechToText, transcribe, voiceServer } from '../src/voice';
+import { SttFailed, cleanTranscript, speechToText, transcribe, voiceServer } from '../src/voice';
 
 const KEY = 'gsk_secret_stt_key';
 const env = { STT_API_KEY: KEY, STT_USD_PER_HOUR: '0.04', BRAIN_DB: ':memory:' };
@@ -53,12 +53,15 @@ describe('transcribe', () => {
     expect(seen[0]!.form.get('response_format')).toBe('verbose_json');
     expect((seen[0]!.form.get('file') as File).name).toBe('speech.webm');
     expect(seen[0]!.form.get('prompt')).toMatch(/phòng ngủ mấy độ/);
+    expect(seen[0]!.form.get('language')).toBe('vi');
   });
   it('STT_PROMPT replaces the word hint; empty sends none', async () => {
     const { f, seen } = fakeFetch();
     await transcribe(loadConfig({ ...env, STT_PROMPT: 'bếp, ban công' }).stt!, audio, 'audio/webm', { fetchImpl: f });
     await transcribe(loadConfig({ ...env, STT_PROMPT: '' }).stt!, audio, 'audio/webm', { fetchImpl: f });
     expect(seen.map((s) => s.form.get('prompt'))).toEqual(['bếp, ban công', null]);
+    await transcribe(loadConfig({ ...env, STT_LANGUAGE: '' }).stt!, audio, 'audio/webm', { fetchImpl: f });
+    expect(seen[2]!.form.get('language')).toBeNull(); // empty: Whisper guesses (mixed English commands)
   });
   it('a provider error that echoes the key never carries it further', async () => {
     const { f } = fakeFetch({ status: 401, body: { error: `Invalid API Key ${KEY}` } });
@@ -70,6 +73,34 @@ describe('transcribe', () => {
   it('unreachable provider is offline', async () => {
     const f = (() => Promise.reject(new TypeError('fetch failed'))) as unknown as typeof fetch;
     await expect(transcribe(loadConfig(env).stt!, audio, 'audio/webm', { fetchImpl: f })).rejects.toMatchObject({ code: 'offline' });
+  });
+});
+
+describe('cleanTranscript: what Whisper invents on noise is dropped', () => {
+  const prompt = STT_PROMPT;
+  it('video outros, alone or after a real command', () => {
+    expect(cleanTranscript('Cảm ơn các bạn đã theo dõi và hẹn gặp lại.', prompt)).toBe('');
+    expect(cleanTranscript('Để không bỏ lỡ những video hấp dẫn.', prompt)).toBe('');
+    expect(cleanTranscript('Hãy subscribe cho kênh Ghiền Mì Gõ để không bỏ lỡ những video hấp dẫn', prompt)).toBe('');
+    expect(cleanTranscript('Bật đèn phòng khách. Cảm ơn các bạn đã theo dõi.', prompt)).toBe('Bật đèn phòng khách.');
+  });
+  it('one word over and over', () => {
+    expect(cleanTranscript('Đã trẻ ngạc nguồn, nguồn, nguồn, nguồn, nguồn, nguồn.', prompt)).toBe('');
+  });
+  it('the prompt read back in pieces, but a real command that is also in the prompt stays', () => {
+    expect(cleanTranscript('Lịch hôm nay, phòng ngủ.', prompt)).toBe('');
+    expect(cleanTranscript('Lịch hôm nay.', prompt)).toBe('Lịch hôm nay.');
+    expect(cleanTranscript('Bật đèn phòng khách.', prompt)).toBe('Bật đèn phòng khách.');
+    expect(cleanTranscript('Phòng ngủ mấy độ, bật đèn giúp.', prompt)).toBe('Phòng ngủ mấy độ, bật đèn giúp.');
+  });
+  it('real speech passes untouched', () => {
+    for (const s of ['Độ ẩm bao nhiêu?', 'Nhắc tôi 3 giờ chiều gọi mẹ.', 'phòng mấy độ', 'turn on the light']) expect(cleanTranscript(s, prompt)).toBe(s);
+  });
+  it('the brain answers an invented sentence with empty text: nothing is acted on', async () => {
+    const { f } = fakeFetch({ body: { text: ' Cảm ơn các bạn đã theo dõi và hẹn gặp lại.', duration: 5.4 } });
+    const { d, store } = deps(loadConfig(env), f);
+    expect(await speechToText(d, audio, 'audio/wav')).toBe('');
+    expect(store.sttSecondsOn(dayOf(Date.now()))).toBe(5.4); // still paid for, still counted
   });
 });
 
