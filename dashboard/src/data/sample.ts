@@ -37,6 +37,7 @@ export function emptySnapshot(kind: 'mock' | 'mqtt', primaryRoom = 'bedroom'): S
     pi: null,
     net: null,
     core: 'idle',
+    mic: null,
   };
 }
 

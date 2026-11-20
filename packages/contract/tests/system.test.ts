@@ -33,6 +33,8 @@ describe('systemCommand / pi / net', () => {
   it('systemCommand', () => {
     expect(ok(systemCommand, { v: 1, id: 'a', text: 'hi', ts: '2026-11-18T09:30:00Z' })).toBe(true);
     expect(ok(systemCommand, { v: 1, id: 'a', text: '', ts: '2026-11-18T09:30:00Z' })).toBe(false);
+    expect(ok(systemCommand, { v: 1, id: 'a', text: 'hi', ts: '2026-11-18T09:30:00Z', via: 'voice' })).toBe(true);
+    expect(ok(systemCommand, { v: 1, id: 'a', text: 'hi', ts: '2026-11-18T09:30:00Z', via: 'mail' })).toBe(false);
     expect(ok(systemCommand, { v: 1, id: 'a', text: 'x' })).toBe(false);
   });
   it('piStats', () => {

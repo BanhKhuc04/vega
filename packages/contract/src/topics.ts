@@ -27,6 +27,8 @@ export const DASHBOARD_SUBSCRIPTIONS = [
   SYSTEM_PI,
   SYSTEM_NET,
   UI_SCENE,
+  // commands the voice agent heard (`via: "voice"`, v5): shown in the chat of every screen
+  SYSTEM_COMMAND,
 ] as const;
 
 /** Rooms that are not device rooms. */

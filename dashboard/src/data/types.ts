@@ -47,6 +47,8 @@ export interface Snapshot {
   pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;
   net: { latencyMs: number } | null;
   core: CoreState;
+  /** The voice agent's microphone (M5.2); null = no agent has reported. */
+  mic: 'on' | 'off' | 'missing' | null;
 }
 
 export interface VegaDataSource {
@@ -61,6 +63,8 @@ export interface VegaDataSource {
   onResult(listener: (id: string, text: string, extra: ResultExtra) => void): () => void;
   /** What the brain says on its own (a reminder, the morning briefing). */
   onAnnounce(listener: (text: string) => void): () => void;
+  /** A command the voice agent heard (`via: "voice"`): shown in the chat, read aloud by the agent, not here. */
+  onVoiceCommand(listener: (id: string, text: string) => void): () => void;
   /** Publishes a typed command. Returns its id, or null if it could not be sent. */
   sendCommand(text: string): string | null;
 }

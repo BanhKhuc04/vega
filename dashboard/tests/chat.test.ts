@@ -18,6 +18,17 @@ describe('Chat', () => {
   afterEach(() => vi.useRealTimers());
   const make = (o: { maxLines?: number } = {}) => new Chat({ root, input, send: () => next, timeoutMs: 30_000, ...o });
 
+  it('what the voice agent heard shows like a typed command; its answer is not read aloud here (the agent reads it)', () => {
+    const c = make();
+    c.heard('VOICE-1', 'phòng mấy độ');
+    c.heard('VOICE-1', 'phòng mấy độ'); // the same message twice (retained, reconnect): one line
+    expect(lines()).toEqual(['msg you wait voice | Youphòng mấy độ']);
+    vi.advanceTimersByTime(60_000);
+    expect(lines()).toHaveLength(1); // no "is the brain running?": the agent tells the owner itself
+    expect(c.result('VOICE-1', 'Bedroom 25.0°C')).toBe(false);
+    expect(lines()).toEqual(['msg you voice | Youphòng mấy độ', 'msg vega | VEGABedroom 25.0°C']);
+  });
+
   it('is hidden until something is said; pairs the answer with its command', () => {
     const c = make();
     expect(root.hidden).toBe(true);
