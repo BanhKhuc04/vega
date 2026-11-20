@@ -61,6 +61,9 @@ services:
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
       # the brain publishes this Pi's temperature, CPU, RAM and uptime on vega/system/pi
       PI_STATS: "1"
+      # /voice/stt for push-to-talk, reached only by vega-ui's nginx over the compose network (no host port)
+      VOICE_PORT: "8091"
+      VOICE_HOST: 0.0.0.0
     # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
     env_file:
       - path: ./brain.env
@@ -70,6 +73,15 @@ services:
     depends_on:
       - mosquitto
     mem_limit: 160m
+
+  # Piper reads answers aloud, offline (M5). No port on the host: vega-ui's nginx forwards /voice/tts to it.
+  vega-voice:
+    build:
+      context: ../..
+      dockerfile: voice/Dockerfile
+    image: vega-voice:local
+    restart: unless-stopped
+    mem_limit: 512m
 
 volumes:
   mosquitto-data:

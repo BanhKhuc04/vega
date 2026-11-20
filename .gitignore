@@ -16,3 +16,4 @@ infra/pi/brain.env
 *.db
 *.db-*
 google-token.json
+__pycache__/

@@ -157,6 +157,28 @@ step_tailscale_ip() {
   fi
 }
 
+step_tailscale_serve() {
+  say "HTTPS inside the tailnet (tailscale serve): browsers only allow the microphone on HTTPS"
+  local port
+  port="$( [ -f "$ENV_FILE" ] && env_get UI_PORT || true )"
+  port="${port:-8080}"
+  if ! command -v tailscale >/dev/null 2>&1 || ! tailscale status >/dev/null 2>&1; then
+    echo "   Tailscale not installed or not logged in: skipped (the dashboard stays http, the mic works on localhost only)"
+    return
+  fi
+  if tailscale serve status 2>/dev/null | grep -q "127.0.0.1:$port"; then
+    echo "   already serving:"
+    tailscale serve status 2>/dev/null | sed 's/^/   /'
+    return
+  fi
+  # tailnet only (serve, not funnel): nothing is opened to the internet
+  if run tailscale serve --bg "http://127.0.0.1:$port"; then
+    [ "$DRY" = 1 ] || tailscale serve status 2>/dev/null | sed 's/^/   /'
+  else
+    echo "   tailscale serve failed: turn on MagicDNS and HTTPS Certificates in the Tailscale admin console (DNS page), then run again"
+  fi
+}
+
 step_brain_env() {
   say "Brain settings (brain.env: AI providers, budget; never committed)"
   if [ -f "$HERE/brain.env" ]; then
@@ -235,5 +257,6 @@ step_tailscale_ip
 step_brain_env
 step_mosquitto_users
 step_stack
+step_tailscale_serve
 if [ "$KIOSK" = 1 ]; then step_kiosk; fi
 say "Done. Dashboard: http://$( [ -f "$ENV_FILE" ] && [ -n "$(env_get TAILSCALE_IP)" ] && env_get TAILSCALE_IP || echo localhost ):$( [ -f "$ENV_FILE" ] && env_get UI_PORT || echo 8080 )/"
