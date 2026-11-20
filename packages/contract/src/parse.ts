@@ -2,9 +2,9 @@ import { availability, coreState, deviceMeta, deviceState } from './device';
 import type { CoreStateMsg, DeviceKind, Risk } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
-import { netStats, piStats, systemEvent } from './system';
+import { netStats, piStats, systemCommand, systemEvent } from './system';
 import type { SourceRef } from './system';
-import { CORE_STATE, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
+import { CORE_STATE, SYSTEM_COMMAND, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
 
 /** One MQTT message, decoded and validated. */
 export type Update =
@@ -17,7 +17,8 @@ export type Update =
   | { type: 'commandResult'; id: string; result: string; speak: string | null; sources: SourceRef[] }
   | { type: 'announce'; text: string; ts: number }
   | { type: 'llmUsage'; day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }
-  | { type: 'core'; state: CoreStateMsg['state'] }
+  | { type: 'core'; state: CoreStateMsg['state']; mic: NonNullable<CoreStateMsg['mic']> | null }
+  | { type: 'voiceCommand'; id: string; text: string }
   | { type: 'pi'; cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null }
   | { type: 'net'; latencyMs: number }
   | { type: 'scene'; scene: SceneMessage }
@@ -47,6 +48,11 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
       if (payload === '') return null; // retained message was cleared
       const r = parseScene(payload);
       return r.ok ? { type: 'scene', scene: r.scene } : { type: 'sceneInvalid', error: r.error };
+    }
+    if (topic === SYSTEM_COMMAND) {
+      // only what the voice agent heard is news to a screen; typed commands come from a screen itself
+      const r = systemCommand.safeParse(json(payload));
+      return r.success && r.data.via === 'voice' ? { type: 'voiceCommand', id: r.data.id, text: r.data.text } : null;
     }
     if (isEventsTopic(topic)) {
       const r = systemEvent.safeParse(json(payload));
@@ -92,7 +98,7 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
     if (d.leaf === 'state') {
       if (topic === CORE_STATE) {
         const r = coreState.safeParse(json(payload));
-        return r.success ? { type: 'core', state: r.data.state } : null;
+        return r.success ? { type: 'core', state: r.data.state, mic: r.data.mic ?? null } : null;
       }
       const r = deviceState.safeParse(json(payload));
       if (!r.success) return null;

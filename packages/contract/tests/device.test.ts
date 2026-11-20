@@ -62,6 +62,8 @@ describe('relaySet / coreState', () => {
   it('coreState needs a known state', () => {
     for (const state of ['idle', 'listening', 'thinking', 'speaking', 'alert', 'sleep']) expect(ok(coreState, { v: 1, state })).toBe(true);
     expect(ok(coreState, { v: 1, state: 'dancing' })).toBe(false);
+    for (const mic of ['on', 'off', 'missing']) expect(ok(coreState, { v: 1, state: 'idle', mic })).toBe(true);
+    expect(ok(coreState, { v: 1, state: 'idle', mic: 'loud' })).toBe(false);
     expect(ok(coreState, { v: 1 })).toBe(false);
   });
 });

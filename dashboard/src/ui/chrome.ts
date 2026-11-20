@@ -25,6 +25,16 @@ export function renderConn(s: Pick<Snapshot, 'conn'>, root: ParentNode = documen
   txt.textContent = CONN_LABEL[s.conn];
 }
 
+/** Header chip of the voice agent's microphone: hidden while it listens normally (or no agent runs). */
+export function renderMic(s: Pick<Snapshot, 'mic'>, root: ParentNode = document): void {
+  const chip = root.querySelector<HTMLElement>('#micChip');
+  if (!chip) return;
+  chip.hidden = s.mic !== 'off' && s.mic !== 'missing';
+  chip.dataset.state = s.mic ?? '';
+  chip.title = s.mic === 'missing' ? 'The voice agent has no microphone (unplugged?)' : 'Microphone closed by the hotkey (Ctrl+Alt+M opens it)';
+  chip.querySelector('b')!.textContent = s.mic === 'missing' ? 'NO MIC' : 'MIC OFF';
+}
+
 export function nextTier(q: Quality): Quality {
   const i = PICKABLE.indexOf(q); // css (kiosk) -> full
   return PICKABLE[(i + 1) % PICKABLE.length]!;

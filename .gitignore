@@ -17,3 +17,5 @@ infra/pi/brain.env
 *.db-*
 google-token.json
 __pycache__/
+pc-agent/.venv/
+pc-agent/*.log

@@ -32,6 +32,7 @@ export async function transcribe(c: SttConfig, audio: Uint8Array<ArrayBuffer>, m
   form.append('model', c.model);
   form.append('response_format', 'verbose_json');
   if (c.prompt) form.append('prompt', c.prompt);
+  if (c.language) form.append('language', c.language);
   let res: Response;
   try {
     res = await (opts.fetchImpl ?? fetch)(`${c.baseUrl}/audio/transcriptions`, {
@@ -51,7 +52,44 @@ export async function transcribe(c: SttConfig, audio: Uint8Array<ArrayBuffer>, m
   if (typeof data?.text !== 'string') throw new SttFailed('provider', `${c.provider}: response without text`);
   // shortcut: no duration in the reply counts the longest recording; some providers also bill a minimum per request
   const seconds = typeof data.duration === 'number' && data.duration >= 0 ? data.duration : MAX_SECONDS;
-  return { text: data.text.trim(), seconds };
+  return { text: cleanTranscript(data.text, c.prompt), seconds };
+}
+
+/**
+ * Whisper invents text on noise or silence: video outros it learned from YouTube subtitles, the prompt read back, one
+ * word repeated. Groq scores those like real speech (no_speech_prob 0), so they are recognised by their shape. What is
+ * left is what was said; '' when nothing was. Better to ask again than to act on a sentence nobody said.
+ */
+const HALLUCINATIONS = [
+  'cảm ơn các bạn đã theo dõi',
+  'cám ơn các bạn đã theo dõi',
+  'hẹn gặp lại các bạn',
+  'để không bỏ lỡ những video',
+  'đăng ký kênh',
+  'subscribe cho kênh',
+  'ghiền mì gõ',
+  'la la school',
+  'thanks for watching',
+  'thank you for watching',
+  'subtitles by',
+  'please subscribe',
+];
+const norm = (s: string) => s.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+export function cleanTranscript(text: string, prompt = ''): string {
+  const sentences = text.trim().split(/(?<=[.!?…])\s+/).filter((s) => {
+    const n = norm(s);
+    if (!n || HALLUCINATIONS.some((h) => n.includes(h))) return false;
+    const words = n.split(' ');
+    // "nguồn, nguồn, nguồn, nguồn": the same word four times in a row
+    return !words.some((w, i) => i >= 3 && w === words[i - 1] && w === words[i - 2] && w === words[i - 3]);
+  });
+  const out = sentences.join(' ').trim();
+  // the prompt read back in pieces ("Lịch hôm nay, phòng ngủ."): two or more fragments, every one taken from the prompt
+  const p = norm(prompt);
+  const parts = out.split(/[,.;!?…]/).map(norm).filter(Boolean);
+  if (p && parts.length >= 2 && parts.every((f) => p.includes(f))) return '';
+  return out;
 }
 
 export interface VoiceDeps {

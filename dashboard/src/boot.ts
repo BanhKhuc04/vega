@@ -26,7 +26,7 @@ import type { PttState } from './ui/ptt';
 import { Voice } from './ui/speech';
 import { SceneController } from './scene/controller';
 import { capturePristine } from './scene/render';
-import { bindQualityButton, renderConn } from './ui/chrome';
+import { bindQualityButton, renderConn, renderMic } from './ui/chrome';
 import { LiveBinder } from './ui/live';
 
 const source = createDataSource();
@@ -46,6 +46,7 @@ let latest = source.getSnapshot();
 const paint = () => {
   binder.render(latest);
   renderConn(latest);
+  renderMic(latest);
 };
 capturePristine(document, { setLog: () => {} }); // remember the template's own text before any animation touches it
 paint(); // first values go in before the intro animations read them (countUp targets)
@@ -53,7 +54,20 @@ hud.start();
 trackHeaderHeight();
 bindQualityButton(hud.api);
 
+let core = latest.core;
 source.subscribe((s) => {
+  // the voice agent heard its wake word: show Listen; it heard nothing after all: back to Idle
+  if (s.core !== core) {
+    if (s.core === 'listening' && hud.api.getMode() === 'idle') {
+      const tr = document.querySelector<HTMLElement>('#transcript');
+      if (tr) {
+        tr.dataset.text = ''; // not the template's sample sentence
+        tr.textContent = '…';
+      }
+      hud.api.setMode('listen');
+    } else if (core === 'listening' && s.core === 'idle' && hud.api.getMode() === 'listen') hud.api.setMode('idle');
+    core = s.core;
+  }
   latest = s;
   paint();
 });
@@ -79,6 +93,8 @@ source.onAnnounce((text) => {
   chat.announce(text);
   say(text);
 });
+// what the voice agent (pc-agent) heard: shown here, read aloud by the agent on its own speaker
+source.onVoiceCommand((id, text) => chat.heard(id, text));
 hud.hooks.onCommand = (text) => void chat.submit(text);
 
 const spk = document.querySelector<HTMLButtonElement>('#spkBtn')!;

@@ -40,6 +40,7 @@ export class MqttSource implements VegaDataSource {
   private sceneListeners = new Set<(s: SceneMessage) => void>();
   private resultListeners = new Set<(id: string, text: string, extra: ResultExtra) => void>();
   private announceListeners = new Set<(text: string) => void>();
+  private voiceListeners = new Set<(id: string, text: string) => void>();
   private client: MqttLikeClient | null = null;
   private connected = false;
   private everConnected = false;
@@ -125,6 +126,11 @@ export class MqttSource implements VegaDataSource {
     return () => this.announceListeners.delete(listener);
   }
 
+  onVoiceCommand(listener: (id: string, text: string) => void): () => void {
+    this.voiceListeners.add(listener);
+    return () => this.voiceListeners.delete(listener);
+  }
+
   sendCommand(text: string): string | null {
     const clean = text.trim();
     if (!clean || !this.connected || !this.client) return null;
@@ -145,6 +151,10 @@ export class MqttSource implements VegaDataSource {
     }
     if (u.type === 'commandResult') {
       for (const l of this.resultListeners) l(u.id, u.result, { speak: u.speak, sources: u.sources });
+      return;
+    }
+    if (u.type === 'voiceCommand') {
+      for (const l of this.voiceListeners) l(u.id, u.text);
       return;
     }
     if (u.type === 'announce') {

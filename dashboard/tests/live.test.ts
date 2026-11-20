@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiveBinder, fmtAgo, fmtIn, liveText } from '../src/ui/live';
-import { CONN_LABEL, nextTier, renderConn, renderQuality } from '../src/ui/chrome';
+import { CONN_LABEL, nextTier, renderConn, renderMic, renderQuality } from '../src/ui/chrome';
 import { emptySnapshot, sampleSnapshot } from '../src/data/sample';
 import type { Snapshot } from '../src/data/types';
 import { loadTemplate } from './dom';
@@ -142,6 +142,18 @@ describe('header chrome', () => {
       expect((document.querySelector('#conn') as HTMLElement).dataset.state).toBe(conn);
     }
     expect(CONN_LABEL).toEqual({ live: 'LIVE', reconnecting: 'RECONNECTING', offline: 'OFFLINE', sim: 'SIM' });
+  });
+  it('mic chip: hidden while the voice agent listens (or none runs), MIC OFF / NO MIC otherwise', () => {
+    const chip = document.querySelector<HTMLElement>('#micChip')!;
+    expect(chip.hidden).toBe(true);
+    renderMic({ mic: 'off' });
+    expect([chip.hidden, chip.textContent]).toEqual([false, 'MIC OFF']);
+    renderMic({ mic: 'missing' });
+    expect([chip.hidden, chip.textContent]).toEqual([false, 'NO MIC']);
+    renderMic({ mic: 'on' });
+    expect(chip.hidden).toBe(true);
+    renderMic({ mic: null });
+    expect(chip.hidden).toBe(true);
   });
   it('quality button shows the running tier and says when it was lowered automatically', () => {
     renderQuality('css', true);

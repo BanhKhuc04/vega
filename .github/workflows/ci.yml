@@ -22,8 +22,17 @@ jobs:
       - run: npm run lint
       - run: npm run check
       - run: npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: vega-voice unit tests (fake voice, no Piper)
         run: python3 -m unittest discover voice
+      - name: pc-agent (wake word, M5.2)
+        run: |
+          pip install -r pc-agent/requirements.txt
+          pip install --no-deps openwakeword==0.6.0
+          python -m unittest discover pc-agent
+          PC_AGENT_PYTHON=python npx vitest run brain/tests/pc-agent.test.ts
       - name: Provider bench (mock only, no API keys in CI)
         run: npm run bench -- --provider mock
       - run: npm run build

@@ -76,7 +76,8 @@ export function localDay(ms: number): string {
 export type SystemEvent = z.infer<typeof systemEvent>;
 
 /** `vega/system/command`: published by the UI. */
-export const systemCommand = z.object({ v, id: z.string().min(1).max(64), text: z.string().min(1).max(500), ts });
+/** `via: "voice"` (v5): spoken to the voice agent (pc-agent), which reads the answer aloud itself; screens show it, quietly. */
+export const systemCommand = z.object({ v, id: z.string().min(1).max(64), text: z.string().min(1).max(500), ts, via: z.enum(['voice']).optional() });
 export type SystemCommand = z.infer<typeof systemCommand>;
 
 /** `vega/system/pi`: stats of the Raspberry Pi, published by the brain or a tiny agent. */

@@ -57,6 +57,7 @@ export const relaySet = z.object({ v, on: z.boolean() });
 export type RelaySet = z.infer<typeof relaySet>;
 
 export const CORE_STATES = ['idle', 'listening', 'thinking', 'speaking', 'alert', 'sleep'] as const;
-/** `vega/desk/core/state`. */
-export const coreState = z.object({ v, state: z.enum(CORE_STATES) });
+export const MIC_STATES = ['on', 'off', 'missing'] as const;
+/** `vega/desk/core/state`. `mic` (v5): the voice agent's microphone; `off` = closed by the owner's hotkey, `missing` = unplugged. */
+export const coreState = z.object({ v, state: z.enum(CORE_STATES), mic: z.enum(MIC_STATES).optional() });
 export type CoreStateMsg = z.infer<typeof coreState>;

@@ -1,0 +1,12 @@
+# Install with:  pip install -r pc-agent/requirements.txt && pip install --no-deps openwakeword==0.6.0
+# openwakeword is installed without its dependencies: on Linux it pulls tflite-runtime, which has no wheel for current
+# Pythons (3.12+, Pi OS Trixie), while pc-agent only uses its ONNX models. What it really imports is listed here.
+onnxruntime>=1.17
+numpy>=1.26
+tqdm>=4
+requests>=2
+scipy>=1.3
+scikit-learn>=1.0
+sounddevice>=0.4.6
+paho-mqtt>=2.0
+keyboard>=0.13.5; sys_platform == "win32"

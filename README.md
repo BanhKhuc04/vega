@@ -150,6 +150,7 @@ tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung c�
    STT_USD_PER_HOUR=0.04          # giá mỗi giờ âm thanh (trang giá của nhà cung cấp); bắt buộc để giữ trần ngày
    # STT_PROVIDER=groq            # hoặc openai (+ STT_MODEL=whisper-1, STT_USD_PER_HOUR=0.36), hoặc STT_BASE_URL riêng
    # STT_MAX_MIN_DAY=30           # phút ghi âm mỗi ngày, không bao giờ vượt
+   # STT_LANGUAGE=vi              # ngôn ngữ bạn nói; để trống thì Whisper tự đoán (câu tiếng Việt ngắn dễ bị nghe sai)
    # STT_PROMPT=phòng ngủ, bếp, đèn bàn   # từ cần nghe đúng (tên phòng, thiết bị); mặc định là các câu lệnh của VEGA
    ```
 3. Khởi động lại bộ não. Log có dòng `[voice] /voice/stt on … speech to text groq whisper-large-v3-turbo`.
@@ -164,6 +165,24 @@ gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe 
 
 Mic gặp sự cố thì khung chat nói rõ: chưa cho quyền mic, không có mic, mic đang bị app khác dùng, trang không phải HTTPS, hết phút
 hoặc hết trần ngày, mất mạng, chưa có `STT_API_KEY`.
+
+### "Hey Vega": nói không cần bấm (M5.2)
+
+`pc-agent` là chương trình Python nhỏ chạy trên PC, luôn nghe mic nhưng **chỉ trên máy**: một model wake word
+([openWakeWord](https://github.com/dscripka/openWakeWord)) chờ chữ "Hey Jarvis" (model có sẵn), sau này là "Hey Vega" (tự huấn
+luyện). Nghe thấy thì kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây, gửi `/voice/stt` của bộ não (agent không giữ key nào),
+ra lệnh qua MQTT, rồi đọc câu trả lời bằng Piper ra loa PC. Sau câu trả lời có 6 giây để nói tiếp mà không cần gọi lại.
+Màn hình chuyển sang Listen khi agent nghe thấy wake word, và hiện câu hỏi, câu trả lời trong khung chat.
+
+```powershell
+docker start vega-voice                                                     # Piper, để agent đọc to
+npm run vega                                                                # bộ não + broker + màn hình
+powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1       # lần đầu: cài, chạy ẩn và tự chạy khi đăng nhập
+```
+
+Nói "**Hey Jarvis**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt+M` đóng mic thật (màn hình hiện **MIC OFF**), bấm lần nữa để
+mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình, đổi
+sang "Hey Vega", và cách huấn luyện model: **`pc-agent/README.md`**.
 
 ### Chỉ màn hình, không broker
 
@@ -244,6 +263,8 @@ Tự hạ cấp khi không chọn tay: `full` dưới 30 FPS trong 3 giây → `
 ```bash
 npm run lint && npm run check && npm test      # lint, TypeScript strict (+ checkJs cho JS của template), unit test (cả brain)
 python -m unittest discover voice              # vega-voice (không cần Piper: giọng giả)
+python -m unittest discover pc-agent           # pc-agent (không cần mic: âm thanh giả)
+PC_AGENT_PYTHON=<python có requirements của pc-agent> npm test   # thêm test tích hợp pc-agent đọc file WAV
 npm run build && npm run size                  # build và ngân sách JS ≤ 300 KB gzip
 npm run build -w brain                         # bundle bộ não (brain/dist/brain.mjs, chỉ cần Node để chạy)
 npm run bench -- --provider mock               # bảng bench với AI giả
@@ -267,6 +288,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vega")
 - `docs/decisions/0008-m5-voice.md`: brief M5 (giọng nói)
 - `docs/decisions/0004-m1-brain.md`: brief M1
 - `docs/decisions/0003-m0-foundation.md`: brief M0

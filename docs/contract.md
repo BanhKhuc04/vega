@@ -1,4 +1,4 @@
-# VEGA contract, revision 3
+# VEGA contract, revision 5
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
@@ -6,8 +6,11 @@ disagree, the code wins and this page is a bug.
 - Revision **2** = device topics (from the first UI brief, now with zod schemas) + the **scene protocol** `vega/ui/scene`.
 - Revision **3** (M1) = `meta` gains the optional `aliases` and `risk` the brain needs. Additive: older payloads stay valid,
   older readers ignore the new fields, so `PAYLOAD_VERSION` stays 1.
+- Revision **4** (M6) = `command_result` up to 2,000 characters, with optional `speak` and `sources`.
+- Revision **5** (M5.2) = `vega/system/command` gains the optional `via: "voice"`, `vega/desk/core/state` the optional
+  `mic`. Additive as well.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 3` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 5` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -30,10 +33,10 @@ disagree, the code wins and this page is a bug.
 | `vega/<room>/<device_id>/meta` | device → all | yes | `deviceMeta` |
 | `vega/<room>/<device_id>/availability` | device → all (+ Last Will) | yes | `online` \| `offline` |
 | `vega/<room>/<device_id>/set` | brain/UI → device | no | `relaySet` (relays) |
-| `vega/desk/core/state` | desk core → all | yes | `coreState` |
+| `vega/desk/core/state` | desk core, voice agent (pc-agent) → all | yes | `coreState` |
 | `vega/system/events` | brain, CI watcher → all | no (stream) | `systemEvent` (by `type`) |
 | `vega/system/events/<type>` | same, latest value | yes | same payload; one retained slot per type (`ci`, `next_event`, `co2_series`); `announce` is never retained |
-| `vega/system/command` | UI → brain | no | `systemCommand` |
+| `vega/system/command` | UI, voice agent → brain (and screens, for `via: "voice"`) | no | `systemCommand` |
 | `vega/system/pi` | Pi agent → all | yes | `piStats` |
 | `vega/system/net` | Pi agent → all | yes | `netStats` |
 | `vega/ui/scene` | brain → all displays | yes | `sceneMessage` |
@@ -69,7 +72,10 @@ online/total devices and an `offline` message lowers the count immediately.
 
 **`set`** (relays): `{ "v": 1, "on": true }`.
 
-**`vega/desk/core/state`**: `{ "v": 1, "state": "listening" }`, `state` ∈ `idle | listening | thinking | speaking | alert | sleep`.
+**`vega/desk/core/state`**: `{ "v": 1, "state": "listening", "mic": "on" }`, `state` ∈ `idle | listening | thinking | speaking | alert | sleep`.
+`mic` (optional, v5) ∈ `on | off | missing`: the voice agent's microphone (`off` = closed by the owner's hotkey, `missing` =
+unplugged). Screens show **MIC OFF** / **NO MIC** in the header, and switch to Listen while `state` is `listening`.
+A message without `mic` (an ESP core) leaves the last known value.
 
 ## System payloads
 
@@ -101,6 +107,10 @@ is not today counts as nothing spent yet.
 `vega/system/command` (published by the dashboard's command bar when connected):
 `{ "v": 1, "id": "UI-m3k2x9-0", "text": "turn off the light", "ts": "2026-11-18T09:30:00Z" }`. Not retained. The brain
 ignores a retained command, or one whose `ts` is more than 30 s away from its clock (see `docs/security.md`).
+
+The voice agent (`pc-agent`, M5.2) sends what it heard the same way, with `"via": "voice"` and an id `VOICE-…`. The brain
+treats it like a typed command. Screens subscribe to this topic only for those: they show the question and the answer in
+the chat but do not read it aloud, because the agent reads it on its own speaker.
 
 `vega/system/pi`: `{ "v": 1, "cpu_pct": 23, "temp_c": 52, "mem_pct": 41, "uptime_s": 518400 }` (all optional).
 `vega/system/net`: `{ "v": 1, "latency_ms": 38 }`.

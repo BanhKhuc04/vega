@@ -15,7 +15,8 @@ describe('parseMessage: valid input', () => {
     expect(p('vega/bedroom/sensor/availability', 'offline')).toEqual({ type: 'availability', room: 'bedroom', deviceId: 'sensor', online: false });
     expect(p('vega/desk/core/meta', { v: 1, kind: 'esp32-s3', room_name: 'Desk' })).toEqual({ type: 'meta', room: 'desk', deviceId: 'core', kind: 'esp32-s3', roomName: 'Desk', name: null, aliases: [], risk: null });
     expect(p('vega/kitchen/plug/meta', { v: 1, kind: 'esp8266', name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' })).toMatchObject({ name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' });
-    expect(p('vega/desk/core/state', { v: 1, state: 'listening' })).toEqual({ type: 'core', state: 'listening' });
+    expect(p('vega/desk/core/state', { v: 1, state: 'listening' })).toEqual({ type: 'core', state: 'listening', mic: null });
+    expect(p('vega/desk/core/state', { v: 1, state: 'idle', mic: 'off' })).toEqual({ type: 'core', state: 'idle', mic: 'off' });
   });
   it('system topics', () => {
     expect(p('vega/system/events', { v: 1, type: 'ci', repo: 'r', failed: 2, ts: '2026-11-18T09:00:00Z' })).toMatchObject({ type: 'ci', failed: 2 });
@@ -71,6 +72,13 @@ describe('parseMessage: bad input is dropped without throwing', () => {
       expect(p(topic, payload)).toBeNull();
     });
   }
+  it('a command the voice agent heard reaches screens; typed ones (from a screen itself) do not (v5)', () => {
+    const ts = '2026-11-20T09:30:00Z';
+    expect(p('vega/system/command', { v: 1, id: 'VOICE-1', text: 'phòng mấy độ', ts, via: 'voice' })).toEqual({ type: 'voiceCommand', id: 'VOICE-1', text: 'phòng mấy độ' });
+    expect(p('vega/system/command', { v: 1, id: 'UI-1', text: 'phòng mấy độ', ts })).toBeNull();
+    expect(p('vega/system/command', { v: 1, id: 'X', text: 'hi', ts, via: 'telepathy' })).toBeNull();
+  });
+
   it('a bad scene is reported, not dropped silently', () => {
     expect(p('vega/ui/scene', '{oops')).toEqual({ type: 'sceneInvalid', error: 'invalid JSON' });
     expect(p('vega/ui/scene', { v: 1, scene: 'disco' })).toMatchObject({ type: 'sceneInvalid' });

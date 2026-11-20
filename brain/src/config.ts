@@ -92,6 +92,8 @@ export interface SttConfig {
   maxMinDay: number;
   /** Words VEGA often hears, sent as Whisper's `prompt` so they are spelled right. Empty = none. */
   prompt: string;
+  /** ISO-639-1 language of what is said (`vi`): short commands are misheard when Whisper has to guess. Empty = guess. */
+  language: string;
 }
 
 /** Whisper picks words from its prompt: the room, device and command words of VEGA. */
@@ -152,7 +154,7 @@ function stt(env: Env, warnings: string[]): SttConfig | null {
   if (!model) return off('STT_MODEL is empty');
   // without a price the daily budget could not count speech
   if (!env.STT_USD_PER_HOUR || !(usdPerHour >= 0)) return off('STT_USD_PER_HOUR (USD per hour of audio) is missing');
-  return { provider, baseUrl, apiKey, model, usdPerHour, maxMinDay: num(env.STT_MAX_MIN_DAY, 30, 1), prompt: (env.STT_PROMPT ?? STT_PROMPT).trim() };
+  return { provider, baseUrl, apiKey, model, usdPerHour, maxMinDay: num(env.STT_MAX_MIN_DAY, 30, 1), prompt: (env.STT_PROMPT ?? STT_PROMPT).trim(), language: (env.STT_LANGUAGE ?? 'vi').trim().toLowerCase() };
 }
 
 /** Base URLs of common OpenAI-compatible providers, so `.env` only needs the key, the model and the prices. */

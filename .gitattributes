@@ -1,0 +1,5 @@
+# Line endings are LF in the repository, whatever the OS (Windows tools once wrote CRLF into 35 files).
+* text=auto eol=lf
+*.wav binary
+*.png binary
+*.onnx binary

@@ -51,6 +51,23 @@ describe('MqttSource', () => {
     expect(src.getSnapshot().devices[0]).toMatchObject({ id: 'bedroom/env', online: false });
   });
 
+  it('voice agent: heard commands go to their listeners (typed ones do not), mic state lands in the snapshot', async () => {
+    const { client, src } = await setup();
+    client.fire('connect');
+    expect(client.subs[0]).toContain(SYSTEM_COMMAND);
+    const heard: [string, string][] = [];
+    src.onVoiceCommand((id, text) => heard.push([id, text]));
+    const ts = '2026-11-20T09:00:00Z';
+    msg(client, SYSTEM_COMMAND, JSON.stringify({ v: 1, id: 'VOICE-1', text: 'bật đèn', ts, via: 'voice' }));
+    msg(client, SYSTEM_COMMAND, JSON.stringify({ v: 1, id: 'UI-1', text: 'bật đèn', ts }));
+    expect(heard).toEqual([['VOICE-1', 'bật đèn']]);
+    expect(src.getSnapshot().mic).toBeNull();
+    msg(client, 'vega/desk/core/state', JSON.stringify({ v: 1, state: 'idle', mic: 'off' }));
+    expect(src.getSnapshot()).toMatchObject({ core: 'idle', mic: 'off' });
+    msg(client, 'vega/desk/core/state', JSON.stringify({ v: 1, state: 'listening' })); // an ESP core without a mic field keeps it
+    expect(src.getSnapshot()).toMatchObject({ core: 'listening', mic: 'off' });
+  });
+
   it('survives corrupt payloads and keeps previous data', async () => {
     const { client, src } = await setup();
     client.fire('connect');

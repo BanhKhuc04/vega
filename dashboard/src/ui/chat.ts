@@ -41,7 +41,7 @@ function sourceList(sources: SourceRef[]): HTMLElement {
 
 export class Chat {
   /** Commands sent from this tab and still waiting for (or already timed out without) an answer. */
-  private readonly pending = new Map<string, { line: HTMLElement; timer: ReturnType<typeof setTimeout> | null }>();
+  private readonly pending = new Map<string, { line: HTMLElement; timer: ReturnType<typeof setTimeout> | null; quiet?: boolean }>();
   private readonly timeoutMs: number;
   private readonly maxLines: number;
 
@@ -75,7 +75,15 @@ export class Chat {
     return id;
   }
 
-  /** An answer from the brain. Returns true if it answers a command sent from this tab (so it may be read aloud). */
+  /** A command the voice agent heard: shown like a typed one, but its answer is read aloud by the agent, not here. */
+  heard(id: string, text: string): void {
+    if (this.pending.has(id)) return;
+    const line = this.add('you', 'You', text);
+    line.classList.add('wait', 'voice');
+    this.pending.set(id, { line, timer: null, quiet: true });
+  }
+
+  /** An answer from the brain. True if it answers a command typed or spoken in this tab (so it is read aloud here). */
   result(id: string, text: string, sources: SourceRef[] = []): boolean {
     const p = this.pending.get(id);
     if (!p) return false; // another tab's command, or an old retained answer
@@ -85,7 +93,7 @@ export class Chat {
     const line = this.add('vega', 'VEGA', text);
     if (sources.length) line.querySelector('span')!.append(sourceList(sources));
     this.deps.root.scrollTop = this.deps.root.scrollHeight;
-    return true;
+    return !p.quiet;
   }
 
   /** Something the brain says on its own (a reminder, the briefing). */
