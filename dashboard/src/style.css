@@ -330,5 +330,7 @@ svg text.zap{animation:zapsvg .5s steps(1) 1}
 @media (max-width:600px){.conn{letter-spacing:.06em;font-size:9px;padding:3px 8px}.qbtn{letter-spacing:.06em;padding:0 8px}}
 /* M0-6: the template's own reduced-motion rule covers `*` only; pseudo-elements (e.g. the typing cursor) kept blinking */
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-/* Narrow screens: the template's briefing panels (top:46%) touched the orb's wordmark by a few px on slower renders */
-@media (max-width:900px){.brief{top:49%}}
+/* Narrow screens: the briefing list fills the lower half, exactly where research/locate/vision park the orb, so the
+   wordmark flew through the briefing text on the way up (and a slow frame froze it there). At this size it is ~7 px
+   (the header already says VEGA): hide it for the whole briefing, the orb still makes the trip. */
+@media (max-width:900px){.brief{top:49%}#app[data-mode=briefing] #orbLabel{visibility:hidden}}
