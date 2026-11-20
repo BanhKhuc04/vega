@@ -15,7 +15,8 @@ export default defineConfig({
     launchOptions: {
       executablePath,
       // software WebGL so the `full` and `lite` tiers can be exercised without a GPU
-      args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+      // plus a fake microphone (a tone) for push-to-talk, M5
+      args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
     },
   },
   webServer: {

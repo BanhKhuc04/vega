@@ -34,7 +34,8 @@ Các bước và nơi chỉnh:
 | Tailscale | điền `TAILSCALE_IP` trong `.env` bằng `tailscale ip -4` (trống = dashboard chỉ mở được trên chính Pi) |
 | Bộ não | tạo `infra/pi/brain.env` (quyền 600, **không commit**) từ `brain.env.example`: nhà cung cấp AI, trần chi phí ngày. Để `LLM_ROUTER=none` thì chỉ chạy lệnh cục bộ |
 | Mosquitto | `mosquitto/passwd` dựng lại từ `.env`; ACL ở `mosquitto/acl` |
-| Stack | `infra/pi/docker-compose.yml`: `mosquitto` (64 MB), `vega-brain` (160 MB, SQLite ở volume `brain-data`), `vega-ui` nginx (48 MB), `restart: unless-stopped` |
+| Stack | `infra/pi/docker-compose.yml`: `mosquitto` (64 MB), `vega-brain` (160 MB, SQLite ở volume `brain-data`), `vega-ui` nginx (48 MB), `vega-voice` Piper (512 MB, giọng nói có sẵn trong image ~130 MB), `restart: unless-stopped` |
+| HTTPS | `tailscale serve --bg http://127.0.0.1:8080`: trang có `https://<tên-máy>.<tailnet>.ts.net`, để trình duyệt cho dùng mic (M5). Cần bật **MagicDNS** và **HTTPS Certificates** trong trang quản trị Tailscale trước; thiếu thì script báo và đi tiếp |
 | Kiosk | `cage` + Chromium, unit `vega-kiosk.service`, mở `http://localhost:8080/?quality=css` |
 
 Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc định user đang chạy `sudo`, hoặc `pi`).
@@ -53,7 +54,10 @@ Mật khẩu: `grep MQTT_ infra/pi/.env`.
 ## Kiểm tra sau khi cài
 
 ```bash
-docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env ps      # 3 container
+docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env ps      # 4 container
+curl -s -o /tmp/hi.wav -w '%{http_code} %{content_type}\n' 'http://localhost:8080/voice/tts?text=Xin%20ch%C3%A0o&lang=vi'   # 200 audio/wav
+curl -s http://localhost:8080/voice/stt                                        # {"on":true} khi brain.env có STT_API_KEY
+tailscale serve status                                                         # https://….ts.net -> http://127.0.0.1:8080
 docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env logs vega-brain | tail   # "connected to mqtt://mosquitto:1883"
 curl -s http://localhost:8080/config.js                                        # source: "mqtt"
 ```
@@ -66,6 +70,9 @@ MQTT_URL=mqtt://<ip-pi>:1883 MQTT_USER=brain MQTT_PASS=<mật khẩu brain> npm 
 
 Mở dashboard trên PC bằng `http://<ip-tailscale-của-pi>:8080/` (mức `full`) để xem cùng một cảnh với Pi. Gõ
 `phòng mấy độ, bật đèn giúp` trên thanh lệnh để thử bộ não (cần thiết bị thật, hoặc chạy `npm run sim` trỏ vào broker của Pi).
+
+Thử giọng nói (M5): trên PC hoặc điện thoại trong tailnet, mở `https://<tên-máy-pi>.<tailnet>.ts.net`, giữ nút mic nói "phòng mấy
+độ", thả ra: VEGA hiện câu bạn nói, trả lời và đọc to bằng giọng tiếng Việt.
 
 ## Mất điện, rút điện cắm lại
 

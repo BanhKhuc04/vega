@@ -638,7 +638,8 @@ function setMode(m, force) {
   INTRO[m] && INTRO[m]();
 }
 
-$('#micBtn').addEventListener('click', () => hooks.onMic && hooks.onMic());
+// keyboard clicks only (detail 0): pointer press-and-hold on the mic is handled in boot.ts
+$('#micBtn').addEventListener('click', (e) => { if (e.detail === 0 && hooks.onMic) hooks.onMic(); });
 $('#fPause').addEventListener('click', () => { focusPaused = !focusPaused; $('#fPause').textContent = focusPaused ? 'Resume' : 'Pause'; sfx.click(); });
 $('#fEnd').addEventListener('click', () => setMode('idle'));
 // confirmation card (scene alert with `confirm`): the buttons answer the brain like typing yes / no would

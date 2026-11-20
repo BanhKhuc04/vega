@@ -62,43 +62,43 @@ describe('speech helpers', () => {
 });
 
 describe('Voice', () => {
-  it('reads answers aloud with a matching voice, cutting off the previous one', () => {
+  it('reads answers aloud with a matching voice, cutting off the previous one', async () => {
     const f = fakeWindow({ voices: [{ lang: 'vi-VN', name: 'An' }] });
     const v = new Voice(f.win);
     expect(v.enabled).toBe(true);
-    v.speak('Xin chào!');
+    await v.speak('Xin chào!');
     expect(f.spoken[0]).toMatchObject({ text: 'Xin chào!', lang: 'vi-VN', voice: { name: 'An' } });
     expect(f.cancels()).toBe(1);
-    v.speak('   ');
+    await v.speak('   ');
     expect(f.spoken).toHaveLength(1);
   });
 
-  it('stays silent (and says so) when no installed voice speaks the language', () => {
+  it('stays silent (and says so) when no installed voice speaks the language', async () => {
     const f = fakeWindow({ voices: [{ lang: 'en-US', name: 'Zira' }] });
     const v = new Voice(f.win);
-    expect(v.speak('Xin chào! Tôi có thể giúp gì?')).toBe(false);
+    expect(await v.speak('Xin chào! Tôi có thể giúp gì?')).toBe(false);
     expect(f.spoken).toEqual([]);
-    expect(v.speak('Bedroom 25.0°C')).toBe(true);
+    expect(await v.speak('Bedroom 25.0°C')).toBe(true);
     expect(f.spoken[0]).toMatchObject({ lang: 'en-US', voice: { name: 'Zira' } });
-    expect(new Voice(fakeWindow({ voices: [] }).win).speak('Xin chào')).toBe(true); // voices not loaded yet: try anyway
+    expect(await new Voice(fakeWindow({ voices: [] }).win).speak('Xin chào')).toBe(true); // voices not loaded yet: try anyway
   });
 
-  it('the speaker button turns reading off and is remembered', () => {
+  it('the speaker button turns reading off and is remembered', async () => {
     const f = fakeWindow();
     const v = new Voice(f.win);
     v.setEnabled(false);
-    v.speak('Xin chào!');
+    await v.speak('Xin chào!');
     expect(f.spoken).toEqual([]);
     expect(f.store.get('vega.speak')).toBe('0');
     expect(new Voice(f.win).enabled).toBe(false);
     expect(new Voice(fakeWindow({ storageThrows: true }).win).enabled).toBe(true); // storage blocked: still works
   });
 
-  it('without speech support nothing breaks', () => {
+  it('without speech support nothing breaks', async () => {
     const v = new Voice({} as SpeechWindow);
     expect(v.canSpeak).toBe(false);
     expect(v.canListen).toBe(false);
-    v.speak('hi');
+    expect(await v.speak('hi')).toBe(true);
     expect(v.listen({ onText() {}, onError() {}, onEnd() {} })).toBe(false);
   });
 
@@ -120,5 +120,75 @@ describe('Voice', () => {
     v.stopListening();
     expect(ended).toBe(true);
     expect(v.listening).toBe(false);
+  });
+
+  describe('Piper on the Pi (/voice/tts)', () => {
+    function piperWindow(reply: (url: string) => Response | Promise<Response>, voices = [{ lang: 'en-US', name: 'Zira' }]) {
+      const f = fakeWindow({ voices });
+      const asked: string[] = [];
+      const played: string[] = [];
+      const paused: string[] = [];
+      class FakeAudio {
+        onended: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        constructor(readonly src: string) {}
+        play() {
+          played.push(this.src);
+          return Promise.resolve();
+        }
+        pause() {
+          paused.push(this.src);
+        }
+      }
+      let n = 0;
+      Object.assign(f.win, {
+        fetch: (url: string) => (asked.push(url), Promise.resolve(reply(url))),
+        Audio: FakeAudio,
+        URL: { createObjectURL: () => `blob:${++n}`, revokeObjectURL() {} },
+      });
+      return { ...f, asked, played, paused };
+    }
+    const wav = () => new Response(new Uint8Array([82, 73, 70, 70]), { headers: { 'content-type': 'audio/wav' } });
+
+    it('reads Vietnamese with Piper even when the machine has no Vietnamese voice; the browser stays quiet', async () => {
+      const f = piperWindow(wav);
+      const v = new Voice(f.win);
+      expect(v.canSpeak).toBe(true);
+      expect(await v.speak('Phòng ngủ 25 độ.')).toBe(true);
+      expect(f.asked).toEqual([`/voice/tts?text=${encodeURIComponent('Phòng ngủ 25 độ.')}&lang=vi`]);
+      expect(f.played).toEqual(['blob:1']);
+      expect(f.spoken).toEqual([]);
+      await v.speak('Bedroom 25 degrees');
+      expect(f.asked[1]).toMatch(/&lang=en$/);
+      expect(f.paused).toEqual(['blob:1']); // the newer answer cut the older one off
+    });
+
+    it('no vega-voice behind the page (index.html from a dev server, or 502): browser voice, Piper not asked again', async () => {
+      const f = piperWindow(() => new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } }));
+      const v = new Voice(f.win);
+      expect(await v.speak('Bedroom 25 degrees')).toBe(true);
+      expect(f.spoken).toHaveLength(1);
+      await v.speak('Bedroom 26 degrees');
+      expect(f.asked).toHaveLength(1);
+      const g = piperWindow(() => new Response('', { status: 502 }), []);
+      expect(await new Voice(g.win).speak('hi')).toBe(true);
+    });
+
+    it('text over 500 characters is cut before it is sent', async () => {
+      const f = piperWindow(wav);
+      await new Voice(f.win).speak('a'.repeat(800));
+      expect(decodeURIComponent(f.asked[0]!.split('text=')[1]!.split('&')[0]!)).toHaveLength(500);
+    });
+
+    it('a slow answer from Piper does not play after reading was turned off', async () => {
+      let release!: (r: Response) => void;
+      const f = piperWindow(() => new Promise<Response>((r) => (release = r)));
+      const v = new Voice(f.win);
+      const p = v.speak('Xin chào');
+      v.setEnabled(false);
+      release(wav());
+      await p;
+      expect(f.played).toEqual([]);
+    });
   });
 });

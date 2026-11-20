@@ -49,6 +49,10 @@ export interface Config {
   briefingAt: string;
   /** Language of what VEGA says on its own (the briefing, reminders): `vi` or `en`. */
   lang: 'vi' | 'en';
+  /** Speech to text (M5): OpenAI-compatible `/audio/transcriptions`. null = no key: the dashboard falls back to the browser. */
+  stt: SttConfig | null;
+  /** HTTP endpoint `/voice/stt` for the dashboard (nginx forwards to it). null = not served. */
+  voiceHttp: { host: string; port: number } | null;
   /** Settings that were ignored, with the reason (logged at start). */
   warnings: string[];
 }
@@ -75,6 +79,23 @@ export interface GoogleConfig {
   tokenUrl: string;
   authUrl: string;
 }
+
+export interface SttConfig {
+  provider: string;
+  baseUrl: string;
+  /** Never logged, never sent to the browser. */
+  apiKey: string;
+  model: string;
+  /** USD per hour of audio (Groq lists prices per hour; OpenAI's $0.006/min is $0.36/h). */
+  usdPerHour: number;
+  /** Minutes of audio a day, never exceeded. */
+  maxMinDay: number;
+  /** Words VEGA often hears, sent as Whisper's `prompt` so they are spelled right. Empty = none. */
+  prompt: string;
+}
+
+/** Whisper picks words from its prompt: the room, device and command words of VEGA. */
+export const STT_PROMPT = 'VEGA ơi, phòng ngủ mấy độ? Bật đèn phòng khách, tắt quạt. Độ ẩm, CO2. Nhắc tôi 3 giờ chiều. Lịch hôm nay, mail mới. Sao fail? Nghiên cứu, tập trung 25 phút.';
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const SAFE_URL = /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/;
@@ -116,6 +137,22 @@ function weather(env: Env, warnings: string[]): Config['weather'] {
   if (!(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180) || !env.WEATHER_LAT || !env.WEATHER_LON) return warnings.push('WEATHER_LAT / WEATHER_LON must be numbers: weather is off'), null;
   if (!SAFE_URL.test(apiUrl)) return warnings.push('WEATHER_API_URL must be https (or http on localhost): weather is off'), null;
   return { lat, lon, apiUrl };
+}
+
+function stt(env: Env, warnings: string[]): SttConfig | null {
+  const apiKey = env.STT_API_KEY?.trim();
+  if (!apiKey) return null;
+  const provider = env.STT_PROVIDER?.trim().toLowerCase() || 'groq';
+  const baseUrl = (env.STT_BASE_URL?.trim() || PRESETS[provider] || '').replace(/\/+$/, '');
+  const model = env.STT_MODEL?.trim() || (provider === 'groq' ? 'whisper-large-v3-turbo' : '');
+  const usdPerHour = Number(env.STT_USD_PER_HOUR);
+  const off = (why: string) => (warnings.push(`STT_API_KEY set but ${why}: voice input uses the browser`), null);
+  if (!baseUrl) return off(`STT_PROVIDER=${provider} is unknown and STT_BASE_URL is empty`);
+  if (!SAFE_URL.test(baseUrl)) return off('STT_BASE_URL must be https (or http on localhost)');
+  if (!model) return off('STT_MODEL is empty');
+  // without a price the daily budget could not count speech
+  if (!env.STT_USD_PER_HOUR || !(usdPerHour >= 0)) return off('STT_USD_PER_HOUR (USD per hour of audio) is missing');
+  return { provider, baseUrl, apiKey, model, usdPerHour, maxMinDay: num(env.STT_MAX_MIN_DAY, 30, 1), prompt: (env.STT_PROMPT ?? STT_PROMPT).trim() };
 }
 
 /** Base URLs of common OpenAI-compatible providers, so `.env` only needs the key, the model and the prices. */
@@ -205,6 +242,8 @@ export function loadConfig(env: Env = process.env): Config {
     weather: weather(env, warnings),
     briefingAt,
     lang: env.VEGA_LANG?.trim().toLowerCase() === 'en' ? 'en' : 'vi',
+    stt: stt(env, warnings),
+    voiceHttp: env.VOICE_PORT ? { host: env.VOICE_HOST?.trim() || '127.0.0.1', port: num(env.VOICE_PORT, 8091) } : null,
     warnings,
   };
 }

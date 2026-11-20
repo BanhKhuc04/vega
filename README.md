@@ -30,14 +30,15 @@ npm ci
 npm run vega         # broker + thiết bị ảo + bộ não (đọc .env) + màn VEGA, trong một tiến trình. Mở địa chỉ nó in ra
 ```
 
-Gõ vào ô **Ask VEGA…** rồi Enter, hoặc bấm **mic** để nói (tiếng Việt). Câu hỏi và câu trả lời hiện trong khung trò chuyện
+Gõ vào ô **Ask VEGA…** rồi Enter, hoặc **giữ nút mic** (hay phím Space khi ô nhập trống) để nói, thả ra để gửi. Chạm nhanh một
+lần thì nghe tới khi chạm lần nữa (tối đa 15 giây). Câu hỏi và câu trả lời hiện trong khung trò chuyện
 phía trên ô nhập, và VEGA **đọc to** câu trả lời (nút loa để bật/tắt). Hành động cần xác nhận hiện thẻ có nút **Confirm / Cancel**.
 
 | | Yêu cầu |
 |---|---|
 | Nhắn | trình duyệt nào cũng được |
-| Đọc to | giọng có sẵn của máy. Câu tiếng Việt cần giọng tiếng Việt: Microsoft Edge có sẵn, hoặc thêm trong Windows Settings › Time & language › Speech. Không có giọng hợp thì VEGA im lặng và báo trong khung chat |
-| Nói (mic) | Chrome hoặc Edge, có internet. Âm thanh do Google/Microsoft nhận dạng (Web Speech API). Chưa chạy trên kiosk Chromium của Pi; giọng nói chạy offline là việc của M5 |
+| Đọc to | mở từ Pi: giọng **Piper** chạy offline trên Pi, máy nào cũng như nhau (M5). Trên PC dev: giọng có sẵn của máy (câu tiếng Việt cần giọng tiếng Việt: Edge có sẵn, hoặc thêm trong Windows Settings › Time & language › Speech; không có thì VEGA im lặng và báo trong khung chat), hoặc Piper nếu đặt `VOICE_TTS_URL` (mục M5) |
+| Nói (mic) | trang **HTTPS** hoặc `localhost`, có internet. Có `STT_API_KEY`: bộ não nhận dạng (mọi trình duyệt có mic, kể cả iPhone). Không có: nhận dạng của Chrome/Edge (Google/Microsoft) |
 
 AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ chạy lệnh cục bộ. VEGA chưa nhớ hội thoại: mỗi câu được xử lý riêng.
 Cột phải của màn Idle có ô **AI budget · today**: số tiền AI đã dùng hôm nay, còn lại bao nhiêu so với trần `BUDGET_USD_DAY`, số lượt gọi
@@ -127,6 +128,43 @@ tóm tắt.
 Câu hỏi nghiên cứu được gửi tới Tavily và nhà cung cấp AI. Nội dung trang web là dữ liệu ngoài: không lệnh nào trong đó điều khiển
 được thiết bị hay lời nhắc (`docs/security.md`).
 
+### Giọng nói dùng được ở mọi nơi (M5)
+
+**Đọc to** bằng [Piper](https://github.com/OHF-Voice/piper1-gpl) trong container `vega-voice` trên Pi: giọng tiếng Việt
+`vi_VN-vais1000-medium`, tiếng Anh `en_US-lessac-medium`, chạy offline, không gửi gì ra ngoài. Dashboard xin
+`GET /voice/tts?text=…&lang=vi|en` trên chính địa chỉ của trang (nginx chuyển vào `vega-voice`). Không có `vega-voice` thì quay về
+giọng của trình duyệt. Muốn có Piper trên PC dev:
+
+```bash
+docker build -f voice/Dockerfile -t vega-voice . && docker run -d -p 127.0.0.1:5002:5002 vega-voice
+VOICE_TTS_URL=http://127.0.0.1:5002 npm run vega
+```
+
+**Nghe** bằng Whisper trên cloud qua bộ não (Groq `whisper-large-v3-turbo`: rẻ, nhanh, có gói miễn phí). Giữ mic → trình duyệt ghi âm
+tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung cấp → chữ hiện ở ô "You" → VEGA trả lời như khi gõ.
+
+1. Tạo key ở [console.groq.com](https://console.groq.com) (gói miễn phí).
+2. Thêm vào `.env` (trên Pi là `infra/pi/brain.env`):
+   ```
+   STT_API_KEY=gsk_...
+   STT_USD_PER_HOUR=0.04          # giá mỗi giờ âm thanh (trang giá của nhà cung cấp); bắt buộc để giữ trần ngày
+   # STT_PROVIDER=groq            # hoặc openai (+ STT_MODEL=whisper-1, STT_USD_PER_HOUR=0.36), hoặc STT_BASE_URL riêng
+   # STT_MAX_MIN_DAY=30           # phút ghi âm mỗi ngày, không bao giờ vượt
+   # STT_PROMPT=phòng ngủ, bếp, đèn bàn   # từ cần nghe đúng (tên phòng, thiết bị); mặc định là các câu lệnh của VEGA
+   ```
+3. Khởi động lại bộ não. Log có dòng `[voice] /voice/stt on … speech to text groq whisper-large-v3-turbo`.
+
+Mỗi lần nghe tính vào `STT_MAX_MIN_DAY` **và** trần ngày `BUDGET_USD_DAY` (ô AI budget trên màn cộng cả tiền nghe). Âm thanh chỉ được
+gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe liên tục, chưa có "Hey Vega".
+
+**Mic trên điện thoại và PC khác** cần trang HTTPS. Trên Pi, `setup.sh` bật `tailscale serve`: mở
+`https://<tên-máy-pi>.<tailnet>.ts.net` (chỉ trong mạng Tailscale của bạn, không mở ra internet). Cần bật **MagicDNS** và
+**HTTPS Certificates** một lần trong trang quản trị Tailscale (mục DNS). Đổi tên máy Pi thành `vega` trong trang quản trị để có
+`https://vega.<tailnet>.ts.net`.
+
+Mic gặp sự cố thì khung chat nói rõ: chưa cho quyền mic, không có mic, mic đang bị app khác dùng, trang không phải HTTPS, hết phút
+hoặc hết trần ngày, mất mạng, chưa có `STT_API_KEY`.
+
 ### Chỉ màn hình, không broker
 
 ```bash
@@ -205,6 +243,7 @@ Tự hạ cấp khi không chọn tay: `full` dưới 30 FPS trong 3 giây → `
 
 ```bash
 npm run lint && npm run check && npm test      # lint, TypeScript strict (+ checkJs cho JS của template), unit test (cả brain)
+python -m unittest discover voice              # vega-voice (không cần Piper: giọng giả)
 npm run build && npm run size                  # build và ngân sách JS ≤ 300 KB gzip
 npm run build -w brain                         # bundle bộ não (brain/dist/brain.mjs, chỉ cần Node để chạy)
 npm run bench -- --provider mock               # bảng bench với AI giả
@@ -220,6 +259,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - Raspberry Pi 3 (Mosquitto có mật khẩu và ACL, `vega-brain`, dashboard, kiosk Chromium ở mức `css`): xem **`docs/pi-setup.md`**.
   Ảnh `vega-brain` build được cho cả amd64 và arm64: `docker buildx build --platform linux/arm64 -f brain/Dockerfile .`
 - Dashboard (8080) và WebSocket MQTT (9001) trên Pi chỉ nghe ở `localhost` và địa chỉ Tailscale, không nghe ở LAN.
+  HTTPS (để dùng mic) qua `tailscale serve`; trang HTTPS nối MQTT bằng `wss://<cùng host>/mqtt`.
 
 ## Tài liệu
 
@@ -227,6 +267,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
-- `docs/decisions/0004-m1-brain.md`: brief M1 (phần này)
+- `docs/decisions/0008-m5-voice.md`: brief M5 (giọng nói)
+- `docs/decisions/0004-m1-brain.md`: brief M1
 - `docs/decisions/0003-m0-foundation.md`: brief M0
 - `docs/decisions/0001-vega-ui-v0.1.md`: *Superseded by 0002/0003*

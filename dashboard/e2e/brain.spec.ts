@@ -10,6 +10,7 @@ import { runSim } from '../../tools/sim/src/simlib';
 import type { Sim } from '../../tools/sim/src/simlib';
 import { loadConfig } from '../../brain/src/config';
 import { startBrain } from '../../brain/src/service';
+import { dayOf } from '../../brain/src/store';
 import type { Brain } from '../../brain/src/service';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,6 +18,7 @@ import { join } from 'node:path';
 import { fakeGithub } from '../../brain/tests/fakegithub';
 import { fakeGoogle } from '../../brain/tests/fakegoogle';
 import { CO2_PAGES, fakeTavily } from '../../brain/tests/faketavily';
+import { fakeStt } from '../../brain/tests/fakestt';
 import type { ChatFn } from '../../brain/src/agent';
 import { T, watch } from './helpers';
 import type { Watch } from './helpers';
@@ -63,8 +65,8 @@ test.afterEach(async () => {
   await broker.close().catch(() => {});
 });
 
-async function openPage(browser: Browser): Promise<{ page: Page; w: Watch }> {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+async function openPage(browser: Browser, before?: (page: Page) => Promise<void>): Promise<{ page: Page; w: Watch }> {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['microphone'] });
   opened.push(ctx);
   const page = await ctx.newPage();
   // a recording stand-in for the browser's voice, with one English and one Vietnamese voice installed
@@ -83,10 +85,84 @@ async function openPage(browser: Browser): Promise<{ page: Page; w: Watch }> {
     });
   });
   const w = await watch(page);
+  await before?.(page); // routes added after watch() take precedence over it
   await page.goto(`/?quality=css&source=mqtt&mqtt=${encodeURIComponent(`ws://127.0.0.1:${broker.wsPort}`)}`);
   await expect(page.locator('#connTxt')).toHaveText('LIVE', { timeout: 6000 });
   return { page, w };
 }
+
+/** Fake vega-voice behind `/voice/tts`, and an Audio element that records what it plays. Returns the TTS requests. */
+async function fakePiper(page: Page): Promise<URL[]> {
+  const asked: URL[] = [];
+  await page.route('**/voice/tts?*', (route) => {
+    asked.push(new URL(route.request().url()));
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from('RIFF0000WAVEfmt ') });
+  });
+  await page.addInitScript(() => {
+    const played: string[] = [];
+    Object.assign(window, {
+      __played: played,
+      Audio: class {
+        onended: unknown = null;
+        onerror: unknown = null;
+        constructor(readonly src: string) {}
+        play() {
+          played.push(this.src);
+          return Promise.resolve();
+        }
+        pause() {}
+      },
+    });
+    // this machine has no Vietnamese voice
+    (window.speechSynthesis as unknown as { getVoices: () => unknown[] }).getVoices = () => [{ lang: 'en-US', name: 'En' }];
+  });
+  return asked;
+}
+
+test('M5: answers are read by Piper (fake vega-voice), Vietnamese included, on a machine without a Vietnamese voice', async ({ browser }) => {
+  let asked: URL[] = [];
+  const { page, w } = await openPage(browser, async (p) => void (asked = await fakePiper(p)));
+  await say(page, 'nhắc nhở của tôi');
+  await expect(page.locator('#chat .msg.vega span')).toHaveText(['Không có lời nhắc nào.'], { timeout: T(4000) });
+  await expect.poll(() => asked.map((u) => [u.pathname, u.searchParams.get('text'), u.searchParams.get('lang')])).toEqual([['/voice/tts', 'Không có lời nhắc nào.', 'vi']]);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __played: string[] }).__played.length)).toBe(1);
+  expect(await page.evaluate(() => (window as unknown as { __spoken: unknown[] }).__spoken)).toEqual([]); // speechSynthesis never used
+  expect(w.errors).toEqual([]);
+  expect(w.external).toEqual([]);
+});
+
+test('M5: hold the mic, speak (Chromium fake mic), release: the brain transcribes (fake STT), "You" shows it, VEGA answers', async ({ browser }) => {
+  const stt = await fakeStt({ text: 'phòng mấy độ', duration: 1.5 });
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', BRAIN_DB: ':memory:', VOICE_PORT: '0', ...stt.env }));
+  const port = await brain.voicePort;
+  try {
+    // the page asks its own address, as through nginx on the Pi: forward /voice/stt to the brain under test
+    const { page, w } = await openPage(browser, async (p) => {
+      await p.route('**/voice/stt', async (route) => route.fulfill({ response: await route.fetch({ url: `http://127.0.0.1:${port}/voice/stt` }) }));
+    });
+    await expect.poll(() => brain.registry.switches().length && brain.registry.sensors('co2').length, { timeout: 5000 }).toBe(2);
+    const temp = reading('bedroom', 'temp_c');
+    const mic = page.locator('#micBtn');
+    await page.waitForTimeout(500); // the boot-time check of GET /voice/stt
+    const box = (await mic.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect(mic).toHaveClass(/\bon\b/, { timeout: T(3000) });
+    await page.waitForTimeout(1200);
+    await page.mouse.up();
+    await expect(page.locator('#chat .msg.you span')).toHaveText(['phòng mấy độ'], { timeout: T(5000) });
+    await expect(page.locator('#chat .msg.vega span')).toHaveText([`Bedroom ${temp.toFixed(1)}°C`], { timeout: T(4000) });
+    expect(stt.seen).toHaveLength(1);
+    // the request carries the recording (an empty blob never leaves the page: ptt.test.ts); its size depends on the platform's fake mic
+    expect(brain.store.sttSecondsOn(dayOf(Date.now()))).toBe(1.5);
+    await expect(mic).not.toHaveClass(/\bon\b/);
+    expect(w.errors).toEqual([]);
+    expect(w.external).toEqual([]);
+  } finally {
+    await stt.close();
+  }
+});
 
 async function say(page: Page, text: string): Promise<string> {
   const before = last.get(SYSTEM_COMMAND);
@@ -115,7 +191,8 @@ test('"phòng mấy độ, bật đèn giúp": the sim temperature on screen, th
   const answer = `Bedroom ${temp.toFixed(1)}°C · Living room light on`;
   await expect(page.locator('#chat .msg.you span')).toHaveText(['phòng mấy độ, bật đèn giúp']);
   await expect(page.locator('#chat .msg.vega span')).toHaveText([answer]);
-  expect(await page.evaluate(() => (window as unknown as { __spoken: unknown[] }).__spoken)).toEqual([{ text: answer, lang: 'en-US' }]);
+  // no vega-voice behind the preview server: Piper is asked first, then the browser's voice reads it
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __spoken: unknown[] }).__spoken)).toEqual([{ text: answer, lang: 'en-US' }]);
   expect(w.errors).toEqual([]);
   expect(w.external).toEqual([]);
 });

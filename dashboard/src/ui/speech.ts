@@ -1,7 +1,7 @@
 /**
- * Voice in the browser (Web Speech API): read answers aloud, and listen to the owner.
- * Listening only exists in Chrome/Edge and sends the audio to Google/Microsoft for recognition; elsewhere the mic is off
- * and typing still works. Reading uses the voices installed on the machine (Vietnamese if there is one).
+ * Reading answers aloud: Piper on the Pi (`/voice/tts`, M5) when the page is served by it, else the browser's voices
+ * (Vietnamese if the machine has one). Listening here is the browser's own recognition (Chrome/Edge, audio sent to
+ * Google/Microsoft): the fallback when the brain has no speech to text; push-to-talk to the brain is in ptt.ts.
  */
 const VI = /[àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]/i;
 const KEY = 'vega.speak';
@@ -36,7 +36,14 @@ export interface SpeechWindow {
   SpeechRecognition?: RecognitionCtor;
   webkitSpeechRecognition?: RecognitionCtor;
   localStorage?: Storage;
+  /** For Piper on the Pi (`/voice/tts`, M5). */
+  fetch?: typeof fetch;
+  Audio?: new (src?: string) => HTMLAudioElement;
+  URL?: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>;
 }
+
+/** Longest text sent to `/voice/tts` (vega-voice refuses more). */
+const TTS_MAX = 500;
 
 export interface ListenHandlers {
   onText(text: string, final: boolean): void;
@@ -49,9 +56,15 @@ export class Voice {
   readonly canListen: boolean;
   private rec: Recognition | null = null;
   private on: boolean;
+  /** Piper behind `/voice/tts`: unknown until first tried, off for the rest of the visit once it fails. */
+  private tts: 'unknown' | 'on' | 'off';
+  private audio: HTMLAudioElement | null = null;
+  /** Bumped by every speak/stop, so a slow answer from Piper never talks over a newer one. */
+  private seq = 0;
 
   constructor(private readonly win: SpeechWindow = window as unknown as SpeechWindow) {
-    this.canSpeak = !!(win.speechSynthesis && win.SpeechSynthesisUtterance);
+    this.tts = win.fetch && win.Audio && win.URL ? 'unknown' : 'off';
+    this.canSpeak = !!(win.speechSynthesis && win.SpeechSynthesisUtterance) || this.tts !== 'off';
     this.canListen = !!(win.SpeechRecognition ?? win.webkitSpeechRecognition);
     let stored: string | null = null;
     try {
@@ -68,7 +81,7 @@ export class Voice {
   }
   setEnabled(on: boolean): void {
     this.on = on;
-    if (!on) this.win.speechSynthesis?.cancel();
+    if (!on) this.stop();
     try {
       this.win.localStorage?.setItem(KEY, on ? '1' : '0');
     } catch {
@@ -76,18 +89,60 @@ export class Voice {
     }
   }
 
+  /** Stops whatever is being read. */
+  stop(): void {
+    this.seq++;
+    this.audio?.pause();
+    this.audio = null;
+    this.win.speechSynthesis?.cancel();
+  }
+
   /**
-   * Reads `text` aloud, cutting off whatever was being read. Returns false when the machine has no voice for its
+   * Reads `text` aloud, cutting off whatever was being read: with Piper on the Pi when it is there (the same Vietnamese
+   * voice on every device), otherwise with the browser's voices. Resolves false when neither has a voice for the
    * language: an English voice reading Vietnamese is noise, so it stays silent instead.
    */
-  speak(text: string): boolean {
+  async speak(text: string): Promise<boolean> {
+    if (!this.enabled || !text.trim()) return true;
+    this.stop();
+    const seq = this.seq;
+    if (this.tts !== 'off' && (await this.piper(text.slice(0, TTS_MAX), seq))) return true;
+    if (seq !== this.seq) return true; // something newer took over while Piper was asked
+    return this.browserSpeak(text);
+  }
+
+  /** Plays Piper's WAV. False when there is no vega-voice behind the page (dev server, static host, container down). */
+  private async piper(text: string, seq: number): Promise<boolean> {
+    const { Audio: A, URL: U } = this.win;
+    let blob: Blob;
+    try {
+      const r = await this.win.fetch!(`/voice/tts?text=${encodeURIComponent(text)}&lang=${langOf(text).slice(0, 2)}`);
+      // a dev server answers unknown paths with index.html: only audio counts
+      if (!r.ok || !/^audio\//.test(r.headers.get('content-type') ?? '')) throw new Error(`HTTP ${r.status}`);
+      blob = await r.blob();
+    } catch {
+      // shortcut: one failure turns Piper off until the page is reloaded (a restarting container is not retried)
+      this.tts = 'off';
+      return false;
+    }
+    this.tts = 'on';
+    if (seq !== this.seq) return true;
+    const url = U!.createObjectURL(blob);
+    const a = new A!(url);
+    a.onended = a.onerror = () => U!.revokeObjectURL(url);
+    this.audio = a;
+    // autoplay blocked (nobody touched the page yet): nothing else would be allowed to speak either
+    await a.play().catch(() => {});
+    return true;
+  }
+
+  private browserSpeak(text: string): boolean {
     const { speechSynthesis: synth, SpeechSynthesisUtterance: Utter } = this.win;
-    if (!this.enabled || !synth || !Utter || !text.trim()) return true;
+    if (!synth || !Utter) return true;
     const lang = langOf(text);
     const voices = synth.getVoices();
     const voice = pickVoice(voices, lang);
     if (!voice && voices.length > 0) return false; // an empty list means voices are still loading: let the browser pick
-    synth.cancel();
     const u = new Utter(text);
     u.lang = lang;
     if (voice) u.voice = voice;
@@ -103,7 +158,7 @@ export class Voice {
   listen(h: ListenHandlers): boolean {
     const Ctor = this.win.SpeechRecognition ?? this.win.webkitSpeechRecognition;
     if (!Ctor || this.rec) return false;
-    this.win.speechSynthesis?.cancel();
+    this.stop();
     const rec = new Ctor();
     rec.lang = 'vi-VN';
     rec.interimResults = true;

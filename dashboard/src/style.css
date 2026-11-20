@@ -185,6 +185,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--hi);outline-off
 .cmd .spk[aria-pressed=false] .wave1,.cmd .spk[aria-pressed=false] .wave2{opacity:.15}
 .cmd .ico:disabled{opacity:.35;cursor:not-allowed}
 .cmd .ico.on{color:#fff;background:var(--a35)}
+.cmd .ico.busy{color:#fff;border-style:dashed}
+#micBtn{touch-action:none;-webkit-user-select:none;user-select:none}
 .ico{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--a35);background:transparent;color:var(--hi);display:grid;place-items:center}
 .ico:hover{border-color:var(--accent);color:#fff}
 .ico.send{background:var(--accent);border-color:var(--accent);color:#03050B}
