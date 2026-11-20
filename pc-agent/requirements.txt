@@ -1,0 +1,6 @@
+openwakeword==0.6.0
+onnxruntime>=1.17
+numpy>=1.26
+sounddevice>=0.4.6
+paho-mqtt>=2.0
+keyboard>=0.13.5; sys_platform == "win32"
