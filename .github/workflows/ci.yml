@@ -22,6 +22,8 @@ jobs:
       - run: npm run lint
       - run: npm run check
       - run: npm test
+      - name: vega-voice unit tests (fake voice, no Piper)
+        run: python3 -m unittest discover voice
       - name: Provider bench (mock only, no API keys in CI)
         run: npm run bench -- --provider mock
       - run: npm run build
@@ -64,6 +66,21 @@ jobs:
           for i in $(seq 1 20); do curl -fs http://localhost:8080/ >/dev/null && break || sleep 1; done
           curl -fs http://localhost:8080/ | grep -q "VEGA Core"
           curl -fs http://localhost:8080/config.js | grep -q 'source: "mock"'
+      - name: Image routes /voice/* without vega-voice or the brain (502, nginx still starts)
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/voice/tts?text=hi&lang=en')" = 502
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/voice/stt)" = 502
+      - uses: docker/setup-qemu-action@v3 # vega-voice runs pip on arm64: wheels only, nothing compiled
+      - name: Build vega-voice image (amd64 + arm64 for the Pi)
+        run: docker buildx build --platform linux/amd64,linux/arm64 -f voice/Dockerfile -t vega-voice:ci .
+      - name: vega-voice speaks Vietnamese
+        run: |
+          docker buildx build --load -f voice/Dockerfile -t vega-voice:ci .
+          docker run -d --name voice -p 5002:5002 vega-voice:ci
+          for i in $(seq 1 30); do curl -fs http://localhost:5002/health >/dev/null && break || sleep 1; done
+          curl -fs -o hi.wav 'http://localhost:5002/voice/tts?text=Xin%20ch%C3%A0o&lang=vi'
+          file hi.wav | grep -q 'WAVE audio'
+          test "$(stat -c %s hi.wav)" -gt 10000
       - name: Pi compose file is valid
         run: MQTT_BRAIN_PASS=x MQTT_UI_PASS=x docker compose -f infra/pi/docker-compose.yml config -q
       - name: Build vega-brain image (amd64 + arm64 for the Pi)

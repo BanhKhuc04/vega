@@ -101,7 +101,23 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
   URL do AI tự viết trong câu trả lời bị xoá; link luôn là URL thật của kết quả tìm.
 - Lượt tìm được đếm trong SQLite **trước** khi gọi, và không bao giờ vượt `SEARCH_MAX_MONTH`.
 
-## 8. Việc còn lại
+## 8. Giọng nói (M5)
+
+- **Đọc to không rời Pi.** `vega-voice` (Piper) chạy offline, không có cổng trên máy chủ; chỉ nginx của `vega-ui` gọi được nó qua mạng
+  Docker. Log truy cập của `/voice/tts` bị tắt (ở nginx lẫn `vega-voice`), vì URL chứa câu VEGA nói. Chữ tối đa 500 ký tự, `lang` chỉ
+  nhận `vi` hoặc `en`.
+- **Âm thanh lời bạn nói được gửi tới nhà cung cấp STT** (mặc định Groq), chỉ khi bạn giữ hoặc chạm nút mic. Không có chế độ nghe
+  liên tục. Bộ não không lưu âm thanh; SQLite chỉ ghi số giây và số tiền của mỗi lần nghe (bảng `stt_usage`).
+- `STT_API_KEY` chỉ nằm trong `.env` / `brain.env` và header `Authorization` tới nhà cung cấp. Không bao giờ tới trình duyệt, log hay
+  câu báo lỗi (lỗi của nhà cung cấp có nhắc lại key cũng bị che; có test trong `brain/tests/voice.test.ts`). Trình duyệt chỉ nhận
+  `{ text }` hoặc một mã lỗi như `budget`, `minutes`.
+- `/voice/stt` trên Pi không có cổng riêng: chỉ đi qua nginx của `vega-ui`, nên ai mở được dashboard (localhost, Tailscale) thì dùng
+  được, như thanh lệnh. Mỗi request tối đa 1 MB (nginx và bộ não đều chặn) và phải là `audio/*`. Trần `STT_MAX_MIN_DAY` và
+  `BUDGET_USD_DAY` được kiểm **trước** khi gọi nhà cung cấp.
+- Chữ nghe được đi vào bộ não như một lệnh gõ từ thanh lệnh của chủ nhân (cùng xác nhận, cùng giới hạn tần suất).
+- HTTPS bằng `tailscale serve`: chứng chỉ thật, chỉ trong tailnet (không dùng `funnel`, không mở ra internet).
+
+## 9. Việc còn lại
 
 - TLS cho MQTT và truy cập từ xa (M8).
 - User MQTT và ACL riêng cho từng thiết bị (M2), để một ESP không tự khai `risk: low` thay cho thiết bị khác.
