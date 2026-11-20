@@ -117,6 +117,19 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - Chữ nghe được đi vào bộ não như một lệnh gõ từ thanh lệnh của chủ nhân (cùng xác nhận, cùng giới hạn tần suất).
 - HTTPS bằng `tailscale serve`: chứng chỉ thật, chỉ trong tailnet (không dùng `funnel`, không mở ra internet).
 
+### "Hey Vega" (M5.2, `pc-agent`)
+
+- Mic luôn mở, nhưng **wake word chạy trên máy** (openWakeWord, ONNX). Trước khi nghe thấy wake word, không có âm thanh nào rời PC.
+  Sau đó chỉ câu lệnh được gửi (không gửi chính wake word), tối đa 10 giây; không có tiếng nói trong 3 giây thì không gửi gì.
+- Agent **không giữ key nào**: nghe qua `/voice/stt` của bộ não, nên mọi trần (`STT_MAX_MIN_DAY`, `BUDGET_USD_DAY`) vẫn áp dụng. Có
+  test kiểm cấu hình của agent không có trường key nào.
+- `Ctrl+Alt+M` **đóng luồng mic** (không chỉ bỏ qua âm thanh) và báo `mic: off` lên màn hình. Mỗi lần gửi âm thanh, agent ghi một
+  dòng log (giờ, số giây). Agent không lưu âm thanh.
+- Câu agent nghe được là lệnh của chủ nhân như khi gõ (cùng xác nhận cho thiết bị rủi ro cao, cùng giới hạn tần suất). Người khác
+  trong phòng nói "Hey Jarvis …" thì VEGA cũng nghe: chưa có nhận biết người nói. Thiết bị rủi ro cao vẫn phải bấm Confirm trên màn.
+- Wake word nhầm (TV, video) chỉ gây một lần ghi âm ngắn gửi lên STT; tăng `WAKE_THRESHOLD` nếu nhầm nhiều.
+- Trên Pi sau này (M5.3), agent dùng user MQTT riêng `agent` chỉ ghi được `vega/system/command` và `vega/desk/core/state`.
+
 ## 9. Việc còn lại
 
 - TLS cho MQTT và truy cập từ xa (M8).

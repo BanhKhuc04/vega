@@ -164,6 +164,33 @@ test('M5: hold the mic, speak (Chromium fake mic), release: the brain transcribe
   }
 });
 
+test('M5.2: the voice agent wakes (Listen), its command and the answer show in the chat but are not read here; MIC OFF chip', async ({ browser }) => {
+  let asked: URL[] = [];
+  const { page, w } = await openPage(browser, async (p) => void (asked = await fakePiper(p)));
+  // the simulator's ESP "desk/core" left a retained `idle` here: let it arrive first, or it would end the Listen below
+  await expect.poll(() => page.evaluate(() => document.querySelector('#app')?.getAttribute('data-mode')), { timeout: T(2000) }).toBe('idle');
+  await page.waitForTimeout(500);
+  // the agent heard its wake word
+  spy.publish('vega/desk/core/state', JSON.stringify({ v: 1, state: 'listening', mic: 'on' }), { retain: true });
+  await expect.poll(() => mode(page), { timeout: T(2000) }).toBe('listen');
+  await expect(page.locator('#micChip')).toBeHidden();
+  // what it heard, sent as a command the way pc-agent does
+  spy.publish(SYSTEM_COMMAND, JSON.stringify({ v: 1, id: 'VOICE-e2e-1', text: 'nhắc nhở của tôi', ts: new Date().toISOString(), via: 'voice' }));
+  await expect(page.locator('#chat .msg.you span')).toHaveText(['nhắc nhở của tôi'], { timeout: T(4000) });
+  await expect(page.locator('#chat .msg.vega span')).toHaveText(['Không có lời nhắc nào.'], { timeout: T(4000) });
+  await page.waitForTimeout(800);
+  expect(asked).toEqual([]); // the agent reads it on its own speaker: no second voice here
+  expect(await page.evaluate(() => (window as unknown as { __spoken: unknown[] }).__spoken)).toEqual([]);
+  // the owner pressed the hotkey
+  spy.publish('vega/desk/core/state', JSON.stringify({ v: 1, state: 'idle', mic: 'off' }), { retain: true });
+  await expect(page.locator('#micChip')).toBeVisible({ timeout: T(2000) });
+  await expect(page.locator('#micChip')).toHaveText('MIC OFF');
+  spy.publish('vega/desk/core/state', JSON.stringify({ v: 1, state: 'idle', mic: 'on' }), { retain: true });
+  await expect(page.locator('#micChip')).toBeHidden({ timeout: T(2000) });
+  expect(w.errors).toEqual([]);
+  expect(w.external).toEqual([]);
+});
+
 async function say(page: Page, text: string): Promise<string> {
   const before = last.get(SYSTEM_COMMAND);
   await page.locator('#q').fill(text);
