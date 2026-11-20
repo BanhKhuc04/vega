@@ -25,6 +25,7 @@ if (-not (Test-Path "$venv\Scripts\python.exe")) {
 }
 & "$venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
 & "$venv\Scripts\python.exe" -m pip install --quiet -r (Join-Path $here 'requirements.txt')
+& "$venv\Scripts\python.exe" -m pip install --quiet --no-deps openwakeword==0.6.0  # see requirements.txt
 if (-not (Test-Path (Join-Path $here '.env'))) { Copy-Item (Join-Path $here '.env.example') (Join-Path $here '.env') }
 
 # pythonw: no console window; the agent writes pc-agent\agent.log instead
