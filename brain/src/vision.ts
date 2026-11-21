@@ -1,8 +1,7 @@
 /**
  * Vision (M7, brief 0010): a photo only when asked, looked at by the `vision` model, never written to disk.
- * The camera is read with `v4l2-ctl` (one MJPEG frame, as tried by hand on the Pi); `CAMERA=sim` uses a sample photo.
+ * The photo comes from vega-vision, the only process that opens the camera (M7.1, brief 0011); `CAMERA=sim` uses a sample photo.
  */
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import type { Lang } from './assistant';
@@ -17,33 +16,16 @@ export interface Camera {
   capture(): Promise<Buffer>;
 }
 
-const SOI = Buffer.from([0xff, 0xd8]);
-const EOI = Buffer.from([0xff, 0xd9]);
-
-/**
- * The last complete JPEG in an MJPEG stream (the first frames are dark while the camera sets its exposure). UVC cameras
- * pad a frame after its end marker (the Pi's camera: 320 bytes), so the frame is cut at its last FFD9.
- */
-export function lastJpeg(stream: Buffer): Buffer | null {
-  const start = stream.lastIndexOf(SOI);
-  const end = stream.lastIndexOf(EOI);
-  return start >= 0 && end > start + 2 ? stream.subarray(start, end + 2) : null;
-}
-
-export function v4l2Camera(device: string, size: string): Camera {
-  const [w, h] = size.split('x');
+/** `device` (the host's /dev, read-only) tells plugged / unplugged; vega-vision's `/snapshot` takes the photo. */
+export function httpCamera(device: string, url: string, f: typeof fetch = fetch): Camera {
   return {
     present: () => existsSync(device),
-    capture: () =>
-      new Promise((resolve, reject) => {
-        const args = ['-d', device, `--set-fmt-video=width=${w},height=${h},pixelformat=MJPG`, '--stream-mmap', '--stream-count=8', '--stream-to=-'];
-        execFile('v4l2-ctl', args, { encoding: 'buffer', maxBuffer: 32 << 20, timeout: 10_000 }, (err, out, errOut) => {
-          if (err) return reject(new Error(`v4l2-ctl: ${errOut.toString().trim().split('\n').pop() || err.message}`));
-          const jpeg = lastJpeg(out);
-          if (jpeg) resolve(jpeg);
-          else reject(new Error('v4l2-ctl: no complete JPEG frame'));
-        });
-      }),
+    capture: async () => {
+      const r = await f(`${url}/snapshot`, { signal: AbortSignal.timeout(15_000) });
+      const jpeg = Buffer.from(await r.arrayBuffer());
+      if (!r.ok || jpeg[0] !== 0xff || jpeg[1] !== 0xd8) throw new Error(`vega-vision /snapshot: HTTP ${r.status}`);
+      return jpeg;
+    },
   };
 }
 

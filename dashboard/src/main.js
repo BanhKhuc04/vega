@@ -538,8 +538,19 @@ const vision = createVision($('#feed'), $('#vlayer'), {
     $('#vspec').classList.toggle('on', p === 'inspect');
     $$('.vctl button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === p)));
     if (p === 'inspect') { sfx.lock(); gsap.fromTo('#vspec .srow', { opacity: 0, x: 12 }, { opacity: 1, x: 0, stagger: .07, duration: .4, delay: .5 }); }
+  },
+  // M7.1: each update of the live YOLO boxes
+  onLive(status, fps, labels) {
+    $('#vphase').textContent = status === 'live' ? `LIVE · YOLO · ${fps} FPS` : status === 'unplugged' ? 'CAMERA UNPLUGGED' : status === 'timeout' ? 'LIVE ENDED' : 'CONNECTING';
+    $('#vcount').textContent = $('#vtotal').textContent = String(labels.length);
+    if (status === 'timeout') liveCtl('Tiếp tục xem');
+    $('#feed').setAttribute('aria-label', status === 'unplugged' ? 'Camera unplugged' : `Live camera of the desk${labels.length ? `: ${labels.join(', ')}` : ''}`);
   }
 });
+// M7.1: "Xem trực tiếp" after a photo, "Tiếp tục xem" after the live session cap; hidden on the painted demo desk
+let visionCam = 'CAM-01';
+const liveCtl = (label) => { $('#vlivectl').style.display = label ? '' : 'none'; if (label) $('#vlive').textContent = label; };
+$('#vlive').addEventListener('click', () => { sfx.click(); api.setVision({ camera: visionCam, mode: 'live', status: 'ok' }); });
 let vPhase = '';
 $$('.vctl button').forEach((b) => b.addEventListener('click', () => { sfx.click(); if (b.dataset.v === 'rescan') { $('#vcount').textContent = 0; vision.rescan(); } else vision.view(b.dataset.v); }));
 const INTRO = {
@@ -698,12 +709,16 @@ export const api = {
   setLog: (entries) => { LOG = entries && entries.length ? entries : DEFAULT_LOG; },
   // M7: the photo the brain just took ({ frame, objects, status }), or null for the painted demo desk
   setVision: (p) => {
+    const isLive = p?.mode === 'live';
     $('#vtotal').textContent = vision.show(p);
     $('.vctl').style.display = p ? 'none' : '';
+    if (p?.camera) visionCam = p.camera;
+    liveCtl(p && !isLive ? 'Xem trực tiếp' : '');
+    if (isLive) { $('#vphase').textContent = 'CONNECTING'; $('#vcount').textContent = '0'; }
     const feed = $('#feed');
     feed.dataset.label ??= feed.getAttribute('aria-label');
     const labels = (p?.objects || []).map((o) => o.label).join(', ');
-    feed.setAttribute('aria-label', !p ? feed.dataset.label : p.status === 'unplugged' ? 'Camera unplugged' : p.status === 'off' ? 'Vision is off: no vision model' : `Camera photo of the desk${labels ? `: ${labels}` : ''}`);
+    feed.setAttribute('aria-label', !p ? feed.dataset.label : p.status === 'unplugged' ? 'Camera unplugged' : isLive ? 'Live camera of the desk' : p.status === 'off' ? 'Vision is off: no vision model' : `Camera photo of the desk${labels ? `: ${labels}` : ''}`);
   },
   zap,
   countUp,

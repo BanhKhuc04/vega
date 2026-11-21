@@ -16,9 +16,8 @@ RUN npm run build -w brain && mkdir -p /out/data
 FROM node:22-alpine
 ENV NODE_ENV=production BRAIN_DB=/data/brain.db
 WORKDIR /app
-# v4l2-ctl takes the Vision photo (M7). The one RUN of this stage: arm64 builds on amd64 need QEMU (CI sets it up)
-RUN apk add --no-cache v4l-utils
 COPY --from=build /repo/brain/dist/brain.mjs ./brain.mjs
+# no RUN in this stage: building for arm64 on an amd64 machine needs no emulation
 COPY --from=build --chown=node:node /out/data /data
 USER node
 VOLUME /data

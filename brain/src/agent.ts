@@ -346,7 +346,7 @@ export class Agent {
 
   /** Runs any tool: the CI ones talk to GitHub, calendar and mail may refresh first (async); the rest is local. */
   private async execAny(c: ToolCall, run: Run): Promise<ToolResult> {
-    if (c.name === 'look') return this.look(c.args.question, run);
+    if (c.name === 'look') return c.args.live ? this.watch(run) : this.look(c.args.question, run);
     if (c.name === 'web_search') {
       if (!this.search) return { ok: false, text: 'Web search is not set up.' };
       if (run.searched) return { ok: false, text: 'Only one web search per question.' };
@@ -430,6 +430,17 @@ export class Agent {
     }
     show({ frame, status: 'ok', summary: seen.summary, ...(seen.objects.length && { objects: seen.objects }) });
     return { ok: true, text: seen.summary, external: 'camera' };
+  }
+
+  /** "xem camera" (M7.1, brief 0011): the Vision screen in live mode. YOLO runs on the Pi, so no AI call and no vision model needed. */
+  private watch(run: Run): ToolResult {
+    const v = this.deps.vision;
+    const L2 = (vi: string, en: string) => L(run.lang, vi, en);
+    if (!run.trusted) return { ok: false, text: 'Refused: the camera needs a direct command from the owner.' };
+    const present = v?.camera.present() ?? false;
+    // 15 minutes, the length of one viewing session (LIVE_MAX_MIN); the page closes the stream when the scene changes
+    run.screen = { scene: 'vision', ttl: 900, status: 'Vision · live', data: { camera: 'CAM-01', mode: 'live', status: present ? 'ok' : 'unplugged' } };
+    return present ? { ok: true, text: L2('Camera trực tiếp.', 'Live camera.') } : { ok: false, text: L2('Camera đang rút.', 'The camera is unplugged.') };
   }
 
   /** Runs one tool. Physical tools only for a trusted command; high-risk devices only once confirmed. */

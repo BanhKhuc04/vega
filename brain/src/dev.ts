@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { startBroker } from '../../tools/sim/src/broker';
 import { runSim } from '../../tools/sim/src/simlib';
+import { startVisionLive } from '../../tools/sim/src/vision-live';
 import { loadConfig } from './config';
 import { startBrain } from './service';
+import { SAMPLE_PHOTO } from './vision';
 
 try {
   process.loadEnvFile();
@@ -33,7 +35,10 @@ process.env.VITE_MQTT_URL = `ws://127.0.0.1:${broker.wsPort}`;
 const root = fileURLToPath(new URL('../../dashboard/', import.meta.url));
 // the page asks its own address for /voice/*, as behind nginx on the Pi. Piper on a PC: VOICE_TTS_URL=http://127.0.0.1:5002
 const voicePort = await brain.voicePort;
+// live mode of the Vision screen (M7.1): a stand-in for vega-vision, which runs on the Pi
+const live = await startVisionLive(fileURLToPath(SAMPLE_PHOTO));
 const proxy = {
+  '/vision/live': `http://127.0.0.1:${live.port}`,
   ...(voicePort && { '/voice/stt': `http://127.0.0.1:${voicePort}`, '/vision/frame': `http://127.0.0.1:${voicePort}` }),
   ...(process.env.VOICE_TTS_URL && { '/voice/tts': process.env.VOICE_TTS_URL }),
 };
@@ -49,6 +54,8 @@ const stop = async () => {
   stopping = true;
   await ui.close();
   await brain.stop();
+  live.server.closeAllConnections();
+  live.server.close();
   await sim.stop();
   await broker.close();
   process.exit(0);

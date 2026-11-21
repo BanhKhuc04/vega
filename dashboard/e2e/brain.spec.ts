@@ -12,7 +12,7 @@ import { loadConfig } from '../../brain/src/config';
 import { startBrain } from '../../brain/src/service';
 import { dayOf } from '../../brain/src/store';
 import type { Brain } from '../../brain/src/service';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fakeGithub } from '../../brain/tests/fakegithub';
@@ -212,7 +212,8 @@ test('M7: "trên bàn có gì?" shows the photo just taken (sim camera) with a b
   await expect(page.locator('#vlayer .vcard')).toHaveCount(7);
   await expect(page.locator('#vlayer .vcard span').first()).toHaveText('Raspberry Pi');
   await expect(page.locator('#feed')).toHaveAttribute('aria-label', /^Camera photo of the desk: Raspberry Pi, ESP8266/);
-  await expect(page.locator('.vctl')).toBeHidden(); // "Inspect Pi" belongs to the painted demo desk
+  await expect(page.getByLabel('Vision view')).toBeHidden(); // "Inspect Pi" belongs to the painted demo desk
+  await expect(page.locator('#vlive')).toHaveText('Xem trực tiếp'); // back to the live video (M7.1)
   await expect.poll(() => page.locator('#vcount').textContent(), { timeout: T(5000) }).toBe('7');
   await expect(page.locator('#chat .msg.vega span')).toHaveText([/^Một Raspberry Pi/], { timeout: T(2000) });
   // unplugged: the chip in the header, and the scene the brain sends when asked
@@ -222,6 +223,52 @@ test('M7: "trên bàn có gì?" shows the photo just taken (sim camera) with a b
   spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'vision', ttl: 60, data: { camera: 'CAM-01', status: 'unplugged' } }), { retain: true });
   await expect(page.locator('#feed')).toHaveAttribute('aria-label', 'Camera unplugged', { timeout: T(2000) });
   await expect(page.locator('#vlayer .vcard')).toHaveCount(0);
+  expect(w.errors).toEqual([]);
+  expect(w.external).toEqual([]);
+});
+
+test('M7.1: "xem camera" shows the live video with YOLO boxes; the session cap offers to continue; leaving Vision closes it', async ({ browser }) => {
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', CAMERA: 'sim', BRAIN_DB: ':memory:', VOICE_PORT: '0' }));
+  const jpeg = readFileSync(new URL('../../brain/fixtures/desk.jpg', import.meta.url));
+  const opens: string[] = [];
+  let ended = false;
+  const { page, w } = await openPage(browser, async (p) => {
+    // vega-vision stand-ins, as nginx forwards /vision/live* on the Pi
+    await p.route('**/vision/live', (route) => {
+      opens.push('video');
+      return route.fulfill({ contentType: 'multipart/x-mixed-replace; boundary=frame', body: Buffer.concat([Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n\r\n`), jpeg, Buffer.from('\r\n--frame--\r\n')]) });
+    });
+    await p.route('**/vision/live/objects', (route) => {
+      opens.push('objects');
+      const objects = [{ label: 'Cốc', box: [0.76, 0.59, 0.15, 0.23], conf: 0.91 }, { label: 'Bàn phím', box: [0.2, 0.6, 0.4, 0.2], conf: 0.64 }];
+      const ev = ended ? { status: 'timeout', fps: 0, objects: [] } : { status: 'live', fps: 4, objects };
+      return route.fulfill({ contentType: 'text/event-stream', body: `retry: 500\ndata: ${JSON.stringify(ev)}\n\n` });
+    });
+  });
+  await say(page, 'xem camera');
+  await expect.poll(() => mode(page), { timeout: T(4000) }).toBe('vision');
+  await expect(page.locator('#vphase')).toHaveText('LIVE · YOLO · 4 FPS', { timeout: T(3000) });
+  await expect(page.locator('#vlayer .vcard span')).toHaveText(['Cốc', 'Bàn phím']);
+  await expect(page.locator('#vtotal')).toHaveText('2');
+  await expect(page.locator('#feed')).toHaveAttribute('aria-label', 'Live camera of the desk: Cốc, Bàn phím');
+  await expect(page.locator('#chat .msg.vega span').last()).toHaveText('Camera trực tiếp.');
+  await expect(page.locator('#vlive')).toBeHidden();
+  // the session cap: no reconnecting on its own, a button to continue
+  ended = true;
+  await expect(page.locator('#vlive')).toHaveText('Tiếp tục xem', { timeout: T(4000) });
+  const before = opens.length;
+  await page.waitForTimeout(1500);
+  expect(opens.length).toBe(before);
+  ended = false;
+  await page.locator('#vlive').click();
+  await expect(page.locator('#vphase')).toHaveText('LIVE · YOLO · 4 FPS', { timeout: T(3000) });
+  // leaving the Vision screen closes the video and the boxes (the camera closes 10 s later)
+  spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'idle', ttl: 60, data: {} }), { retain: true });
+  await expect.poll(() => mode(page), { timeout: T(3000) }).toBe('idle');
+  const after = opens.length;
+  await page.waitForTimeout(1500); // EventSource would reconnect every 500 ms if still open
+  expect(opens.length).toBe(after);
   expect(w.errors).toEqual([]);
   expect(w.external).toEqual([]);
 });

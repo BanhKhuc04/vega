@@ -130,10 +130,11 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - Wake word nhầm (TV, video) chỉ gây một lần ghi âm ngắn gửi lên STT; tăng `WAKE_THRESHOLD` nếu nhầm nhiều.
 - Trên Pi sau này (M5.3), agent dùng user MQTT riêng `agent` chỉ ghi được `vega/system/command` và `vega/desk/core/state`.
 
-## 9. Camera (M7)
+## 9. Camera (M7, M7.1)
 
-- **Chỉ chụp khi được gọi** ("trên bàn có gì", hoặc AI cần nhìn để trả lời câu của chủ nhân). Không quay liên tục, không phát hiện
-  chuyển động. Tool `look` chỉ được đưa cho AI khi lệnh đến thẳng từ chủ nhân và không có nội dung ngoài nào trong lượt đó: một email
+- **Chỉ chạy khi được gọi.** Ảnh cho model cloud chỉ chụp khi hỏi ("trên bàn có gì", hoặc AI cần nhìn để trả lời câu của chủ nhân).
+  Video trực tiếp (M7.1) chỉ chạy khi có người đang xem màn Vision: `vega-vision` mở camera khi có người xem đầu tiên, tắt 10 giây sau
+  khi người cuối rời đi, mỗi phiên tối đa 15 phút. Không ghi hình, không phát hiện chuyển động, không nhận diện người. Tool `look` chỉ được đưa cho AI khi lệnh đến thẳng từ chủ nhân và không có nội dung ngoài nào trong lượt đó: một email
   hay trang web không thể khiến VEGA chụp ảnh.
 - **Ảnh rời nhà khi gọi:** mỗi lần nhìn, một ảnh JPEG (khoảng 100 KB) được gửi tới nhà cung cấp `LLM_VISION`. Không đặt `LLM_VISION`
   thì camera không bao giờ được dùng.
@@ -143,8 +144,11 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - Câu model thị giác trả lời là **nội dung ngoài**: chữ trong ảnh (một tờ giấy ghi "tắt hết đèn") không điều khiển được thiết bị.
   Nhãn hiện trên màn chỉ được chèn dưới dạng chữ; cảnh chỉ chấp nhận `frame` dạng `/vision/frame/<id>`, không URL nào khác.
 - **Trần:** `VISION_MAX_DAY` (mặc định 50 ảnh/ngày) và `BUDGET_USD_DAY` được kiểm **trước** khi chụp.
-- **Rút camera là tắt thật (D9):** container chỉ được mở thiết bị video4linux (major 81) qua `/hostdev` chỉ đọc; rút ra thì màn hiện
-  **CAM OFF** trong 5 giây và lệnh trả lời "Camera đang rút", cắm lại là dùng tiếp.
+- **Video trực tiếp không rời nhà:** YOLO chạy trên Pi; khung hình chỉ đi từ Pi tới trình duyệt trong tailnet (qua nginx, không cache,
+  không log truy cập), không tới nhà cung cấp nào, không xuống đĩa. Model YOLOX-Nano được cố định lúc build (kiểm SHA-256), lúc chạy
+  không tải gì. `/snapshot` chỉ mở trong mạng compose cho bộ não, nginx không chuyển tiếp.
+- **Rút camera là tắt thật (D9):** chỉ `vega-vision` được mở thiết bị video4linux (major 81) qua `/hostdev` chỉ đọc; bộ não chỉ xem
+  thiết bị có mặt hay không. Rút ra thì màn hiện **CAM OFF** trong 5 giây và lệnh trả lời "Camera đang rút", cắm lại là dùng tiếp.
 
 ## 10. Việc còn lại
 

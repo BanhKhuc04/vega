@@ -6,7 +6,7 @@ import type { ChatFn } from '../src/agent';
 import { chat, LlmUnavailable } from '../src/llm';
 import { Store, dayOf } from '../src/store';
 import { toolSpecs } from '../src/tools';
-import { FrameCache, lastJpeg, parseSeen, visionMessages } from '../src/vision';
+import { FrameCache, httpCamera, parseSeen, visionMessages } from '../src/vision';
 import type { Camera } from '../src/vision';
 import { voiceServer } from '../src/voice';
 import { simRegistry } from '../bench/registry';
@@ -60,12 +60,14 @@ describe('parseSeen: the model answer is untrusted', () => {
 });
 
 describe('camera and photo cache', () => {
-  it('lastJpeg: the last complete frame of an MJPEG stream', () => {
-    const dark = Buffer.from([0xff, 0xd8, 9, 0xff, 0xd9]);
-    expect(lastJpeg(Buffer.concat([dark, JPEG]))).toEqual(JPEG);
-    expect(lastJpeg(Buffer.concat([dark, JPEG, Buffer.alloc(320, 0xed)]))).toEqual(JPEG); // UVC padding after the end marker
-    expect(lastJpeg(Buffer.concat([dark, Buffer.from([0xff, 0xd8, 1, 2])]))).toBeNull(); // cut off
-    expect(lastJpeg(Buffer.from('no jpeg here'))).toBeNull();
+  it('httpCamera: the photo comes from vega-vision /snapshot; an error or a non-JPEG body throws', async () => {
+    const urls: string[] = [];
+    const reply = (status: number, body: Buffer) => (async (u: string | URL | Request) => (urls.push(String(u)), new Response(new Uint8Array(body), { status }))) as typeof fetch;
+    expect(await httpCamera('/nonexistent/video0', 'http://vega-vision:8092', reply(200, JPEG)).capture()).toEqual(JPEG);
+    expect(urls).toEqual(['http://vega-vision:8092/snapshot']);
+    await expect(httpCamera('/x', 'http://v', reply(503, Buffer.from('{"error":"camera unplugged"}'))).capture()).rejects.toThrow(/HTTP 503/);
+    await expect(httpCamera('/x', 'http://v', reply(200, Buffer.from('<html>'))).capture()).rejects.toThrow(/snapshot/);
+    expect(httpCamera('/nonexistent/video0', 'http://v').present()).toBe(false);
   });
   it('FrameCache: one photo, behind its id, gone after the TTL or the next photo', () => {
     let now = 0;
@@ -171,6 +173,28 @@ describe('agent: "trên bàn có gì?"', () => {
     expect(toolSpecs(reg, { camera: true }).map((s) => s.function.name)).toContain('look');
     expect(toolSpecs(reg, { camera: true, physical: false }).map((s) => s.function.name)).not.toContain('look');
     expect(toolSpecs(reg, {}).map((s) => s.function.name)).not.toContain('look');
+  });
+});
+
+describe('agent: "xem camera" (M7.1 live)', () => {
+  it('opens the Vision screen in live mode: no photo, no AI call, no vision model needed', async () => {
+    const t = visionAgent({ env: { LLM_VISION: '' } });
+    const out = await t.agent.handle({ id: 'v1', text: 'Xem camera', origin: 'owner' });
+    expect(out.path).toBe('local');
+    expect([t.cam.shots, t.llm.calls]).toEqual([0, 0]);
+    expect(t.lastVision()!.data).toEqual({ camera: 'CAM-01', mode: 'live', status: 'ok' });
+  });
+  it('English, and unplugged says so', async () => {
+    const t = visionAgent({ present: false });
+    const out = await t.agent.handle({ id: 'v1', text: 'show the camera', origin: 'owner' });
+    expect(out.answer).toBe('The camera is unplugged.');
+    expect(t.lastVision()!.data).toMatchObject({ mode: 'live', status: 'unplugged' });
+  });
+  it('"trên bàn có gì" still takes the photo for the cloud model', async () => {
+    const t = visionAgent();
+    await t.agent.handle({ id: 'v1', text: 'trên bàn có gì', origin: 'owner' });
+    expect(t.lastVision()!.data!.mode).toBeUndefined();
+    expect(t.cam.shots).toBe(1);
   });
 });
 

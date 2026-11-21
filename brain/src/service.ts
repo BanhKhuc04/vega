@@ -11,7 +11,7 @@ import { piStatsReader } from './pistats';
 import { Registry } from './registry';
 import { Store } from './store';
 import { voiceServer } from './voice';
-import { FrameCache, SAMPLE_PHOTO, fileCamera, v4l2Camera } from './vision';
+import { FrameCache, SAMPLE_PHOTO, fileCamera, httpCamera } from './vision';
 import { fetchWeather } from './weather';
 
 /** A command older than this (or retained) is a replay, not the owner speaking now. */
@@ -73,11 +73,11 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   let started = false;
   let piTimer: ReturnType<typeof setInterval> | null = null;
   const cam = cfg.camera;
-  const vision = { camera: cam.sim ? fileCamera(fileURLToPath(SAMPLE_PHOTO)) : v4l2Camera(cam.device, cam.size), frames: new FrameCache(120_000, opts.now) };
+  const vision = { camera: cam.sim ? fileCamera(fileURLToPath(SAMPLE_PHOTO)) : httpCamera(cam.device, cam.url), frames: new FrameCache(120_000, opts.now) };
   const agent = new Agent({ bus, registry, config: cfg, store, log, ci, assistant, vision, ...(opts.chat && { chat: opts.chat }), ...(opts.now && { now: opts.now }) });
   const vh = cfg.voiceHttp;
   const voice = vh ? voiceServer({ config: cfg, store, log, onSpent: () => agent.publishUsage(), frames: vision.frames, ...(opts.now && { now: opts.now }) }) : null;
-  // plugged / unplugged, for the CAM OFF chip (D9): only once a vision model makes the camera useful
+  // plugged / unplugged, for the CAM OFF chip (D9)
   let camPresent: boolean | null = null;
   const checkCamera = () => {
     const p = vision.camera.present();
@@ -104,11 +104,9 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     log(`[brain] connected to ${cfg.mqttUrl}`);
     client.subscribe(BRAIN_SUBSCRIPTIONS);
     agent.publishUsage();
-    if (cfg.tasks.vision) {
-      camPresent = null; // a reconnected broker may have lost the retained state
-      checkCamera();
-      camTimer ??= setInterval(checkCamera, 5000);
-    }
+    camPresent = null; // a reconnected broker may have lost the retained state
+    checkCamera();
+    camTimer ??= setInterval(checkCamera, 5000);
     if (cfg.piStats && !piTimer) {
       const readPi = piStatsReader();
       piTimer = setInterval(() => bus.pi(readPi()), 30_000);

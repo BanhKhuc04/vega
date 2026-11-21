@@ -95,6 +95,8 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
     expect(ok({ objects: [{ label: 'mug', box: [0.5, 0.5, 1.2, 0.1] }] })).toBe(false);
     expect(ok({ objects: [{ label: 'mug', box: [0.5, 0.5, 0.1] }] })).toBe(false);
     expect(ok({ status: 'broken' })).toBe(false);
+    expect(ok({ mode: 'live', status: 'ok' })).toBe(true); // v7
+    expect(ok({ mode: 'stream' })).toBe(false);
   });
   it('rejects empty lists and oversize lists', () => {
     expect(parseScene({ v: 1, scene: 'research', data: { steps: [] } }).ok).toBe(false);

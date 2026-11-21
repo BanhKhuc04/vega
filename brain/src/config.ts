@@ -54,7 +54,8 @@ export interface Config {
   /** HTTP endpoint `/voice/stt` for the dashboard (nginx forwards to it). null = not served. */
   voiceHttp: { host: string; port: number } | null;
   /** Camera of the Vision screen (M7). `sim`: a sample photo instead of the device. `maxDay`: photos looked at per day. */
-  camera: { device: string; size: string; sim: boolean; maxDay: number };
+  /** `device`: only checked for presence (CAM OFF); photos come from vega-vision at `url` (M7.1). */
+  camera: { device: string; url: string; sim: boolean; maxDay: number };
   /** Settings that were ignored, with the reason (logged at start). */
   warnings: string[];
 }
@@ -249,7 +250,7 @@ export function loadConfig(env: Env = process.env): Config {
     stt: stt(env, warnings),
     camera: {
       device: env.CAMERA_DEVICE?.trim() || '/dev/video0',
-      size: /^\d{3,4}x\d{3,4}$/.test(env.CAMERA_SIZE ?? '') ? env.CAMERA_SIZE! : '1280x720',
+      url: (env.VISION_URL?.trim() || 'http://127.0.0.1:8092').replace(/\/+$/, ''),
       sim: env.CAMERA?.trim().toLowerCase() === 'sim',
       maxDay: num(env.VISION_MAX_DAY, 50, 1),
     },

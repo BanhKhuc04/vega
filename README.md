@@ -186,15 +186,27 @@ sang "Hey Vega", và cách huấn luyện model: **`pc-agent/README.md`**.
 
 ### Camera: "Trên bàn có gì?" (M7)
 
-Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Jarvis, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi bằng `v4l2-ctl`, gửi
+Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Jarvis, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi (qua `vega-vision`), gửi
 cho model thị giác (`LLM_VISION`), rồi màn **Vision** hiện chính ảnh đó với khung và nhãn từng vật; VEGA đọc một câu tóm tắt. Câu kiểu
 "cái cốc trên bàn màu gì?" thì AI tự chụp và trả lời. Rút camera: header hiện **CAM OFF**, hỏi thì VEGA nói "Camera đang rút".
 
 - **Trên PC** (`npm run vega`): camera giả lập (ảnh mặt bàn mẫu `brain/fixtures/desk.jpg`) và model giả `mock`, không tốn tiền. Muốn
   thử model thật trên PC: `LLM_VISION=<provider>` trong `.env`.
 - **Trên Pi:** thêm vào `infra/pi/brain.env` một provider nhận ảnh (khối `LLM_<TÊN>_*`) và `LLM_VISION=<tên>`. Camera mặc định
-  `/dev/video0`, cỡ ảnh `CAMERA_SIZE=1280x720`, tối đa `VISION_MAX_DAY=50` ảnh/ngày.
+  `/dev/video0`, tối đa `VISION_MAX_DAY=50` ảnh/ngày.
 - Ảnh chỉ nằm trong RAM của bộ não 2 phút, không ghi xuống đĩa, không đi qua MQTT (`docs/security.md`, mục 9).
+
+### Camera trực tiếp: "Xem camera" (M7.1)
+
+Nói hoặc gõ "**xem camera**" (hay "camera trực tiếp", "show the camera"), hoặc bấm **Xem trực tiếp** dưới một ảnh: màn **Vision**
+chạy video thật từ camera, khung và nhãn tiếng Việt bám theo đồ vật, header ghi `LIVE · YOLO · N FPS`. Nhận diện chạy **ngay trên Pi**
+(YOLOX-Nano, ONNX, khoảng 4 lần/giây trên 2 lõi): miễn phí, không cần mạng, video không rời nhà. YOLO chỉ biết 80 loại đồ thông dụng
+(cốc, bàn phím, chuột, điện thoại, laptop…); đồ điện tử như ESP8266 chỉ có tên khi hỏi "trên bàn có gì?" (model cloud).
+
+- Dịch vụ `vega-vision` (Python, `vision/`) là tiến trình duy nhất mở camera. Camera chỉ chạy khi có người xem: rời màn Vision thì 10
+  giây sau tắt; mỗi phiên tối đa 15 phút rồi hiện **Tiếp tục xem**.
+- Chỉnh trong `infra/pi/.env`: `CAMERA_SIZE` (mặc định `1280x720`), `LIVE_FPS` (10), `DETECT_HZ` (4), `LIVE_MAX_MIN` (15).
+- **Trên PC** (`npm run vega`): một server giả phát ảnh mẫu kèm vài khung di chuyển, để thử màn hình.
 
 ### Chỉ màn hình, không broker
 
@@ -296,10 +308,11 @@ npm run compare                                # ảnh cạnh nhau với templat
 
 ## Tài liệu
 
-- `docs/contract.md`: topic, payload, giao thức cảnh (revision 6)
+- `docs/contract.md`: topic, payload, giao thức cảnh (revision 7)
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0011-m7.1-live-vision.md`: brief M7.1 (camera trực tiếp, YOLO trên Pi)
 - `docs/decisions/0010-m7-vision.md`: brief M7 (camera)
 - `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vega")
 - `docs/decisions/0008-m5-voice.md`: brief M5 (giọng nói)

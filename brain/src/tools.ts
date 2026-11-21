@@ -24,7 +24,7 @@ export type ToolCall =
   | { name: 'snooze'; args: Record<string, never> }
   | { name: 'focus_stop'; args: Record<string, never> }
   | { name: 'web_search'; args: { query: string } }
-  | { name: 'look'; args: { question?: string } };
+  | { name: 'look'; args: { question?: string; live?: boolean } }; // live: the Vision screen's live video (M7.1), local command only
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
