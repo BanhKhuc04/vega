@@ -70,9 +70,12 @@ export class Locator {
     }
     const r = owntracksLocation.safeParse(raw);
     if (!r.success) return;
-    const tsMs = r.data.tst * 1000;
-    if (this.last && tsMs <= this.last.ts) return; // an older point delivered late (the phone was offline)
-    const l: Location = { device: topic.split('/')[2]!.slice(0, 40), lat: r.data.lat, lon: r.data.lon, accM: r.data.acc ?? null, ts: tsMs, regions: r.data.inregions ?? [] };
+    this.accept({ device: topic.split('/')[2]!.slice(0, 40), lat: r.data.lat, lon: r.data.lon, accM: r.data.acc ?? null, ts: r.data.tst * 1000, regions: r.data.inregions ?? [] });
+  }
+
+  /** A position from any source: OwnTracks, or the VEGA page open on the phone (POST /api/location). Returns false if older. */
+  accept(l: Location): boolean {
+    if (this.last && l.ts <= this.last.ts) return false; // an older point delivered late (the phone was offline)
     this.last = l;
     this.d.store.saveLocation(l);
     const home = this.isHome(l);
@@ -81,6 +84,7 @@ export class Locator {
       this.d.log(`[locate] owner ${home ? 'home' : 'away'}`);
       this.d.presence(home);
     }
+    return true;
   }
 
   /** Re-sends the current presence (after the broker reconnects). */

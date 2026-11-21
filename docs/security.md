@@ -164,6 +164,8 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - **Vị trí điện thoại** là dữ liệu nhạy cảm: chỉ giữ **điểm mới nhất** (một dòng trong SQLite), không lịch sử, không ghi toạ độ vào log
   hay câu trả lời, không gửi cho model AI (lệnh "tôi đang ở đâu" chạy cục bộ). Toạ độ chỉ hiện trên màn Locate. User MQTT `phone` chỉ ghi
   được `owntracks/vega/+`; kết nối đi qua Tailscale (WireGuard) nên không cần TLS riêng.
+- **Vị trí từ trình duyệt**: chỉ trang mở trên màn cảm ứng (điện thoại, máy tính bảng) mới gửi, sau khi hệ điều hành hỏi chủ một lần;
+  máy tính và kiosk không gửi. `POST /api/location` cần token Console như mọi `/api/*`, kiểm `lat`, `lon`, `acc` là số trong giới hạn.
 - **Bản đồ**: ô OpenStreetMap do trình duyệt tải trực tiếp, nên OSM biết khu vực đang xem (không biết là của ai). Màn VEGA không tải trước
   hàng loạt, có ghi nguồn theo chính sách của OSM.
 - **Service worker** chỉ cache vỏ trang tĩnh. `/api`, `/voice`, `/vision`, `/mqtt` và `/config.js` (chứa mật khẩu) luôn đi qua mạng.

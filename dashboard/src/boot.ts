@@ -26,6 +26,7 @@ import type { PttState } from './ui/ptt';
 import { Voice } from './ui/speech';
 import { SceneController } from './scene/controller';
 import { capturePristine } from './scene/render';
+import { startGeoShare } from './ui/geo';
 import { bindQualityButton, renderCam, renderConn, renderHome, renderMic } from './ui/chrome';
 import { LiveBinder } from './ui/live';
 
@@ -233,3 +234,6 @@ setInterval(paint, 15_000); // "4 min ago" / "in 3 h 06 min" keep moving without
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
+
+// on a phone, the page shares its position with the brain while open (M8, ui/geo.ts); never in SIM mode (no brain)
+if (source.kind === 'mqtt') startGeoShare({ token: (window as unknown as { __VEGA__?: { consoleToken?: string } }).__VEGA__?.consoleToken });

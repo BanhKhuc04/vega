@@ -148,6 +148,16 @@ export function handleApi(req: IncomingMessage, res: ServerResponse, d: ApiDeps)
           json(res, 500, { error: 'command failed' });
         }
       });
+    // the VEGA page open on the phone shares the browser's position (no OwnTracks needed); also usable from an iOS Shortcut
+    case 'POST /api/location':
+      return void readJson(req).then((body) => {
+        const b = (body ?? {}) as { lat?: unknown; lon?: unknown; acc?: unknown };
+        const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+        if (!num(b.lat, -90, 90) || !num(b.lon, -180, 180) || (b.acc !== undefined && !num(b.acc, 0, 100_000))) return json(res, 400, { error: 'lat, lon (and acc in metres) must be numbers' });
+        if (!d.locator) return json(res, 503, { error: 'off' });
+        d.locator.accept({ device: 'phone', lat: b.lat as number, lon: b.lon as number, accM: b.acc === undefined ? null : Math.round(b.acc as number), ts: now, regions: [] });
+        json(res, 200, { home: d.locator.atHome });
+      });
     default:
       return json(res, 404, { error: 'not found' });
   }

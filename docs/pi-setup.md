@@ -110,7 +110,16 @@ Thẻ nhớ hỏng, mua Pi mới, hay chỉ muốn chắc backup dùng được.
 `--restore` đặt lại `.env`, `brain.env`, `mosquitto/passwd` (bản cũ giữ lại thành `*.before-restore`), nạp `brain.db` và
 `google-token.json` vào volume của bộ não trước khi nó chạy, rồi làm tiếp như một lần cài thường. Khoá backup cũ vẫn dùng tiếp.
 
-## Điện thoại: OwnTracks (M8)
+## Điện thoại: vị trí
+
+**Cách đơn giản (không cài app):** mở VEGA trên điện thoại (`https://<tên-máy-pi>.<tailnet>.ts.net`, hoặc bản đã cài lên màn hình
+chính), cho phép **Vị trí** khi iPhone hay Android hỏi. Trang đang mở thì cứ 2 phút gửi vị trí của trình duyệt cho bộ não
+(`POST /api/location`). Máy tính và kiosk trên Pi không bao giờ gửi. Giới hạn: trang web không lấy được vị trí khi đã đóng, nên chip
+**AWAY** chỉ đổi khi bạn mở VEGA trên điện thoại. Muốn theo dõi cả lúc không mở trang thì dùng OwnTracks bên dưới.
+
+Nhà là vòng tròn `HOME_LAT` / `HOME_LON` / `HOME_RADIUS_M` (mặc định 150 m) trong `brain.env`, không có thì dùng toạ độ thời tiết.
+
+### OwnTracks (theo dõi cả khi không mở trang)
 
 1. Cài **Tailscale** trên điện thoại, đăng nhập cùng tailnet.
 2. Cài **OwnTracks** (Android, iOS). *Preferences › Connection*: Mode **MQTT**, Host = địa chỉ Tailscale của Pi (`tailscale ip -4`),

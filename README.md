@@ -221,8 +221,9 @@ chạy video thật từ camera, khung và nhãn tiếng Việt bám theo đồ 
   (`docs/pi-setup.md`, mục "Dựng lại từ đầu").
 - **Giám sát** (`infra/pi/health.sh` mỗi phút): container chết, khởi động lại ≥ 3 lần trong 10 phút, đĩa còn < 10%, Pi ≥ 80 °C trong 2
   phút, backup quá 36 giờ: mỗi việc hiện **Alert** một lần, `/status` và Console liệt kê.
-- **Điện thoại**: app OwnTracks gửi vị trí qua Tailscale tới Mosquitto (user `phone`). Bộ não chỉ giữ điểm mới nhất. Ra khỏi vùng "Nhà"
-  thì header hiện **AWAY**.
+- **Điện thoại**: mở VEGA trên điện thoại và cho phép Vị trí là đủ: trang đang mở thì gửi vị trí trình duyệt (`POST /api/location`).
+  Muốn theo dõi cả khi không mở trang: app OwnTracks qua Tailscale tới Mosquitto (user `phone`). Bộ não chỉ giữ điểm mới nhất. Ra khỏi
+  nhà thì header hiện **AWAY**.
 - **Cài lên màn hình chính** điện thoại: mở trang qua HTTPS (Tailscale) → *Thêm vào màn hình chính*. Mất mạng vẫn mở được, header hiện
   OFFLINE.
 - Trên PC (`npm run vega`): điện thoại giả đi bộ quanh nhà (ra khỏi nhà rồi về), Console dùng dữ liệu của bộ não dev, không có giám sát

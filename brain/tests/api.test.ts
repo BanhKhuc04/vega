@@ -3,6 +3,7 @@ import type { Server } from 'node:http';
 import { authorized } from '../src/api';
 import type { ApiDeps } from '../src/api';
 import { loadConfig } from '../src/config';
+import { Locator } from '../src/locate';
 import { routeLocal } from '../src/local';
 import { Store, dayOf } from '../src/store';
 import { voiceServer } from '../src/voice';
@@ -15,13 +16,15 @@ afterEach(() => void server?.close());
 async function start(env: Record<string, string> = { CONSOLE_TOKEN: TOKEN }) {
   const config = loadConfig({ BRAIN_DB: ':memory:', ...env });
   const store = new Store(':memory:');
+  const presence: boolean[] = [];
+  const locator = new Locator({ store, home: { lat: 21.0285, lon: 105.8542, radiusM: 150 }, homeRegions: ['Nhà'], presence: (h) => presence.push(h), log: () => {} });
   const commands: string[] = [];
   const api: ApiDeps = {
     config,
     store,
     registry: simRegistry(),
     health: null,
-    locator: null,
+    locator,
     command: async (text) => {
       commands.push(text);
       return { id: 'c1', answer: `ok: ${text}` };
@@ -32,7 +35,7 @@ async function start(env: Record<string, string> = { CONSOLE_TOKEN: TOKEN }) {
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   const call = (path: string, init: RequestInit & { token?: string | null } = {}) =>
     fetch(`${base}${path}`, { ...init, headers: { ...(init.token !== null && { authorization: `Bearer ${init.token ?? TOKEN}` }), 'content-type': 'application/json' } });
-  return { call, store, commands };
+  return { call, store, commands, locator, presence };
 }
 
 describe('authorized', () => {
@@ -94,5 +97,17 @@ describe('Console API', () => {
     expect((await call('/api/command', { method: 'POST', body: JSON.stringify({ text: '' }) })).status).toBe(400);
     expect((await call('/api/command', { method: 'POST', body: JSON.stringify({ text: 'x'.repeat(501) }) })).status).toBe(400);
     expect((await call('/api/command', { method: 'POST', body: '{nope' })).status).toBe(400);
+  });
+
+  it('POST /api/location: the position of the phone page, home or away; bad numbers refused', async () => {
+    const { call, locator, presence } = await start();
+    const post = (body: unknown) => call('/api/location', { method: 'POST', body: JSON.stringify(body) });
+    expect(await (await post({ lat: 21.0286, lon: 105.8543, acc: 15.4 })).json()).toEqual({ home: true });
+    expect(locator.latest).toMatchObject({ device: 'phone', lat: 21.0286, accM: 15 });
+    await new Promise((r) => setTimeout(r, 5)); // a newer timestamp than the first point
+    expect(await (await post({ lat: 21.05, lon: 105.86 })).json()).toEqual({ home: false });
+    expect(presence).toEqual([true, false]);
+    for (const bad of [{ lat: 91, lon: 0 }, { lat: '21', lon: 105 }, { lat: 21 }, { lat: 21, lon: 105, acc: -1 }]) expect((await post(bad)).status).toBe(400);
+    expect((await call('/api/location', { method: 'POST', body: '{}', token: null })).status).toBe(401);
   });
 });
