@@ -4,7 +4,7 @@ import type { HudApi } from '../hud';
 import { renderScene } from './render';
 
 export interface ControllerDeps {
-  hud: Pick<HudApi, 'setMode' | 'getMode' | 'setLevel' | 'setStatusOverride' | 'setLog'>;
+  hud: Pick<HudApi, 'setMode' | 'getMode' | 'setLevel' | 'setStatusOverride' | 'setLog' | 'setVision'>;
   root?: ParentNode;
   now?: () => number;
 }

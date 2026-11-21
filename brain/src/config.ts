@@ -16,7 +16,7 @@ export interface Provider {
   maxOut?: number;
 }
 
-export const TASKS = ['router', 'chat', 'research'] as const;
+export const TASKS = ['router', 'chat', 'research', 'vision'] as const;
 export type Task = (typeof TASKS)[number];
 
 export interface Config {
@@ -31,7 +31,7 @@ export interface Config {
   confirmTtlS: number;
   llmTimeoutMs: number;
   providers: Record<string, Provider>;
-  /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran; `research` plans and writes research (M6). null = no LLM. */
+  /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran; `research` plans and writes research (M6); `vision` looks at photos (M7, only when LLM_VISION is set). null = no LLM. */
   tasks: Record<Task, string | null>;
   /** GitHub Actions watching (M3). null = off (no token or no repos). */
   github: GithubConfig | null;
@@ -53,6 +53,8 @@ export interface Config {
   stt: SttConfig | null;
   /** HTTP endpoint `/voice/stt` for the dashboard (nginx forwards to it). null = not served. */
   voiceHttp: { host: string; port: number } | null;
+  /** Camera of the Vision screen (M7). `sim`: a sample photo instead of the device. `maxDay`: photos looked at per day. */
+  camera: { device: string; size: string; sim: boolean; maxDay: number };
   /** Settings that were ignored, with the reason (logged at start). */
   warnings: string[];
 }
@@ -235,7 +237,7 @@ export function loadConfig(env: Env = process.env): Config {
     confirmTtlS: num(env.CONFIRM_TTL_S, 30, 5),
     llmTimeoutMs: num(env.LLM_TIMEOUT_MS, 20_000, 1000),
     providers: provs,
-    tasks: { router, chat: chatTask, research: env.LLM_RESEARCH ? pick(env.LLM_RESEARCH, 'research') : chatTask },
+    tasks: { router, chat: chatTask, research: env.LLM_RESEARCH ? pick(env.LLM_RESEARCH, 'research') : chatTask, vision: pick(env.LLM_VISION, 'vision') },
     search: searchKey && SAFE_URL.test(searchUrl) ? { apiKey: searchKey, apiUrl: searchUrl, maxMonth: num(env.SEARCH_MAX_MONTH, 900, 1) } : null,
     research: { maxUsd: num(env.RESEARCH_MAX_USD, 0.01), maxOut: num(env.RESEARCH_MAX_OUTPUT_TOKENS, 800, 100) },
     github: github(env, warnings),
@@ -245,6 +247,12 @@ export function loadConfig(env: Env = process.env): Config {
     briefingAt,
     lang: env.VEGA_LANG?.trim().toLowerCase() === 'en' ? 'en' : 'vi',
     stt: stt(env, warnings),
+    camera: {
+      device: env.CAMERA_DEVICE?.trim() || '/dev/video0',
+      size: /^\d{3,4}x\d{3,4}$/.test(env.CAMERA_SIZE ?? '') ? env.CAMERA_SIZE! : '1280x720',
+      sim: env.CAMERA?.trim().toLowerCase() === 'sim',
+      maxDay: num(env.VISION_MAX_DAY, 50, 1),
+    },
     voiceHttp: env.VOICE_PORT ? { host: env.VOICE_HOST?.trim() || '127.0.0.1', port: num(env.VOICE_PORT, 8091) } : null,
     warnings,
   };

@@ -79,6 +79,7 @@ jobs:
         run: |
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/voice/tts?text=hi&lang=en')" = 502
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/voice/stt)" = 502
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/vision/frame/abcdefgh12)" = 502
       - uses: docker/setup-qemu-action@v3 # vega-voice runs pip on arm64: wheels only, nothing compiled
       - name: Build vega-voice image (amd64 + arm64 for the Pi)
         run: docker buildx build --platform linux/amd64,linux/arm64 -f voice/Dockerfile -t vega-voice:ci .
@@ -103,6 +104,7 @@ jobs:
           for i in $(seq 1 20); do docker logs brain 2>&1 | grep -q 'connected to' && break || sleep 1; done
           docker logs brain
           docker logs brain 2>&1 | grep -q 'connected to mqtt://mq:1883'
+          docker run --rm --entrypoint v4l2-ctl vega-brain:ci --version # takes the Vision photo (M7)
 
   shell:
     runs-on: ubuntu-latest

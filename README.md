@@ -184,6 +184,18 @@ Nói "**Hey Jarvis**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt
 mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình, đổi
 sang "Hey Vega", và cách huấn luyện model: **`pc-agent/README.md`**.
 
+### Camera: "Trên bàn có gì?" (M7)
+
+Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Jarvis, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi bằng `v4l2-ctl`, gửi
+cho model thị giác (`LLM_VISION`), rồi màn **Vision** hiện chính ảnh đó với khung và nhãn từng vật; VEGA đọc một câu tóm tắt. Câu kiểu
+"cái cốc trên bàn màu gì?" thì AI tự chụp và trả lời. Rút camera: header hiện **CAM OFF**, hỏi thì VEGA nói "Camera đang rút".
+
+- **Trên PC** (`npm run vega`): camera giả lập (ảnh mặt bàn mẫu `brain/fixtures/desk.jpg`) và model giả `mock`, không tốn tiền. Muốn
+  thử model thật trên PC: `LLM_VISION=<provider>` trong `.env`.
+- **Trên Pi:** thêm vào `infra/pi/brain.env` một provider nhận ảnh (khối `LLM_<TÊN>_*`) và `LLM_VISION=<tên>`. Camera mặc định
+  `/dev/video0`, cỡ ảnh `CAMERA_SIZE=1280x720`, tối đa `VISION_MAX_DAY=50` ảnh/ngày.
+- Ảnh chỉ nằm trong RAM của bộ não 2 phút, không ghi xuống đĩa, không đi qua MQTT (`docs/security.md`, mục 9).
+
 ### Chỉ màn hình, không broker
 
 ```bash
@@ -284,10 +296,11 @@ npm run compare                                # ảnh cạnh nhau với templat
 
 ## Tài liệu
 
-- `docs/contract.md`: topic, payload, giao thức cảnh (revision 3)
+- `docs/contract.md`: topic, payload, giao thức cảnh (revision 6)
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0010-m7-vision.md`: brief M7 (camera)
 - `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vega")
 - `docs/decisions/0008-m5-voice.md`: brief M5 (giọng nói)
 - `docs/decisions/0004-m1-brain.md`: brief M1

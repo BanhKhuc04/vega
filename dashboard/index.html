@@ -32,6 +32,7 @@
     <div class="sys">
       <span class="conn" id="conn" role="status" aria-live="polite" data-state="sim" title="Data connection"><i></i><b id="connTxt">SIM</b></span>
       <span class="conn mic" id="micChip" role="status" aria-live="polite" hidden><i></i><b>MIC OFF</b></span>
+      <span class="conn mic" id="camChip" role="status" aria-live="polite" title="The Vision camera is unplugged" hidden><i></i><b>CAM OFF</b></span>
       <button type="button" class="qbtn" id="qBtn" aria-label="Render quality: full. Activate to change"><span class="qk">QUALITY</span> <b id="qTxt">FULL</b></button>
     </div>
   </header>
@@ -163,7 +164,7 @@
     <div class="vshade" aria-hidden="true"></div>
     <div class="vlayer" id="vlayer" aria-hidden="true"></div>
     <div class="vhud tl"><span class="rec">● REC</span>CAM-02 · OVERHEAD · SIMULATED FEED</div>
-    <div class="vhud tr"><span id="vphase">SCANNING</span> · <span id="vcount">0</span>/7 OBJECTS</div>
+    <div class="vhud tr"><span id="vphase">SCANNING</span> · <span id="vcount">0</span>/<span id="vtotal">7</span> OBJECTS</div>
     <div class="vctl" role="group" aria-label="Vision view"><button type="button" data-v="overview" aria-pressed="true">Overview</button><button type="button" data-v="inspect" aria-pressed="false">Inspect Pi</button><button type="button" data-v="rescan">Rescan</button></div>
     <aside class="vspec panel" id="vspec" aria-label="Raspberry Pi analysis">
       <div class="hd"><span>analysis // raspberry pi 3 model b</span><span class="id">conf 0.98</span></div>

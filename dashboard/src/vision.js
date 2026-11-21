@@ -191,15 +191,28 @@ function makeNoise() {
  */
 export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPhase } = {}) {
   const g = canvas.getContext('2d');
-  let scene = null, noise = null, raf = 0, active = false, t0 = 0, last = 0;
+  let painted = null, noise = null, raf = 0, active = false, t0 = 0, last = 0;
   let zt = 0, zTarget = 0, userView = null;
-  const det = OBJECTS.map(() => 0), partP = PARTS.map(() => 0);
+  // M7: a real photo from the brain ({ frame, objects, status }) instead of the painted desk; null = the painted desk
+  let photo = null, img = null, failed = false, objs = OBJECTS;
+  let det = [], cards = [], parts = [];
+  const partP = PARTS.map(() => 0);
   const ease = (x) => 1 - Math.pow(1 - x, 3);
 
-  // HTML callouts
-  layer.innerHTML = OBJECTS.map((o) => `<div class="vcard${o.hero ? ' hero' : ''}" data-id="${o.id}"><div class="vt"><span>${o.name}</span><b>${Math.round(o.conf * 100)}%</b></div><div class="vs">${o.sub}</div>${o.hero ? '<div class="vh">Inspecting components…</div>' : ''}</div>`).join('')
-    + PARTS.map((p) => `<div class="vpart" data-id="${p.id}"><div class="vt"><span>${p.name}</span></div><div class="vs">${p.sub}</div></div>`).join('');
-  const cards = [...layer.querySelectorAll('.vcard')], parts = [...layer.querySelectorAll('.vpart')];
+  // HTML callouts, built with textContent: labels of a real photo come from a model
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+  function buildCards() {
+    layer.replaceChildren();
+    cards = objs.map((o) => {
+      const c = el('div', `vcard${o.hero ? ' hero' : ''}`), vt = el('div', 'vt');
+      vt.append(el('span', '', o.name), ...(o.conf !== undefined ? [el('b', '', `${Math.round(o.conf * 100)}%`)] : []));
+      c.append(vt, ...(o.sub ? [el('div', 'vs', o.sub)] : []), ...(o.hero ? [el('div', 'vh', 'Inspecting components…')] : []));
+      layer.append(c); return c;
+    });
+    parts = photo ? [] : PARTS.map((p) => { const c = el('div', 'vpart'), vt = el('div', 'vt'); vt.append(el('span', '', p.name)); c.append(vt, el('div', 'vs', p.sub)); layer.append(c); return c; });
+    det = objs.map(() => 0);
+  }
+  buildCards();
 
   function bracket(x, y, w, h, len, col, lw) {
     g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
@@ -222,8 +235,8 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const narrow = cw < 900;
 
-    // auto inspect after the overview has settled
-    if (userView === null) zTarget = t > 6 ? 1 : 0; else zTarget = userView === 'inspect' ? 1 : 0;
+    // auto inspect after the overview has settled (the painted desk only)
+    if (photo) zTarget = 0; else if (userView === null) zTarget = t > 6 ? 1 : 0; else zTarget = userView === 'inspect' ? 1 : 0;
     zt += (zTarget - zt) * (1 - Math.pow(0.04, dt));
     const ez = zt * zt * (3 - 2 * zt);
     onPhase && onPhase(zTarget ? 'inspect' : 'overview');
@@ -238,8 +251,16 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
     const S = (x, y) => [(x - vx) * sc + scx, (y - vy) * sc + scy];
 
     g.fillStyle = '#05070b'; g.fillRect(0, 0, cw, ch);
+    const pic = photo ? img : painted;
+    if (!pic) {
+      // no photo to show: say why, big and plain
+      const msg = photo.status === 'unplugged' ? 'CAMERA UNPLUGGED' : photo.status === 'off' ? 'VISION OFF · NO MODEL' : failed || !photo.frame ? 'NO PHOTO' : 'LOADING PHOTO';
+      g.fillStyle = '#8FD0FF'; g.font = `600 ${narrow ? 18 : 28}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.fillText(msg, cw / 2, ch / 2); g.textAlign = 'left';
+      raf = requestAnimationFrame(frame); return;
+    }
     const boot = Math.min(1, t / 0.8);
-    g.save(); g.globalAlpha = boot; const [ox, oy] = S(0, 0); g.drawImage(scene, ox, oy, W * sc, H * sc); g.restore();
+    // shortcut: the photo is stretched to 16:9 (the camera shoots 1280x720); other aspect ratios would look squashed
+    g.save(); g.globalAlpha = boot; const [ox, oy] = S(0, 0); g.drawImage(pic, ox, oy, W * sc, H * sc); g.restore();
     if (t < 0.8) for (let i = 0; i < 5; i++) g.drawImage(noise, Math.random() * -200, Math.random() * -200, cw + 400, ch + 400);
     // grade: cool tint, grain, scanlines, vignette
     g.fillStyle = 'rgba(40,110,200,0.06)'; g.fillRect(0, 0, cw, ch);
@@ -263,7 +284,7 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
 
     // detections + callouts
     const placed = [];
-    OBJECTS.forEach((o, i) => {
+    objs.forEach((o, i) => {
       const [x, y, w, h] = o.box;
       if (det[i] === 0 && t > 0.7 + ((y + h / 2) / H) * 1.8) { det[i] = 0.001; onDetect && onDetect(o); }
       if (det[i] > 0) det[i] = Math.min(1, det[i] + dt * 1.6);
@@ -299,7 +320,7 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
 
     // component labels during inspect
     const placedP = [];
-    PARTS.forEach((p, i) => {
+    if (!photo) PARTS.forEach((p, i) => {
       const el = parts[i];
       const target = ez > 0.85 ? 1 : 0;
       partP[i] += ((target ? 1 : 0) - partP[i]) * Math.min(1, dt * (target ? 3.2 - i * 0.18 : 8));
@@ -328,12 +349,29 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
   }
   return {
     start() {
-      if (!scene) { scene = paint(); noise = makeNoise(); }
+      if (!noise) noise = makeNoise();
+      if (!photo && !painted) painted = paint();
       if (active) return; active = true; t0 = last = performance.now(); zt = 0; userView = null;
       det.fill(0); partP.fill(0); raf = requestAnimationFrame(frame);
     },
     stop() { active = false; cancelAnimationFrame(raf); },
     view(v) { userView = v; },
+    /** M7: show this photo (`frame` URL, `objects` with `box` as fractions, `status`), or the painted desk again (null). */
+    show(p) {
+      photo = p; img = null; failed = false;
+      objs = p ? (p.objects || []).map((o) => {
+        const [x, y, w, h] = o.box, right = x > 0.6;
+        return { name: o.label, conf: o.conf, box: [x * W, y * H, w * W, h * H], card: [(right ? x : x + w) * W, (y + h / 2) * H, right ? 'l' : 'r'] };
+      }) : OBJECTS;
+      buildCards();
+      if (p && p.frame) {
+        const im = new Image();
+        im.onload = () => { if (photo !== p) return; img = im; t0 = performance.now(); det.fill(0); };
+        im.onerror = () => { if (photo === p) failed = true; };
+        im.src = p.frame;
+      }
+      return objs.length;
+    },
     rescan() { t0 = performance.now(); det.fill(0); partP.fill(0); userView = 'overview'; zt = 0; setTimeout(() => { if (userView === 'overview') userView = null; }, 50); }
   };
 }

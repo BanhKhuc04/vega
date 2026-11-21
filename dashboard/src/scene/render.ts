@@ -24,6 +24,8 @@ function pr(el: Element): Pristine {
 
 export interface Hooks {
   setLog(entries: [string, string][] | null): void;
+  /** M7: a real photo for the Vision screen, or null for the painted demo desk. */
+  setVision(photo: { frame?: string; objects?: { label: string; box: number[]; conf?: number }[]; status?: string } | null): void;
 }
 
 type Q = <T extends Element = HTMLElement>(sel: string) => T | null;
@@ -210,8 +212,11 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     heading(q('[data-p=route] .hd [data-scr]'), 'route', r?.title ?? (r ? `${r.steps.length} turns` : undefined));
     list(q('.turns'), r?.steps, (s: string) => node('li', '', s));
   },
-  vision(d, q) {
+  vision(d, q, h) {
     setTail(q('.vhud.tl'), d.camera === undefined ? undefined : String(d.camera));
+    // only a scene from the brain carries a frame or a status; the demo scenes keep the painted desk
+    const photo = d.frame || d.status ? { frame: d.frame as string | undefined, objects: d.objects as { label: string; box: number[]; conf?: number }[] | undefined, status: d.status as string | undefined } : null;
+    h.setVision(photo);
   },
   briefing(d, q) {
     text(q('.greet .k'), d.kicker);

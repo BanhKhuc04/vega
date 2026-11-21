@@ -25,6 +25,12 @@ export function renderConn(s: Pick<Snapshot, 'conn'>, root: ParentNode = documen
   txt.textContent = CONN_LABEL[s.conn];
 }
 
+/** Header chip of the Vision camera (M7): only when it is unplugged. */
+export function renderCam(s: Pick<Snapshot, 'camera'>, root: ParentNode = document): void {
+  const chip = root.querySelector<HTMLElement>('#camChip');
+  if (chip) chip.hidden = s.camera !== false;
+}
+
 /** Header chip of the voice agent's microphone: hidden while it listens normally (or no agent runs). */
 export function renderMic(s: Pick<Snapshot, 'mic'>, root: ParentNode = document): void {
   const chip = root.querySelector<HTMLElement>('#micChip');

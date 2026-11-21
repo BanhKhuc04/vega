@@ -64,12 +64,22 @@ services:
       # /voice/stt for push-to-talk, reached only by vega-ui's nginx over the compose network (no host port)
       VOICE_PORT: "8091"
       VOICE_HOST: 0.0.0.0
+      # Vision camera (M7). The host's /dev is mounted read-only at /hostdev and the brain may open video4linux devices
+      # only (major 81): the camera can be plugged in or out while it runs. A `devices:` entry would refuse to start
+      # the brain while the camera is unplugged.
+      CAMERA_DEVICE: ${CAMERA_DEVICE:-/hostdev/video0}
+    device_cgroup_rules:
+      - "c 81:* rmw"
+    # the host's `video` group (44 on Raspberry Pi OS / Debian), which owns /dev/video*
+    group_add:
+      - "${VIDEO_GID:-44}"
     # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
     env_file:
       - path: ./brain.env
         required: false
     volumes:
       - brain-data:/data
+      - /dev:/hostdev:ro
     depends_on:
       - mosquitto
     mem_limit: 160m

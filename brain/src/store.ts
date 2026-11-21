@@ -102,6 +102,11 @@ export class Store {
     return { ...u, usd: u.usd + this.sttUsd(day) };
   }
 
+  /** LLM calls of one kind of work on a local day (photos looked at: `vision`). */
+  callsOn(day: string, task: string): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM llm_usage WHERE day = ? AND task = ?').get(day, task) as { n: number }).n;
+  }
+
   /** LLM calls recorded for one command (the ledger is the proof that local commands cost nothing). */
   llmCallsFor(commandId: string): number {
     return (this.db.prepare('SELECT COUNT(*) AS n FROM llm_usage WHERE command_id = ?').get(commandId) as { n: number }).n;

@@ -74,6 +74,11 @@ Mở dashboard trên PC bằng `http://<ip-tailscale-của-pi>:8080/` (mức `fu
 Thử giọng nói (M5): trên PC hoặc điện thoại trong tailnet, mở `https://<tên-máy-pi>.<tailnet>.ts.net`, giữ nút mic nói "phòng mấy
 độ", thả ra: VEGA hiện câu bạn nói, trả lời và đọc to bằng giọng tiếng Việt.
 
+Thử camera (M7): cắm camera USB, kiểm tra `ls /dev/video0` và `v4l2-ctl --list-formats-ext` (cần MJPEG). Đặt `LLM_VISION` trong
+`brain.env` (README, mục M7), `docker compose … up -d vega-brain`, rồi hỏi "trên bàn có gì?". Log bộ não ghi `[vision] camera
+/hostdev/video0 ready`. Camera ở số khác (`/dev/video2`…): đặt `CAMERA_DEVICE=/hostdev/video2` trong `infra/pi/.env`. Nhóm `video` của
+máy khác 44: đặt `VIDEO_GID` (xem `getent group video`).
+
 ## Mất điện, rút điện cắm lại
 
 Docker tự bật lại các container (`restart: unless-stopped`) và `vega-kiosk.service` tự mở trình duyệt. Kiosk chờ nginx

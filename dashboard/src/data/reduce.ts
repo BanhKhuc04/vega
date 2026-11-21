@@ -54,6 +54,8 @@ export function applyUpdate(s: Snapshot, u: Update): Snapshot {
       return { ...s, net: { latencyMs: u.latencyMs } };
     case 'core':
       return { ...s, core: u.state, mic: u.mic ?? s.mic };
+    case 'camera':
+      return { ...s, camera: u.present };
     case 'llmUsage':
       return { ...s, ai: { day: u.day, spentUsd: u.spentUsd, budgetUsd: u.budgetUsd, calls: u.calls } };
     case 'commandResult':

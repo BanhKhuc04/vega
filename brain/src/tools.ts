@@ -23,7 +23,8 @@ export type ToolCall =
   | { name: 'cancel_reminder'; args: { id: number } }
   | { name: 'snooze'; args: Record<string, never> }
   | { name: 'focus_stop'; args: Record<string, never> }
-  | { name: 'web_search'; args: { query: string } };
+  | { name: 'web_search'; args: { query: string } }
+  | { name: 'look'; args: { question?: string } };
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
@@ -48,7 +49,7 @@ export interface PersonalTools {
  * Tool definitions for the LLM, generated from the registry: the device and room enums are whatever the devices
  * declared, so a new device needs no code. `physical: false` leaves out the tools that act on the world.
  */
-export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools; search?: boolean } = {}): ToolSpec[] {
+export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools; search?: boolean; camera?: boolean } = {}): ToolSpec[] {
   const fn = (name: ToolName, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ToolSpec => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
@@ -73,6 +74,10 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
     specs.push(
       fn('web_search', 'Search the web once for recent facts (prices, news, versions). Returns up to 5 numbered results; cite them as [1], [2] in the answer. At most one search per question.', { query: { type: 'string', description: 'A few words.' } }, ['query']),
     );
+  }
+  // a photo leaves the home: only on a direct command from the owner (offered like the physical tools)
+  if (opts.camera && opts.physical !== false) {
+    specs.push(fn('look', "Take a photo with the camera above the owner's desk and look at it. Use for questions about what is on the desk or what something there looks like.", { question: { type: 'string', description: 'What to look for, in the words of the owner.' } }));
   }
   const p = opts.personal;
   if (p?.google) {
@@ -128,6 +133,9 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
     case 'web_search':
       if (typeof a.query !== 'string' || !a.query.trim() || a.query.length > 300) return { ok: false, error: 'query must be 1-300 characters' };
       return { ok: true, call: { name, args: { query: a.query.trim() } } };
+    case 'look':
+      if (a.question !== undefined && (typeof a.question !== 'string' || a.question.length > 300)) return { ok: false, error: 'question must be at most 300 characters' };
+      return { ok: true, call: { name, args: { ...(typeof a.question === 'string' && a.question.trim() && { question: a.question.trim() }) } } };
     case 'calendar_list':
       if (a.day !== 'today' && a.day !== 'tomorrow' && a.day !== 'next') return { ok: false, error: 'day must be today, tomorrow or next' };
       return { ok: true, call: { name, args: { day: a.day } } };

@@ -191,6 +191,41 @@ test('M5.2: the voice agent wakes (Listen), its command and the answer show in t
   expect(w.external).toEqual([]);
 });
 
+test('M7: "trên bàn có gì?" shows the photo just taken (sim camera) with a box and label per object; CAM OFF when unplugged', async ({ browser }) => {
+  await brain.stop();
+  brain = startBrain(loadConfig({ MQTT_URL: `mqtt://127.0.0.1:${broker.port}`, LLM_ROUTER: 'mock', LLM_VISION: 'mock', CAMERA: 'sim', BRAIN_DB: ':memory:', VOICE_PORT: '0' }));
+  const port = await brain.voicePort;
+  const photos: number[] = [];
+  const { page, w } = await openPage(browser, async (p) => {
+    // as through nginx on the Pi: /vision/frame/<id> goes to the brain under test
+    await p.route('**/vision/frame/*', async (route) => {
+      const response = await route.fetch({ url: `http://127.0.0.1:${port}${new URL(route.request().url()).pathname}` });
+      photos.push(response.status());
+      await route.fulfill({ response });
+    });
+  });
+  await expect.poll(() => last.get('vega/desk/camera/state'), { timeout: T(3000) }).toBe(JSON.stringify({ v: 1, camera: 'on' }));
+  await say(page, 'trên bàn có gì?');
+  await expect.poll(() => mode(page), { timeout: T(4000) }).toBe('vision');
+  await expect.poll(() => photos, { timeout: T(4000) }).toEqual([200]);
+  await expect(page.locator('#vtotal')).toHaveText('7');
+  await expect(page.locator('#vlayer .vcard')).toHaveCount(7);
+  await expect(page.locator('#vlayer .vcard span').first()).toHaveText('Raspberry Pi');
+  await expect(page.locator('#feed')).toHaveAttribute('aria-label', /^Camera photo of the desk: Raspberry Pi, ESP8266/);
+  await expect(page.locator('.vctl')).toBeHidden(); // "Inspect Pi" belongs to the painted demo desk
+  await expect.poll(() => page.locator('#vcount').textContent(), { timeout: T(5000) }).toBe('7');
+  await expect(page.locator('#chat .msg.vega span')).toHaveText([/^Một Raspberry Pi/], { timeout: T(2000) });
+  // unplugged: the chip in the header, and the scene the brain sends when asked
+  spy.publish('vega/desk/camera/state', JSON.stringify({ v: 1, camera: 'missing' }), { retain: true });
+  await expect(page.locator('#camChip')).toBeVisible({ timeout: T(2000) });
+  await expect(page.locator('#camChip')).toHaveText('CAM OFF');
+  spy.publish(UI_SCENE, JSON.stringify({ v: 1, scene: 'vision', ttl: 60, data: { camera: 'CAM-01', status: 'unplugged' } }), { retain: true });
+  await expect(page.locator('#feed')).toHaveAttribute('aria-label', 'Camera unplugged', { timeout: T(2000) });
+  await expect(page.locator('#vlayer .vcard')).toHaveCount(0);
+  expect(w.errors).toEqual([]);
+  expect(w.external).toEqual([]);
+});
+
 async function say(page: Page, text: string): Promise<string> {
   const before = last.get(SYSTEM_COMMAND);
   await page.locator('#q').fill(text);

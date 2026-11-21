@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiveBinder, fmtAgo, fmtIn, liveText } from '../src/ui/live';
-import { CONN_LABEL, nextTier, renderConn, renderMic, renderQuality } from '../src/ui/chrome';
+import { CONN_LABEL, nextTier, renderCam, renderConn, renderMic, renderQuality } from '../src/ui/chrome';
 import { emptySnapshot, sampleSnapshot } from '../src/data/sample';
 import type { Snapshot } from '../src/data/types';
 import { loadTemplate } from './dom';
@@ -153,6 +153,16 @@ describe('header chrome', () => {
     renderMic({ mic: 'on' });
     expect(chip.hidden).toBe(true);
     renderMic({ mic: null });
+    expect(chip.hidden).toBe(true);
+  });
+  it('camera chip: CAM OFF only while the Vision camera is unplugged (M7)', () => {
+    const chip = document.querySelector<HTMLElement>('#camChip')!;
+    expect(chip.hidden).toBe(true);
+    renderCam({ camera: false });
+    expect([chip.hidden, chip.textContent]).toEqual([false, 'CAM OFF']);
+    renderCam({ camera: true });
+    expect(chip.hidden).toBe(true);
+    renderCam({ camera: null });
     expect(chip.hidden).toBe(true);
   });
   it('quality button shows the running tier and says when it was lowered automatically', () => {

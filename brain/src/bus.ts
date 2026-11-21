@@ -1,6 +1,6 @@
 import mqtt from 'mqtt';
 import type { MqttClient } from 'mqtt';
-import { PAYLOAD_VERSION, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
+import { CAMERA_STATE, PAYLOAD_VERSION, cameraState, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
 import type { SceneMessage, SourceRef } from '@vega/contract';
 
 /** A scene as the brain writes it: the envelope fields `v` and `ts` are added on publish. */
@@ -22,6 +22,8 @@ export interface Bus {
   announce(text: string): void;
   /** Today's AI spending (retained, for the screen). */
   usage(u: { day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }): void;
+  /** Is the Vision camera plugged in (retained, M7). */
+  camera(present: boolean): void;
 }
 
 /** Topics the brain listens to. */
@@ -67,6 +69,9 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
     usage(u) {
       const msg = systemEvent.parse({ v, type: 'llm_usage', day: u.day, spent_usd: u.spentUsd, budget_usd: u.budgetUsd, calls: u.calls, tokens_in: u.tokensIn, tokens_out: u.tokensOut });
       client.publish(eventTopic('llm_usage'), JSON.stringify(msg), { retain: true });
+    },
+    camera(present) {
+      client.publish(CAMERA_STATE, JSON.stringify(cameraState.parse({ v, camera: present ? 'on' : 'missing' })), { retain: true });
     },
   };
 }

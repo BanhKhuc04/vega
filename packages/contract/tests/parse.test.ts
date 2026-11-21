@@ -17,6 +17,8 @@ describe('parseMessage: valid input', () => {
     expect(p('vega/kitchen/plug/meta', { v: 1, kind: 'esp8266', name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' })).toMatchObject({ name: 'Kettle', aliases: ['ổ cắm', 'plug'], risk: 'high' });
     expect(p('vega/desk/core/state', { v: 1, state: 'listening' })).toEqual({ type: 'core', state: 'listening', mic: null });
     expect(p('vega/desk/core/state', { v: 1, state: 'idle', mic: 'off' })).toEqual({ type: 'core', state: 'idle', mic: 'off' });
+    expect(p('vega/desk/camera/state', { v: 1, camera: 'missing' })).toEqual({ type: 'camera', present: false });
+    expect(p('vega/desk/camera/state', { v: 1, camera: 'on' })).toEqual({ type: 'camera', present: true });
   });
   it('system topics', () => {
     expect(p('vega/system/events', { v: 1, type: 'ci', repo: 'r', failed: 2, ts: '2026-11-18T09:00:00Z' })).toMatchObject({ type: 'ci', failed: 2 });
@@ -53,6 +55,7 @@ describe('parseMessage: bad input is dropped without throwing', () => {
     ['vega/bedroom/sensor/state', { v: 1 }],
     ['vega/bedroom/sensor/availability', 'maybe'],
     ['vega/desk/core/state', { v: 1, state: 'dancing' }],
+    ['vega/desk/camera/state', { v: 1, camera: 'maybe' }],
     ['vega/desk/core/meta', { v: 1, kind: 'toaster' }],
     ['vega/system/events', { v: 1, type: 'ci', repo: 1 }],
     ['vega/system/events', '\u0000\u0001'],

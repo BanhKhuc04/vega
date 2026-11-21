@@ -1,10 +1,10 @@
-import { availability, coreState, deviceMeta, deviceState } from './device';
+import { availability, cameraState, coreState, deviceMeta, deviceState } from './device';
 import type { CoreStateMsg, DeviceKind, Risk } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
 import { netStats, piStats, systemCommand, systemEvent } from './system';
 import type { SourceRef } from './system';
-import { CORE_STATE, SYSTEM_COMMAND, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
+import { CAMERA_STATE, CORE_STATE, SYSTEM_COMMAND, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
 
 /** One MQTT message, decoded and validated. */
 export type Update =
@@ -19,6 +19,7 @@ export type Update =
   | { type: 'llmUsage'; day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }
   | { type: 'core'; state: CoreStateMsg['state']; mic: NonNullable<CoreStateMsg['mic']> | null }
   | { type: 'voiceCommand'; id: string; text: string }
+  | { type: 'camera'; present: boolean }
   | { type: 'pi'; cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null }
   | { type: 'net'; latencyMs: number }
   | { type: 'scene'; scene: SceneMessage }
@@ -99,6 +100,10 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
       if (topic === CORE_STATE) {
         const r = coreState.safeParse(json(payload));
         return r.success ? { type: 'core', state: r.data.state, mic: r.data.mic ?? null } : null;
+      }
+      if (topic === CAMERA_STATE) {
+        const r = cameraState.safeParse(json(payload));
+        return r.success ? { type: 'camera', present: r.data.camera === 'on' } : null;
       }
       const r = deviceState.safeParse(json(payload));
       if (!r.success) return null;

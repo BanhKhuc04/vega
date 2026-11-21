@@ -696,6 +696,15 @@ export const api = {
   getLevel: () => level,
   setStatusOverride: (t) => { statusOverride = t || null; },
   setLog: (entries) => { LOG = entries && entries.length ? entries : DEFAULT_LOG; },
+  // M7: the photo the brain just took ({ frame, objects, status }), or null for the painted demo desk
+  setVision: (p) => {
+    $('#vtotal').textContent = vision.show(p);
+    $('.vctl').style.display = p ? 'none' : '';
+    const feed = $('#feed');
+    feed.dataset.label ??= feed.getAttribute('aria-label');
+    const labels = (p?.objects || []).map((o) => o.label).join(', ');
+    feed.setAttribute('aria-label', !p ? feed.dataset.label : p.status === 'unplugged' ? 'Camera unplugged' : p.status === 'off' ? 'Vision is off: no vision model' : `Camera photo of the desk${labels ? `: ${labels}` : ''}`);
+  },
   zap,
   countUp,
   scramble,

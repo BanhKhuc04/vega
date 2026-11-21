@@ -18,6 +18,8 @@ import { clip, fold, wrapExternal } from './text';
 import type { SourceRef } from '@vega/contract';
 import { PHYSICAL, chipLabel, parseToolCall, toolSpecs } from './tools';
 import type { ToolCall } from './tools';
+import { parseSeen, visionMessages } from './vision';
+import type { Camera, FrameCache } from './vision';
 
 export interface ExternalData {
   /** Where it came from, e.g. "email", "ci-log". */
@@ -81,6 +83,8 @@ export interface AgentDeps {
   ci?: CiWatcher | null;
   /** Calendar, mail, weather, reminders, Focus (M4). */
   assistant?: Assistant | null;
+  /** Camera and the photo cache behind /vision/frame (M7). */
+  vision?: { camera: Camera; frames: FrameCache } | null;
   chat?: ChatFn;
   now?: () => number;
   log?: (msg: string) => void;
@@ -276,7 +280,7 @@ export class Agent {
     const a = this.deps.assistant;
     const personal = a ? { google: !!config.google, weather: !!config.weather } : undefined;
     // with outside content in play, physical tools are not even offered (recomputed: a tool result can taint the run)
-    const tools = () => toolSpecs(registry, { physical: run.trusted, ciRepos, ...(personal && { personal }), search: !!this.search && !run.searched });
+    const tools = () => toolSpecs(registry, { physical: run.trusted, ciRepos, ...(personal && { personal }), search: !!this.search && !run.searched, camera: !!this.deps.vision && !!config.tasks.vision });
     // the date and time, so the LLM can turn "Friday at 5" into a reminder time
     if (a) messages.splice(1, 0, { role: 'system', content: `Local time now: ${new Date(this.now()).toString()}.` });
     let lastTexts: string[] = [];
@@ -342,6 +346,7 @@ export class Agent {
 
   /** Runs any tool: the CI ones talk to GitHub, calendar and mail may refresh first (async); the rest is local. */
   private async execAny(c: ToolCall, run: Run): Promise<ToolResult> {
+    if (c.name === 'look') return this.look(c.args.question, run);
     if (c.name === 'web_search') {
       if (!this.search) return { ok: false, text: 'Web search is not set up.' };
       if (run.searched) return { ok: false, text: 'Only one web search per question.' };
@@ -373,6 +378,58 @@ export class Agent {
       return { ok: true, text: `${x.run.repo} · ${x.run.workflow} failed${x.step ? ` at "${x.step}"` : ''} (${x.run.sha} ${x.run.message})\n${x.excerpt}`, external: 'ci-log' };
     }
     return this.exec(c, run);
+  }
+
+  /**
+   * One photo, looked at by the `vision` model (M7). Only for a direct command of the owner: the photo leaves the home.
+   * What the model says about the photo is outside content (text in the photo could try to give orders).
+   */
+  private async look(question: string | undefined, run: Run): Promise<ToolResult> {
+    const { config, store } = this.deps;
+    const v = this.deps.vision;
+    const L2 = (vi: string, en: string) => L(run.lang, vi, en);
+    const show = (data: Record<string, unknown>) => (run.screen = { scene: 'vision', ttl: 120, status: 'Vision · cam-01', data: { camera: 'CAM-01', ...data } });
+    if (!run.trusted) return { ok: false, text: 'Refused: the camera needs a direct command from the owner.' };
+    if (!v || !config.tasks.vision) {
+      show({ status: 'off' });
+      return { ok: false, text: L2('Chưa cấu hình model thị giác: đặt LLM_VISION trong brain.env.', 'No vision model: set LLM_VISION in brain.env.') };
+    }
+    if (!v.camera.present()) {
+      show({ status: 'unplugged' });
+      return { ok: false, text: L2('Camera đang rút.', 'The camera is unplugged.') };
+    }
+    const day = dayOf(this.now());
+    if (store.spentUsd(day) >= config.budgetUsdDay) return { ok: false, text: L2('Hết ngân sách AI hôm nay.', 'Daily AI budget reached.') };
+    if (store.callsOn(day, 'vision') >= config.camera.maxDay) return { ok: false, text: L2(`Đã nhìn đủ ${config.camera.maxDay} lần hôm nay.`, `${config.camera.maxDay} photos today already.`) };
+    let jpeg: Buffer;
+    try {
+      jpeg = await v.camera.capture();
+    } catch (e) {
+      this.log(`[vision] capture failed: ${(e as Error).message}`);
+      show({ status: 'unplugged' });
+      return { ok: false, text: L2('Camera không chụp được ảnh.', 'The camera did not take a photo.') };
+    }
+    const frame = `/vision/frame/${v.frames.put(jpeg)}`;
+    const provider = config.providers[config.tasks.vision]!;
+    let res: ChatResponse;
+    try {
+      res = await this.chat(provider, { messages: visionMessages(jpeg, question, run.lang) }, { timeoutMs: config.llmTimeoutMs });
+    } catch (e) {
+      const offline = e instanceof LlmUnavailable && e.kind === 'offline';
+      this.log(`[vision] ${offline ? 'offline' : 'error'}: ${(e as Error).message}`);
+      show({ frame, status: 'offline' });
+      return { ok: false, text: offline ? L2('Mất mạng: chụp được ảnh nhưng chưa nhìn được.', 'Offline: photo taken, but it could not be looked at.') : L2('Model thị giác lỗi, thử lại sau.', 'Vision model error, try again later.') };
+    }
+    store.logUsage({ ts: this.now(), commandId: run.cmdId, task: 'vision', provider: provider.name, model: provider.model, tokensIn: res.usage.in, tokensOut: res.usage.out, usd: costUsd(provider, res.usage) });
+    this.publishUsage();
+    this.log(`[vision] photo ${jpeg.length} bytes looked at by ${provider.name} (not stored)`);
+    const seen = parseSeen(res.message.content);
+    if (!seen) {
+      show({ frame, status: 'ok' });
+      return { ok: false, text: L2('Model thị giác trả lời không đúng dạng.', 'The vision model gave an unreadable answer.') };
+    }
+    show({ frame, status: 'ok', summary: seen.summary, ...(seen.objects.length && { objects: seen.objects }) });
+    return { ok: true, text: seen.summary, external: 'camera' };
   }
 
   /** Runs one tool. Physical tools only for a trusted command; high-risk devices only once confirmed. */
@@ -407,6 +464,8 @@ export class Agent {
         return a ? { ok: true, text: a.snooze(run.lang) } : off();
       case 'web_search':
         return { ok: false, text: 'web_search runs asynchronously' }; // handled by execAny
+      case 'look':
+        return { ok: false, text: 'look runs asynchronously' }; // handled by execAny
       case 'focus_stop': {
         const end = a?.stopFocus(run.lang);
         if (!end) return { ok: true, text: L(run.lang, 'Không có phiên tập trung nào.', 'Not focusing.') };
