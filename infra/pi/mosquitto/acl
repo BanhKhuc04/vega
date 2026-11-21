@@ -5,6 +5,8 @@ user brain
 topic readwrite vega/#
 # the phone's location (M8)
 topic read owntracks/#
+# the broker's own uptime: what the mosquitto healthcheck in docker-compose.yml subscribes to (without it: always unhealthy)
+topic read $SYS/broker/uptime
 
 # the dashboard: read everything, and send commands. Nothing else.
 user ui
