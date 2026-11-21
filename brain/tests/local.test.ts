@@ -69,3 +69,11 @@ describe('routeLocal', () => {
     expect(routeLocal('bật quạt', r, { defaultRoom: 'bedroom' })).toEqual([{ name: 'set_device', args: { device: 'bedroom/fan', on: true } }]);
   });
 });
+
+describe('phrases around a removed filler (M8)', () => {
+  it('"vị trí hiện tại của tôi" still reads as "vị trí của tôi"', () => {
+    expect(route('vị trí hiện tại của tôi')).toEqual([{ name: 'locate', args: {} }]);
+    expect(route('vị trí hiện tại')).toEqual([{ name: 'locate', args: {} }]);
+    expect(route('đây là nhà')).toEqual([{ name: 'set_home', args: {} }]);
+  });
+});
