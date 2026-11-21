@@ -9,6 +9,7 @@ export interface HudApi {
   getLevel(): string;
   setStatusOverride(text: string | null): void;
   setLog(entries: [string, string][] | null): void;
+  setVision(photo: Parameters<import('./scene/render').Hooks['setVision']>[0]): void;
   zap(el: Element, text: string): void;
   barHtml(values: number[]): string;
   getQuality(): 'full' | 'lite' | 'css';

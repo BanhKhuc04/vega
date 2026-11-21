@@ -13,13 +13,14 @@ const example = (name: SceneName): SceneMessage => {
   if (!r.ok) throw new Error(`${name}.json: ${r.error}`);
   return r.scene;
 };
-const hooks = { setLog: vi.fn() };
+const hooks = { setLog: vi.fn(), setVision: vi.fn() };
 const $ = (s: string) => document.querySelector<HTMLElement>(s)!;
 const bare = (scene: SceneName): SceneMessage => ({ v: 1, scene });
 
 beforeEach(() => {
   loadTemplate();
   hooks.setLog.mockClear();
+  hooks.setVision.mockClear();
 });
 
 describe('examples', () => {
@@ -149,6 +150,17 @@ describe('missing fields fall back to the template defaults', () => {
     expect($('[data-p=co2]').hidden).toBe(false);
   });
 
+  it('vision: a photo from the brain goes to the Vision engine, demo scenes keep the painted desk (M7)', () => {
+    const objects = [{ label: 'Cốc', box: [0.1, 0.2, 0.3, 0.4] as [number, number, number, number] }];
+    renderScene({ v: 1, scene: 'vision', data: { camera: 'CAM-01', frame: '/vision/frame/abcdefgh12', status: 'ok', objects } }, document, hooks);
+    expect(hooks.setVision).toHaveBeenLastCalledWith(expect.objectContaining({ frame: '/vision/frame/abcdefgh12', objects, status: 'ok', camera: 'CAM-01' }));
+    renderScene({ v: 1, scene: 'vision', data: { status: 'unplugged' } }, document, hooks);
+    expect(hooks.setVision).toHaveBeenLastCalledWith(expect.objectContaining({ frame: undefined, objects: undefined, status: 'unplugged' }));
+    renderScene({ v: 1, scene: 'vision', data: { camera: 'CAM-01', mode: 'live' } }, document, hooks); // M7.1
+    expect(hooks.setVision).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'live', camera: 'CAM-01' }));
+    renderScene({ v: 1, scene: 'vision', data: { camera: 'CAM-02' } }, document, hooks);
+    expect(hooks.setVision).toHaveBeenLastCalledWith(null);
+  });
   it('partial data only changes the fields given', () => {
     const before = $('[data-p=stat] > .t').textContent;
     renderScene({ v: 1, scene: 'research', data: { title: 'Only a title' } }, document, hooks);

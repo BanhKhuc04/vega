@@ -67,6 +67,15 @@ describe('MqttSource', () => {
     msg(client, 'vega/desk/core/state', JSON.stringify({ v: 1, state: 'listening' })); // an ESP core without a mic field keeps it
     expect(src.getSnapshot()).toMatchObject({ core: 'listening', mic: 'off' });
   });
+  it('camera state from the brain lands in the snapshot (M7)', async () => {
+    const { client, src } = await setup();
+    client.fire('connect');
+    expect(src.getSnapshot().camera).toBeNull();
+    msg(client, 'vega/desk/camera/state', JSON.stringify({ v: 1, camera: 'missing' }));
+    expect(src.getSnapshot().camera).toBe(false);
+    msg(client, 'vega/desk/camera/state', JSON.stringify({ v: 1, camera: 'on' }));
+    expect(src.getSnapshot().camera).toBe(true);
+  });
 
   it('survives corrupt payloads and keeps previous data', async () => {
     const { client, src } = await setup();

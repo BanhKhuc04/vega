@@ -16,6 +16,7 @@ export const SYSTEM_PI = 'vega/system/pi';
 export const SYSTEM_NET = 'vega/system/net';
 export const UI_SCENE = 'vega/ui/scene';
 export const CORE_STATE = 'vega/desk/core/state';
+export const CAMERA_STATE = 'vega/desk/camera/state';
 
 /** Topics the dashboard subscribes to. `vega/desk/core/state` is matched by the first pattern. */
 export const DASHBOARD_SUBSCRIPTIONS = [

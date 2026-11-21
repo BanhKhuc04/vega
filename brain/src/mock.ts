@@ -57,8 +57,23 @@ function guess(text: string, tools: ToolSpec[] | undefined): { name: string; arg
 
 const tokens = (o: unknown) => Math.ceil(JSON.stringify(o).length / 4);
 
+/** What the mock "sees" in any photo: the desk the sim camera shows (VISION_SAMPLE in vision.ts). */
+const MOCK_SEEN = {
+  summary: 'Một Raspberry Pi, hai bo mạch ESP8266, breadboard, module relay, cốc cà phê và sổ tay.',
+  objects: [
+    { label: 'Raspberry Pi', box: [0.36, 0.33, 0.29, 0.33] },
+    { label: 'ESP8266', box: [0.18, 0.24, 0.16, 0.15] },
+    { label: 'Breadboard', box: [0.16, 0.21, 0.2, 0.28] },
+    { label: 'ESP8266', box: [0.18, 0.69, 0.16, 0.15] },
+    { label: 'Module relay', box: [0.69, 0.28, 0.16, 0.21] },
+    { label: 'Cốc cà phê', box: [0.76, 0.59, 0.15, 0.23] },
+    { label: 'Sổ tay', box: [0.85, 0.03, 0.15, 0.21] },
+  ],
+};
+
 export function mockChat(req: ChatRequest): ChatResponse {
   const msgs = req.messages;
+  if (msgs.some((m) => m.role === 'user' && Array.isArray(m.content))) return { message: { role: 'assistant', content: JSON.stringify(MOCK_SEEN) }, usage: { in: 800, out: 120 } };
   let lastUser = -1;
   msgs.forEach((m, i) => m.role === 'user' && (lastUser = i));
   const results = msgs.slice(lastUser + 1).filter((m) => m.role === 'tool');
@@ -73,7 +88,7 @@ export function mockChat(req: ChatRequest): ChatResponse {
     });
     message = { role: 'assistant', content: texts.join(' · ') };
   } else {
-    const text = fold(msgs.filter((m) => m.role === 'user').map((m) => m.content).join(' \n '));
+    const text = fold(msgs.flatMap((m) => (m.role === 'user' && typeof m.content === 'string' ? [m.content] : [])).join(' \n '));
     const calls = guess(text, req.tools);
     message = calls.length
       ? { role: 'assistant', content: null, tool_calls: calls.map((c, i): ToolCallMsg => ({ id: `call_${i}`, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.args) } })) }

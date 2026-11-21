@@ -49,6 +49,8 @@ export interface Snapshot {
   core: CoreState;
   /** The voice agent's microphone (M5.2); null = no agent has reported. */
   mic: 'on' | 'off' | 'missing' | null;
+  /** The Vision camera on the Pi (M7): plugged in or not; null = no vision model, nothing reported. */
+  camera: boolean | null;
 }
 
 export interface VegaDataSource {

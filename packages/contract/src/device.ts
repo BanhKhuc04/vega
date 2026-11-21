@@ -61,3 +61,6 @@ export const MIC_STATES = ['on', 'off', 'missing'] as const;
 /** `vega/desk/core/state`. `mic` (v5): the voice agent's microphone; `off` = closed by the owner's hotkey, `missing` = unplugged. */
 export const coreState = z.object({ v, state: z.enum(CORE_STATES), mic: z.enum(MIC_STATES).optional() });
 export type CoreStateMsg = z.infer<typeof coreState>;
+export const CAMERA_STATES = ['on', 'missing'] as const;
+/** `vega/desk/camera/state` (v6, retained, from the brain): `missing` = the camera is unplugged. */
+export const cameraState = z.object({ v, camera: z.enum(CAMERA_STATES) });

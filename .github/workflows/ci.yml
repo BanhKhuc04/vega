@@ -27,6 +27,10 @@ jobs:
           python-version: "3.12"
       - name: vega-voice unit tests (fake voice, no Piper)
         run: python3 -m unittest discover voice
+      - name: vega-vision unit tests (fake camera; YOLOX decoding with numpy and OpenCV)
+        run: |
+          pip install numpy==2.5.5 opencv-python-headless==5.1.0.95
+          python3 -m unittest discover vision
       - name: pc-agent (wake word, M5.2)
         run: |
           pip install -r pc-agent/requirements.txt
@@ -79,6 +83,8 @@ jobs:
         run: |
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/voice/tts?text=hi&lang=en')" = 502
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/voice/stt)" = 502
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/vision/frame/abcdefgh12)" = 502
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/vision/live)" = 502
       - uses: docker/setup-qemu-action@v3 # vega-voice runs pip on arm64: wheels only, nothing compiled
       - name: Build vega-voice image (amd64 + arm64 for the Pi)
         run: docker buildx build --platform linux/amd64,linux/arm64 -f voice/Dockerfile -t vega-voice:ci .
@@ -90,6 +96,20 @@ jobs:
           curl -fs -o hi.wav 'http://localhost:5002/voice/tts?text=Xin%20ch%C3%A0o&lang=vi'
           file hi.wav | grep -q 'WAVE audio'
           test "$(stat -c %s hi.wav)" -gt 10000
+      - name: Build vega-vision image (amd64 + arm64 for the Pi)
+        run: docker buildx build --platform linux/amd64,linux/arm64 -f vision/Dockerfile -t vega-vision:ci .
+      - name: vega-vision streams the sample photo and runs YOLO on it (CAMERA=sim)
+        run: |
+          docker buildx build --load -f vision/Dockerfile -t vega-vision:ci .
+          docker run -d --name vision -p 8092:8092 -e CAMERA=sim vega-vision:ci
+          for i in $(seq 1 30); do curl -fs http://localhost:8092/health >/dev/null && break || sleep 1; done
+          (timeout 8 curl -sN http://localhost:8092/vision/live/objects > objects.txt || true) &
+          timeout 5 curl -s http://localhost:8092/vision/live -o live.bin || true
+          wait
+          docker logs vision
+          test "$(grep -c 'Content-Type: image/jpeg' live.bin)" -gt 5
+          grep -q '"status": "live"' objects.txt
+          curl -fs -o snap.jpg http://localhost:8092/snapshot && file snap.jpg | grep -q JPEG
       - name: Pi compose file is valid
         run: MQTT_BRAIN_PASS=x MQTT_UI_PASS=x docker compose -f infra/pi/docker-compose.yml config -q
       - name: Build vega-brain image (amd64 + arm64 for the Pi)

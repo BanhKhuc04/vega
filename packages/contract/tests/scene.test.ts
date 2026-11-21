@@ -57,7 +57,7 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
       log: [{ tag: 'agent', msg: 'm' }],
     },
     locate: { title: 'Locate', status: 'gps', target: { name: 'n', distanceKm: 2.4, detail: 'd', coord: 'c' }, route: { steps: ['a', 'b'] } },
-    vision: { camera: 'CAM-02' },
+    vision: { camera: 'CAM-02', frame: '/vision/frame/abc123def456', summary: 'A laptop and a mug', status: 'ok', objects: [{ label: 'laptop', box: [0.1, 0.2, 0.5, 0.4], conf: 0.9 }] },
     briefing: {
       kicker: 'k', title: 't', summary: 's',
       agenda: [{ time: '09:00', title: 'lab', hot: true }], inbox: [{ from: 'f', subject: 's' }], room: 'r',
@@ -87,6 +87,17 @@ describe('per-scene data schemas: valid / missing / wrong', () => {
     it(`${scene}: wrong type is rejected via the envelope`, () => expect(parseScene({ v: 1, scene, data: wrong[scene] }).ok).toBe(false));
     it(`${scene}: valid data accepted via the envelope`, () => expect(parseScene({ v: 1, scene, data: valid[scene] }).ok).toBe(true));
   }
+  it('vision: frame is only a /vision/frame/<id> path, boxes are fractions (v6)', () => {
+    const ok = (data: unknown) => parseScene({ v: 1, scene: 'vision', data }).ok;
+    expect(ok({ camera: 'CAM-02' })).toBe(true); // a v5 scene is still valid
+    expect(ok({ frame: 'https://evil.example/x.jpg' })).toBe(false);
+    expect(ok({ frame: '/vision/frame/../../etc' })).toBe(false);
+    expect(ok({ objects: [{ label: 'mug', box: [0.5, 0.5, 1.2, 0.1] }] })).toBe(false);
+    expect(ok({ objects: [{ label: 'mug', box: [0.5, 0.5, 0.1] }] })).toBe(false);
+    expect(ok({ status: 'broken' })).toBe(false);
+    expect(ok({ mode: 'live', status: 'ok' })).toBe(true); // v7
+    expect(ok({ mode: 'stream' })).toBe(false);
+  });
   it('rejects empty lists and oversize lists', () => {
     expect(parseScene({ v: 1, scene: 'research', data: { steps: [] } }).ok).toBe(false);
     expect(parseScene({ v: 1, scene: 'research', data: { log: Array(31).fill({ tag: 'a', msg: 'b' }) } }).ok).toBe(false);

@@ -23,6 +23,7 @@ function setup(startMs = Date.UTC(2026, 10, 18, 9, 0, 0)) {
     setLevel: vi.fn((l: string) => calls.push(`level:${l}`)),
     setStatusOverride: vi.fn((t: string | null) => calls.push(`status:${t}`)),
     setLog: vi.fn(),
+    setVision: vi.fn(),
   };
   let now = startMs;
   const ctl = new SceneController({ hud, now: () => now });

@@ -1,6 +1,7 @@
 // Full-screen simulated overhead camera: painted desk scene, detections with leader-line callouts,
 // and an "inspect" pass that zooms into the Raspberry Pi 3 and labels its parts.
 const W = 1920, H = 1080, RES = 2;
+const LIVE_URL = '/vision/live'; // vega-vision, through nginx (M7.1)
 const PI = { x: 705, y: 372, k: 6 }; // Pi origin (px) and px per mm
 const mm = (x, y) => [PI.x + x * PI.k, PI.y + y * PI.k];
 const mmBox = (x0, y0, x1, y1) => { const [a, b] = mm(x0, y0), [c, d] = mm(x1, y1); return [a, b, c - a, d - b]; };
@@ -187,19 +188,68 @@ function makeNoise() {
 /**
  * @param {any} canvas legacy template code: DOM types are left loose on purpose
  * @param {any} layer
- * @param {{ accent?: string, onDetect?: (...args: any[]) => void, onPhase?: (phase: string) => void }} [opts]
+ * @param {{ accent?: string, onDetect?: (...args: any[]) => void, onPhase?: (phase: string) => void, onLive?: (status: string, fps: number, labels: string[]) => void }} [opts]
  */
-export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPhase } = {}) {
+export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPhase, onLive } = {}) {
   const g = canvas.getContext('2d');
-  let scene = null, noise = null, raf = 0, active = false, t0 = 0, last = 0;
+  let painted = null, noise = null, raf = 0, active = false, t0 = 0, last = 0;
   let zt = 0, zTarget = 0, userView = null;
-  const det = OBJECTS.map(() => 0), partP = PARTS.map(() => 0);
+  // M7: a real photo from the brain ({ frame, objects, status }) instead of the painted desk; null = the painted desk
+  let photo = null, img = null, failed = false, objs = OBJECTS;
+  // M7.1: live video from vega-vision (an MJPEG <img>) and its YOLO boxes (EventSource); null when not live
+  let live = null;
+  let det = [], cards = [], parts = [];
+  const partP = PARTS.map(() => 0);
   const ease = (x) => 1 - Math.pow(1 - x, 3);
 
-  // HTML callouts
-  layer.innerHTML = OBJECTS.map((o) => `<div class="vcard${o.hero ? ' hero' : ''}" data-id="${o.id}"><div class="vt"><span>${o.name}</span><b>${Math.round(o.conf * 100)}%</b></div><div class="vs">${o.sub}</div>${o.hero ? '<div class="vh">Inspecting components…</div>' : ''}</div>`).join('')
-    + PARTS.map((p) => `<div class="vpart" data-id="${p.id}"><div class="vt"><span>${p.name}</span></div><div class="vs">${p.sub}</div></div>`).join('');
-  const cards = [...layer.querySelectorAll('.vcard')], parts = [...layer.querySelectorAll('.vpart')];
+  // HTML callouts, built with textContent: labels of a real photo come from a model
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+  function buildCards() {
+    layer.replaceChildren();
+    cards = objs.map((o) => {
+      const c = el('div', `vcard${o.hero ? ' hero' : ''}`), vt = el('div', 'vt');
+      vt.append(el('span', '', o.name), ...(o.conf !== undefined ? [el('b', '', `${Math.round(o.conf * 100)}%`)] : []));
+      c.append(vt, ...(o.sub ? [el('div', 'vs', o.sub)] : []), ...(o.hero ? [el('div', 'vh', 'Inspecting components…')] : []));
+      layer.append(c); return c;
+    });
+    parts = photo ? [] : PARTS.map((p) => { const c = el('div', 'vpart'), vt = el('div', 'vt'); vt.append(el('span', '', p.name)); c.append(vt, el('div', 'vs', p.sub)); layer.append(c); return c; });
+    det = objs.map(() => 0);
+  }
+  buildCards();
+
+  function openLive() {
+    const im = new Image();
+    im.src = LIVE_URL; // an MJPEG stream: the image always holds the newest frame
+    const es = new EventSource(`${LIVE_URL}/objects`);
+    live = { img: im, es, status: photo.status === 'unplugged' ? 'unplugged' : 'connecting', fps: 0 };
+    const mine = live;
+    es.onmessage = (e) => {
+      let d;
+      try { d = JSON.parse(e.data); } catch { return; }
+      if (live !== mine || !d || typeof d.status !== 'string') return;
+      live.status = d.status; live.fps = +d.fps || 0;
+      if (d.status === 'timeout') closeLive(); // the session cap (L5): the page offers to continue, it never reconnects alone
+      setObjects(Array.isArray(d.objects) ? d.objects : []);
+      onLive && onLive(live.status, live.fps, objs.map((o) => o.name));
+    };
+  }
+  /** Stops the video and the boxes (the camera closes 10 s later); `live` stays to tell why the screen is empty. */
+  function closeLive() {
+    if (!live || live.closed) return;
+    live.es.close(); live.img.src = ''; live.closed = true;
+  }
+  // live boxes: matched to the previous ones by label so they glide instead of jumping (cur -> box every frame)
+  function setObjects(list) {
+    const prev = objs, names = prev.map((o) => o.name).join('|');
+    objs = list.filter((o) => o && typeof o.label === 'string' && Array.isArray(o.box) && o.box.length === 4).slice(0, 20).map((o) => {
+      const [x, y, w, h] = o.box.map(Number), right = x > 0.6, box = [x * W, y * H, w * W, h * H];
+      const old = prev.find((p) => p.name === o.label && !p.taken);
+      if (old) old.taken = true;
+      return { name: o.label, conf: o.conf, box, cur: old ? old.cur : box.slice(), card: [(right ? x : x + w) * W, (y + h / 2) * H, right ? 'l' : 'r'] };
+    });
+    if (objs.map((o) => o.name).join('|') !== names) { buildCards(); det.fill(1); }
+    else objs.forEach((o, i) => { const b = cards[i].querySelector('b'); if (b && o.conf !== undefined) b.textContent = `${Math.round(o.conf * 100)}%`; });
+  }
 
   function bracket(x, y, w, h, len, col, lw) {
     g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
@@ -222,11 +272,11 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const narrow = cw < 900;
 
-    // auto inspect after the overview has settled
-    if (userView === null) zTarget = t > 6 ? 1 : 0; else zTarget = userView === 'inspect' ? 1 : 0;
+    // auto inspect after the overview has settled (the painted desk only)
+    if (photo) zTarget = 0; else if (userView === null) zTarget = t > 6 ? 1 : 0; else zTarget = userView === 'inspect' ? 1 : 0;
     zt += (zTarget - zt) * (1 - Math.pow(0.04, dt));
     const ez = zt * zt * (3 - 2 * zt);
-    onPhase && onPhase(zTarget ? 'inspect' : 'overview');
+    if (!live) onPhase && onPhase(zTarget ? 'inspect' : 'overview');
 
     // view: cover-fit, then zoom toward the Pi
     const base = narrow ? Math.max(cw / W, ch / H) * 0.9 : Math.min(cw / W, (ch - 40) / H);
@@ -238,8 +288,18 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
     const S = (x, y) => [(x - vx) * sc + scx, (y - vy) * sc + scy];
 
     g.fillStyle = '#05070b'; g.fillRect(0, 0, cw, ch);
+    const pic = live ? (!live.closed && live.status !== 'unplugged' && live.img.naturalWidth ? live.img : null) : photo ? img : painted;
+    if (!pic) {
+      // no photo to show: say why, big and plain
+      const msg = live
+        ? ({ unplugged: 'CAMERA UNPLUGGED', timeout: 'LIVE VIEW ENDED', error: 'CAMERA ERROR' })[live.status] || (live.closed ? 'LIVE VIEW PAUSED' : 'CONNECTING CAMERA')
+        : photo.status === 'unplugged' ? 'CAMERA UNPLUGGED' : photo.status === 'off' ? 'VISION OFF · NO MODEL' : failed || !photo.frame ? 'NO PHOTO' : 'LOADING PHOTO';
+      g.fillStyle = '#8FD0FF'; g.font = `600 ${narrow ? 18 : 28}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.fillText(msg, cw / 2, ch / 2); g.textAlign = 'left';
+      raf = requestAnimationFrame(frame); return;
+    }
     const boot = Math.min(1, t / 0.8);
-    g.save(); g.globalAlpha = boot; const [ox, oy] = S(0, 0); g.drawImage(scene, ox, oy, W * sc, H * sc); g.restore();
+    // shortcut: the photo is stretched to 16:9 (the camera shoots 1280x720); other aspect ratios would look squashed
+    g.save(); g.globalAlpha = boot; const [ox, oy] = S(0, 0); g.drawImage(pic, ox, oy, W * sc, H * sc); g.restore();
     if (t < 0.8) for (let i = 0; i < 5; i++) g.drawImage(noise, Math.random() * -200, Math.random() * -200, cw + 400, ch + 400);
     // grade: cool tint, grain, scanlines, vignette
     g.fillStyle = 'rgba(40,110,200,0.06)'; g.fillRect(0, 0, cw, ch);
@@ -263,8 +323,10 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
 
     // detections + callouts
     const placed = [];
-    OBJECTS.forEach((o, i) => {
-      const [x, y, w, h] = o.box;
+    const glide = 1 - Math.pow(0.0005, dt);
+    objs.forEach((o, i) => {
+      if (o.cur) for (let k = 0; k < 4; k++) o.cur[k] += (o.box[k] - o.cur[k]) * glide;
+      const [x, y, w, h] = o.cur || o.box;
       if (det[i] === 0 && t > 0.7 + ((y + h / 2) / H) * 1.8) { det[i] = 0.001; onDetect && onDetect(o); }
       if (det[i] > 0) det[i] = Math.min(1, det[i] + dt * 1.6);
       const e = ease(det[i]), fade = o.hero ? 1 : 1 - ez;
@@ -299,7 +361,7 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
 
     // component labels during inspect
     const placedP = [];
-    PARTS.forEach((p, i) => {
+    if (!photo) PARTS.forEach((p, i) => {
       const el = parts[i];
       const target = ez > 0.85 ? 1 : 0;
       partP[i] += ((target ? 1 : 0) - partP[i]) * Math.min(1, dt * (target ? 3.2 - i * 0.18 : 8));
@@ -328,12 +390,35 @@ export function createVision(canvas, layer, { accent = '#4FC3FF', onDetect, onPh
   }
   return {
     start() {
-      if (!scene) { scene = paint(); noise = makeNoise(); }
+      if (!noise) noise = makeNoise();
+      if (!photo && !painted) painted = paint();
+      if (photo && photo.mode === 'live' && (!live || live.closed) && live?.status !== 'timeout') openLive();
       if (active) return; active = true; t0 = last = performance.now(); zt = 0; userView = null;
       det.fill(0); partP.fill(0); raf = requestAnimationFrame(frame);
     },
-    stop() { active = false; cancelAnimationFrame(raf); },
+    stop() { active = false; cancelAnimationFrame(raf); closeLive(); },
     view(v) { userView = v; },
+    /**
+     * M7: show this photo (`frame` URL, `objects` with `box` as fractions, `status`), or the painted desk again (null).
+     * M7.1: `mode: 'live'` shows the live video and its boxes instead (returns 0: the count comes with each update).
+     */
+    show(p) {
+      closeLive(); live = null;
+      photo = p; img = null; failed = false;
+      if (p && p.mode === 'live') { objs = []; buildCards(); openLive(); return 0; }
+      objs = p ? (p.objects || []).map((o) => {
+        const [x, y, w, h] = o.box, right = x > 0.6;
+        return { name: o.label, conf: o.conf, box: [x * W, y * H, w * W, h * H], card: [(right ? x : x + w) * W, (y + h / 2) * H, right ? 'l' : 'r'] };
+      }) : OBJECTS;
+      buildCards();
+      if (p && p.frame) {
+        const im = new Image();
+        im.onload = () => { if (photo !== p) return; img = im; t0 = performance.now(); det.fill(0); };
+        im.onerror = () => { if (photo === p) failed = true; };
+        im.src = p.frame;
+      }
+      return objs.length;
+    },
     rescan() { t0 = performance.now(); det.fill(0); partP.fill(0); userView = 'overview'; zt = 0; setTimeout(() => { if (userView === 'overview') userView = null; }, 50); }
   };
 }

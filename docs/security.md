@@ -130,7 +130,27 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - Wake word nhầm (TV, video) chỉ gây một lần ghi âm ngắn gửi lên STT; tăng `WAKE_THRESHOLD` nếu nhầm nhiều.
 - Trên Pi sau này (M5.3), agent dùng user MQTT riêng `agent` chỉ ghi được `vega/system/command` và `vega/desk/core/state`.
 
-## 9. Việc còn lại
+## 9. Camera (M7, M7.1)
+
+- **Chỉ chạy khi được gọi.** Ảnh cho model cloud chỉ chụp khi hỏi ("trên bàn có gì", hoặc AI cần nhìn để trả lời câu của chủ nhân).
+  Video trực tiếp (M7.1) chỉ chạy khi có người đang xem màn Vision: `vega-vision` mở camera khi có người xem đầu tiên, tắt 10 giây sau
+  khi người cuối rời đi, mỗi phiên tối đa 15 phút. Không ghi hình, không phát hiện chuyển động, không nhận diện người. Tool `look` chỉ được đưa cho AI khi lệnh đến thẳng từ chủ nhân và không có nội dung ngoài nào trong lượt đó: một email
+  hay trang web không thể khiến VEGA chụp ảnh.
+- **Ảnh rời nhà khi gọi:** mỗi lần nhìn, một ảnh JPEG (khoảng 100 KB) được gửi tới nhà cung cấp `LLM_VISION`. Không đặt `LLM_VISION`
+  thì camera không bao giờ được dùng.
+- **Ảnh không bao giờ xuống đĩa.** Bộ não giữ đúng một ảnh trong RAM, sau mã ngẫu nhiên 16 ký tự, hết hạn sau 2 phút hoặc khi có ảnh
+  mới; màn hình lấy nó ở `/vision/frame/<id>` (chỉ qua nginx, `cache-control: no-store`, không ghi log truy cập). Ảnh không đi qua MQTT.
+  SQLite chỉ ghi lượt gọi model (`llm_usage`, task `vision`): giờ, token, tiền. Có test kiểm không file nào được ghi.
+- Câu model thị giác trả lời là **nội dung ngoài**: chữ trong ảnh (một tờ giấy ghi "tắt hết đèn") không điều khiển được thiết bị.
+  Nhãn hiện trên màn chỉ được chèn dưới dạng chữ; cảnh chỉ chấp nhận `frame` dạng `/vision/frame/<id>`, không URL nào khác.
+- **Trần:** `VISION_MAX_DAY` (mặc định 50 ảnh/ngày) và `BUDGET_USD_DAY` được kiểm **trước** khi chụp.
+- **Video trực tiếp không rời nhà:** YOLO chạy trên Pi; khung hình chỉ đi từ Pi tới trình duyệt trong tailnet (qua nginx, không cache,
+  không log truy cập), không tới nhà cung cấp nào, không xuống đĩa. Model YOLOX-Nano được cố định lúc build (kiểm SHA-256), lúc chạy
+  không tải gì. `/snapshot` chỉ mở trong mạng compose cho bộ não, nginx không chuyển tiếp.
+- **Rút camera là tắt thật (D9):** chỉ `vega-vision` được mở thiết bị video4linux (major 81) qua `/hostdev` chỉ đọc; bộ não chỉ xem
+  thiết bị có mặt hay không. Rút ra thì màn hiện **CAM OFF** trong 5 giây và lệnh trả lời "Camera đang rút", cắm lại là dùng tiếp.
+
+## 10. Việc còn lại
 
 - TLS cho MQTT và truy cập từ xa (M8).
 - User MQTT và ACL riêng cho từng thiết bị (M2), để một ESP không tự khai `risk: low` thay cho thiết bị khác.

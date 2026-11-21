@@ -20,6 +20,8 @@ const CI: [('ci_explain' | 'ci_status' | 'system_status'), string[]][] = [
 ];
 /** Personal assistant (M4): questions that read, and the reminder / Focus controls. Checked before scenes and devices. */
 const INFO: [ToolCall, string[]][] = [
+  [{ name: 'look', args: { live: true } }, ['xem camera truc tiep', 'camera truc tiep', 'xem camera', 'mo camera', 'bat camera', 'live camera', 'camera live', 'show the camera', 'open the camera', 'show me the camera']],
+  [{ name: 'look', args: {} }, ['tren ban co nhung gi', 'tren ban co gi', 'ban co gi', 'camera thay gi', 'camera dang thay gi', 'nhin ban xem', 'nhin xem', 'what s on the desk', 'whats on the desk', 'what is on the desk', 'what s on my desk', 'what do you see', 'look at the desk', 'look at my desk']],
   [{ name: 'briefing', args: {} }, ['tom tat hom nay', 'tom tat buoi sang', 'tom tat ngay', 'morning briefing', 'daily briefing', 'briefing', 'tom tat']],
   [{ name: 'list_reminders', args: {} }, ['danh sach nhac nho', 'nhac nho cua toi', 'nhung loi nhac', 'loi nhac', 'nhac nho', 'my reminders', 'list reminders', 'list my reminders', 'reminders']],
   [{ name: 'snooze', args: {} }, ['nhac lai sau', 'hoan nhac', 'snooze']],

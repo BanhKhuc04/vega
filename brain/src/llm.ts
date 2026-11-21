@@ -7,8 +7,11 @@ export interface ToolCallMsg {
   type: 'function';
   function: { name: string; arguments: string };
 }
+/** A user message with a photo (M7): text and image parts, OpenAI style; the image is a `data:image/jpeg;base64,` URL. */
+export type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
 export type ChatMessage =
-  | { role: 'system' | 'user'; content: string }
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string | ContentPart[] }
   | { role: 'assistant'; content: string | null; tool_calls?: ToolCallMsg[] }
   | { role: 'tool'; content: string; tool_call_id: string };
 export interface ToolSpec {
@@ -52,7 +55,8 @@ function responsesBody(p: Provider, req: ChatRequest): Record<string, unknown> {
     if (m.role === 'tool') return [{ type: 'function_call_output', call_id: m.tool_call_id, output: m.content }];
     if (m.role === 'assistant')
       return [...(m.content ? [{ role: 'assistant', content: m.content }] : []), ...(m.tool_calls ?? []).map((t) => ({ type: 'function_call', call_id: t.id, name: t.function.name, arguments: t.function.arguments }))];
-    return [{ role: 'user', content: m.content }];
+    if (typeof m.content === 'string') return [{ role: 'user', content: m.content }];
+    return [{ role: 'user', content: m.content.map((c) => (c.type === 'text' ? { type: 'input_text', text: c.text } : { type: 'input_image', image_url: c.image_url.url })) }];
   });
   const instructions = req.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n');
   return {

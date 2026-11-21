@@ -77,7 +77,21 @@ export const locateData = z.object({
   route: z.object({ title: sn(40).optional(), steps: z.array(sn(80)).min(1).max(8) }).optional(),
 });
 
-export const visionData = z.object({ camera: sn(80).optional() });
+export const VISION_STATUS = ['ok', 'unplugged', 'offline', 'off'] as const;
+const unit = num.min(0).max(1);
+/**
+ * v6 (M7): `frame` is the photo just taken, served by the brain from memory for 2 minutes (only this path shape, so a
+ * scene can never point a screen at another URL). `objects[].box` is `[x, y, w, h]` as fractions of the photo.
+ * v7 (M7.1): `mode: "live"` shows vega-vision's live video and its YOLO boxes instead; no `mode` means `"photo"`.
+ */
+export const visionData = z.object({
+  camera: sn(80).optional(),
+  frame: z.string().regex(/^\/vision\/frame\/[A-Za-z0-9_-]{8,64}$/).optional(),
+  summary: sn(300).optional(),
+  objects: z.array(z.object({ label: sn(40), box: z.tuple([unit, unit, unit, unit]), conf: unit.optional() })).max(20).optional(),
+  status: z.enum(VISION_STATUS).optional(),
+  mode: z.enum(['photo', 'live']).optional(),
+});
 
 export const briefingData = z.object({
   kicker: sn(60).optional(),

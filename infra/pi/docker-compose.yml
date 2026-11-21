@@ -64,12 +64,17 @@ services:
       # /voice/stt for push-to-talk, reached only by vega-ui's nginx over the compose network (no host port)
       VOICE_PORT: "8091"
       VOICE_HOST: 0.0.0.0
+      # Vision (M7): photos come from vega-vision, the only container that opens the camera (brief 0011, L1)
+      VISION_URL: http://vega-vision:8092
+      # the host's /dev, read-only, only to see whether the camera is plugged in (the CAM OFF chip); the brain never opens it
+      CAMERA_DEVICE: ${CAMERA_DEVICE:-/hostdev/video0}
     # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
     env_file:
       - path: ./brain.env
         required: false
     volumes:
       - brain-data:/data
+      - /dev:/hostdev:ro
     depends_on:
       - mosquitto
     mem_limit: 160m
@@ -82,6 +87,33 @@ services:
     image: vega-voice:local
     restart: unless-stopped
     mem_limit: 512m
+
+  # The camera, live video and YOLO for the Vision screen (M7.1). No port on the host: vega-ui's nginx forwards /vision/live*
+  # to it, and the brain asks it for /snapshot. The camera runs only while someone watches or a photo is taken.
+  vega-vision:
+    build:
+      context: ../..
+      dockerfile: vision/Dockerfile
+    image: vega-vision:local
+    restart: unless-stopped
+    environment:
+      CAMERA_DEVICE: ${CAMERA_DEVICE:-/hostdev/video0}
+      CAMERA_SIZE: ${CAMERA_SIZE:-1280x720}
+      LIVE_FPS: ${LIVE_FPS:-10}
+      DETECT_HZ: ${DETECT_HZ:-4}
+      LIVE_MAX_MIN: ${LIVE_MAX_MIN:-15}
+    # The host's /dev is mounted read-only at /hostdev and only video4linux devices (major 81) may be opened: the camera
+    # can be plugged in or out while it runs. A `devices:` entry would refuse to start the container while it is unplugged.
+    device_cgroup_rules:
+      - "c 81:* rmw"
+    # the host's `video` group (44 on Raspberry Pi OS / Debian), which owns /dev/video*
+    group_add:
+      - "${VIDEO_GID:-44}"
+    volumes:
+      - /dev:/hostdev:ro
+    # YOLO gets two of the Pi's four cores; the brain, broker and dashboard keep the others (L10)
+    cpus: 2
+    mem_limit: 384m
 
 volumes:
   mosquitto-data:

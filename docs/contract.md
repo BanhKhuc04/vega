@@ -1,4 +1,4 @@
-# VEGA contract, revision 5
+# VEGA contract, revision 7
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
@@ -9,8 +9,11 @@ disagree, the code wins and this page is a bug.
 - Revision **4** (M6) = `command_result` up to 2,000 characters, with optional `speak` and `sources`.
 - Revision **5** (M5.2) = `vega/system/command` gains the optional `via: "voice"`, `vega/desk/core/state` the optional
   `mic`. Additive as well.
+- Revision **6** (M7) = new retained topic `vega/desk/camera/state`; the `vision` scene gains `frame`, `summary`, `objects`,
+  `status`. Additive: a `vision` scene with only `camera` stays valid.
+- Revision **7** (M7.1) = the `vision` scene gains `mode: "photo" | "live"`. Additive: no `mode` means `"photo"`.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 5` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 7` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -34,6 +37,7 @@ disagree, the code wins and this page is a bug.
 | `vega/<room>/<device_id>/availability` | device → all (+ Last Will) | yes | `online` \| `offline` |
 | `vega/<room>/<device_id>/set` | brain/UI → device | no | `relaySet` (relays) |
 | `vega/desk/core/state` | desk core, voice agent (pc-agent) → all | yes | `coreState` |
+| `vega/desk/camera/state` | brain → all (v6) | yes | `cameraState` |
 | `vega/system/events` | brain, CI watcher → all | no (stream) | `systemEvent` (by `type`) |
 | `vega/system/events/<type>` | same, latest value | yes | same payload; one retained slot per type (`ci`, `next_event`, `co2_series`); `announce` is never retained |
 | `vega/system/command` | UI, voice agent → brain (and screens, for `via: "voice"`) | no | `systemCommand` |
@@ -76,6 +80,9 @@ online/total devices and an `offline` message lowers the count immediately.
 `mic` (optional, v5) ∈ `on | off | missing`: the voice agent's microphone (`off` = closed by the owner's hotkey, `missing` =
 unplugged). Screens show **MIC OFF** / **NO MIC** in the header, and switch to Listen while `state` is `listening`.
 A message without `mic` (an ESP core) leaves the last known value.
+
+**`vega/desk/camera/state`** (v6, from the brain): `{ "v": 1, "camera": "on" }`, `camera` ∈
+`on | missing`. The brain checks the device every 5 s; screens show **CAM OFF** in the header while it is `missing`.
 
 ## System payloads
 
@@ -175,7 +182,7 @@ Rules a display follows (`dashboard/src/scene`):
 | `think` | `chips[{label, state: done\|run\|wait}]` (1–6), `plan` |
 | `research` | `title`, `step{current,total,label}`, `stat{sources,text,ref,progress 0..1}`, `chart{title,values[],thresholdPpm,maxPpm,summary,footnote}`, `steps[{label,state}]`, `source{title,caption}`, `compare{title,columns[],rows[{label,cells[{text,tone: ok\|warn\|plain}]}]}`, `note{text,refs}`, `log[{tag,msg}]` |
 | `locate` | `title`, `status`, `target{name,distanceKm,detail,coord}`, `route{title,steps[]}` |
-| `vision` | `camera` |
+| `vision` | `camera`, and from M7 (v6): `frame` (only the path `/vision/frame/<id>`: the photo just taken, served from the brain's memory for 2 minutes), `summary` (≤ 300), `objects[{label ≤ 40, box [x,y,w,h] as fractions 0..1, conf 0..1}]` (≤ 20), `status` ∈ `ok \| unplugged \| offline \| off`; from M7.1 (v7): `mode` ∈ `photo \| live` (`live`: the screen shows vega-vision's live video from `/vision/live` and its YOLO boxes from `/vision/live/objects`, not over MQTT). Without `frame`, `status` and `mode` the screen shows the template's painted desk |
 | `briefing` | `kicker`, `title`, `summary`, `agenda[{time,title,hot}]`, `inbox[{from,subject}]`, `room`, `builds{passing,failing,repo}` |
 | `focus` | `kicker`, `minutes` (1–180), `hint` |
 | `alert` | `title`, `ref`, `error`, `note`, `confirm` (boolean: the brain waits for the owner, the card shows Confirm / Cancel, which send `yes` / `no`), `explain` (boolean: the card shows Explain, which sends "sao fail"), `url` (https only: the card shows Open, which opens it in a new tab), `snooze` (boolean: a reminder; the card shows Snooze 10 min, which sends `snooze`) |
@@ -185,8 +192,8 @@ Rules a display follows (`dashboard/src/scene`):
 One example per scene lives in `tools/sim/examples/*.json` (validated by tests). Send one with
 `npm run scene -- research tools/sim/examples/research.json`.
 
-The map (`locate`), the camera feed (`vision`) and the datasheet drawing (`research` → source) are still the
-template's simulated pictures; real ones arrive with M7/M8.
+The map (`locate`) and the datasheet drawing (`research` → source) are still the template's simulated pictures (M8).
+The camera feed (`vision`) shows a real photo when the scene carries `frame` (M7); the painted desk otherwise.
 
 ## Bộ não (M1): bộ não dùng hợp đồng này thế nào
 

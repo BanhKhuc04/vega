@@ -18,6 +18,7 @@ export function recordingBus() {
   const ci: { repo: string; failed: number }[] = [];
   const said: string[] = [];
   const next: { title: string; detail?: string; at: number }[] = [];
+  const camera: boolean[] = [];
   const bus: Bus = {
     scene(s) {
       const r = parseScene({ v: 1, ...s });
@@ -31,9 +32,10 @@ export function recordingBus() {
     pi: () => {},
     announce: (text) => said.push(text),
     nextEvent: (title, detail, at) => next.push({ title, ...(detail && { detail }), at }),
+    camera: (present) => camera.push(present),
   };
   const thinks = () => scenes.filter((s): s is Extract<SceneMessage, { scene: 'think' }> => s.scene === 'think');
-  return { bus, scenes, results, sets, thinks, usage, ci, said, next };
+  return { bus, scenes, results, sets, thinks, usage, ci, said, next, camera };
 }
 
 export function makeAgent(opts: { env?: Record<string, string>; chat?: ChatFn; config?: Partial<Config>; temp?: number; deps?: Partial<AgentDeps> } = {}) {

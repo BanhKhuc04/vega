@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { startBroker } from '../../tools/sim/src/broker';
 import { runSim } from '../../tools/sim/src/simlib';
+import { startVisionLive } from '../../tools/sim/src/vision-live';
 import { loadConfig } from './config';
 import { startBrain } from './service';
+import { SAMPLE_PHOTO } from './vision';
 
 try {
   process.loadEnvFile();
@@ -21,7 +23,8 @@ const broker = await startBroker({ port: Number(process.env.MQTT_PORT ?? 1883), 
   process.exit(1);
 });
 const url = `mqtt://127.0.0.1:${broker.port}`;
-const cfg = loadConfig({ ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '', VOICE_PORT: process.env.VOICE_PORT || '8091', VOICE_HOST: '127.0.0.1' });
+// Vision on a PC: a sample photo, looked at by the free mock model, unless .env says otherwise
+const cfg = loadConfig({ CAMERA: 'sim', LLM_VISION: 'mock', ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '', VOICE_PORT: process.env.VOICE_PORT || '8091', VOICE_HOST: '127.0.0.1' });
 // with real CI watched, the simulator neither fakes a CI state nor runs its demo CI -> scene rule
 const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }), ...(cfg.google && { nextEvent: false }) });
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
@@ -32,8 +35,11 @@ process.env.VITE_MQTT_URL = `ws://127.0.0.1:${broker.wsPort}`;
 const root = fileURLToPath(new URL('../../dashboard/', import.meta.url));
 // the page asks its own address for /voice/*, as behind nginx on the Pi. Piper on a PC: VOICE_TTS_URL=http://127.0.0.1:5002
 const voicePort = await brain.voicePort;
+// live mode of the Vision screen (M7.1): a stand-in for vega-vision, which runs on the Pi
+const live = await startVisionLive(fileURLToPath(SAMPLE_PHOTO));
 const proxy = {
-  ...(voicePort && { '/voice/stt': `http://127.0.0.1:${voicePort}` }),
+  '/vision/live': `http://127.0.0.1:${live.port}`,
+  ...(voicePort && { '/voice/stt': `http://127.0.0.1:${voicePort}`, '/vision/frame': `http://127.0.0.1:${voicePort}` }),
   ...(process.env.VOICE_TTS_URL && { '/voice/tts': process.env.VOICE_TTS_URL }),
 };
 const ui = await createServer({ root, configFile: `${root}vite.config.ts`, server: { proxy, ...(process.env.PORT && { port: Number(process.env.PORT) }) } });
@@ -48,6 +54,8 @@ const stop = async () => {
   stopping = true;
   await ui.close();
   await brain.stop();
+  live.server.closeAllConnections();
+  live.server.close();
   await sim.stop();
   await broker.close();
   process.exit(0);
