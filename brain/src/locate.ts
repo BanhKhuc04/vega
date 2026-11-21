@@ -39,11 +39,19 @@ export function updatedText(ms: number, lang: Lang): string {
   return L(lang, `cập nhật ${n} ${vi} trước`, `updated ${n} ${en} ago`);
 }
 
+/** A fix older or vaguer than this cannot become home. */
+const HOME_FIX_MAX_AGE = 10 * 60_000;
+const HOME_FIX_MAX_ACC = 150;
+
 export class Locator {
   private last: Location | null;
   private home: boolean | null = null;
+  /** The home circle: saved with "đây là nhà", else HOME_LAT / HOME_LON (or the weather coordinates). */
+  private circle: { lat: number; lon: number; radiusM: number } | null;
 
   constructor(private readonly d: LocatorDeps) {
+    const saved = d.store.savedHome();
+    this.circle = saved ? { ...saved, radiusM: d.home?.radiusM ?? 150 } : d.home;
     this.last = d.store.lastLocation();
     if (this.last) this.home = this.isHome(this.last);
   }
@@ -57,7 +65,7 @@ export class Locator {
     const names = new Set(this.d.homeRegions.map(fold));
     if (l.regions.some((r) => names.has(fold(r)))) return true;
     // shortcut: no hysteresis at the circle's edge; a jittery fix there may flip home/away, add a margin if it does
-    return this.d.home ? distanceM(l, this.d.home) <= this.d.home.radiusM : l.regions.length ? false : null;
+    return this.circle ? distanceM(l, this.circle) <= this.circle.radiusM : l.regions.length ? false : null;
   }
 
   /** `owntracks/<user>/<device>`. Other OwnTracks messages (transitions, waypoints, last will) are ignored. */
@@ -87,6 +95,23 @@ export class Locator {
     return true;
   }
 
+  /** "đây là nhà": the phone's latest position becomes home, if it is fresh and precise enough. */
+  setHomeHere(lang: Lang): { ok: boolean; text: string } {
+    const l = this.last;
+    if (!l || this.now() - l.ts > HOME_FIX_MAX_AGE)
+      return { ok: false, text: L(lang, 'Chưa có vị trí mới từ điện thoại. Mở VEGA trên điện thoại (cho phép Vị trí) rồi nói lại.', 'No fresh position from the phone. Open VEGA on the phone (allow Location), then say it again.') };
+    if (l.accM !== null && l.accM > HOME_FIX_MAX_ACC)
+      return { ok: false, text: L(lang, `Vị trí điện thoại chưa đủ chính xác (±${Math.round(l.accM)} m). Ra gần cửa sổ, đợi một chút rồi nói lại.`, `The phone's position is not precise enough (±${Math.round(l.accM)} m). Move near a window, wait a moment, then say it again.`) };
+    this.d.store.saveHome(l.lat, l.lon);
+    this.circle = { lat: l.lat, lon: l.lon, radiusM: this.circle?.radiusM ?? this.d.home?.radiusM ?? 150 };
+    this.d.log('[locate] home set from the phone');
+    if (this.home !== true) {
+      this.home = true;
+      this.d.presence(true);
+    }
+    return { ok: true, text: L(lang, `Đã lưu đây là nhà (bán kính ${this.circle.radiusM} m).`, `Saved: this is home (radius ${this.circle.radiusM} m).`) };
+  }
+
   /** Re-sends the current presence (after the broker reconnects). */
   republish(): void {
     if (this.home !== null) this.d.presence(this.home);
@@ -106,7 +131,7 @@ export class Locator {
     if (!l) return { text: L(lang, 'Chưa có vị trí từ điện thoại. Cài OwnTracks theo docs/pi-setup.md.', 'No location from the phone yet. Set up OwnTracks (docs/pi-setup.md).'), scene: null };
     const since = ago(this.now() - l.ts);
     const region = l.regions[0];
-    const km = this.d.home ? distanceM(l, this.d.home) / 1000 : null;
+    const km = this.circle ? distanceM(l, this.circle) / 1000 : null;
     const kmText = km === null ? '' : km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', lang === 'vi' ? ',' : '.')} km`;
     const upd = updatedText(this.now() - l.ts, lang);
     const text =

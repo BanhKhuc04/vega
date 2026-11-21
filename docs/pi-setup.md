@@ -117,7 +117,9 @@ chính), cho phép **Vị trí** khi iPhone hay Android hỏi. Trang đang mở 
 (`POST /api/location`). Máy tính và kiosk trên Pi không bao giờ gửi. Giới hạn: trang web không lấy được vị trí khi đã đóng, nên chip
 **AWAY** chỉ đổi khi bạn mở VEGA trên điện thoại. Muốn theo dõi cả lúc không mở trang thì dùng OwnTracks bên dưới.
 
-Nhà là vòng tròn `HOME_LAT` / `HOME_LON` / `HOME_RADIUS_M` (mặc định 150 m) trong `brain.env`, không có thì dùng toạ độ thời tiết.
+**Đặt nhà:** khi đang ở nhà, mở VEGA trên điện thoại rồi nói hoặc gõ **"đây là nhà"**: vị trí điện thoại vừa gửi (mới hơn 10 phút,
+sai số dưới 150 m) thành tâm vòng tròn nhà, lưu trong SQLite. Chưa đặt thì dùng `HOME_LAT` / `HOME_LON` trong `brain.env`, rồi tới toạ
+độ thời tiết. Bán kính: `HOME_RADIUS_M` (mặc định 150 m).
 
 ### OwnTracks (theo dõi cả khi không mở trang)
 

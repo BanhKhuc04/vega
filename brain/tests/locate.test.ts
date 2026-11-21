@@ -83,3 +83,37 @@ describe('"tôi đang ở đâu" end to end in the agent', () => {
     expect(a.scenes.at(-1)!.scene).toBe('locate');
   });
 });
+
+describe('"đây là nhà"', () => {
+  it('the latest fresh, precise fix becomes home: saved, presence home, survives a restart', () => {
+    const store = new Store(':memory:');
+    const t = locator(store);
+    t.l.onMessage('owntracks/vega/phone', fix(21.05, 105.86, T0));
+    expect(t.l.atHome).toBe(false);
+    expect(t.l.setHomeHere('vi')).toEqual({ ok: true, text: 'Đã lưu đây là nhà (bán kính 150 m).' });
+    expect(t.l.atHome).toBe(true);
+    expect(t.presence).toEqual([false, true]);
+    expect(store.savedHome()).toEqual({ lat: 21.05, lon: 105.86 });
+    const again = locator(store); // the saved home wins over HOME_LAT / HOME_LON
+    expect(again.l.atHome).toBe(true);
+  });
+
+  it('refuses an old or vague fix', () => {
+    const t = locator();
+    expect(t.l.setHomeHere('en').ok).toBe(false);
+    t.l.onMessage('owntracks/vega/phone', fix(21.05, 105.86, T0, { acc: 900 }));
+    expect(t.l.setHomeHere('en').text).toMatch(/not precise enough \(±900 m\)/);
+    t.l.onMessage('owntracks/vega/phone', fix(21.05, 105.86, T0 + 1000));
+    t.tick(11 * 60_000);
+    expect(t.l.setHomeHere('en').text).toMatch(/^No fresh position/);
+  });
+
+  it('in the agent: a local command, no AI call', async () => {
+    const t = locator();
+    t.l.onMessage('owntracks/vega/phone', fix(21.05, 105.86, Date.now()));
+    const a = makeAgent({ deps: { locator: t.l } });
+    await a.agent.handle({ id: 'h1', text: 'đây là nhà', origin: 'owner' });
+    expect(a.llm.calls).toBe(0);
+    expect(a.results[0]!.text).toMatch(/^Đã lưu đây là nhà/);
+  });
+});

@@ -483,6 +483,11 @@ export class Agent {
         return { ok: false, text: 'web_search runs asynchronously' }; // handled by execAny
       case 'look':
         return { ok: false, text: 'look runs asynchronously' }; // handled by execAny
+      case 'set_home': {
+        const loc = this.deps.locator;
+        if (!loc) return { ok: false, text: L(run.lang, 'Chưa bật định vị.', 'Location is not set up.') };
+        return loc.setHomeHere(run.lang);
+      }
       case 'locate': {
         const loc = this.deps.locator;
         if (!loc) return { ok: false, text: L(run.lang, 'Chưa bật định vị.', 'Location is not set up.') };
