@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir onnxruntime==1.32.0 opencv-python-headless==5.1.0
 # YOLOX-Nano (Apache-2.0, Megvii): fixed at build time and checked, nothing is downloaded at run time (L9)
 ADD --checksum=sha256:c789161ed43c8269fcd4e67c67eeeb4e80c622da2eb296a20bc6007bd18a0b7d --chmod=644 \
     https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.onnx /models/yolox_nano.onnx
+# ADD from a URL left the model unreadable for `nobody` on the Pi's Docker (onnxruntime: system error 13)
+RUN chmod -R a+rX /models
 COPY vision/server.py vision/detector.py /app/
 # CAMERA=sim streams this sample photo
 COPY brain/fixtures/desk.jpg /app/desk.jpg
