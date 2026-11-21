@@ -2,6 +2,7 @@
  * `npm run vega`: everything on one PC in one process — dev broker (no auth), simulated devices, the brain (settings
  * from `.env`) and the dashboard connected to them. Ctrl+C stops it all. Dev only; the Pi uses infra/pi.
  */
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { startBroker } from '../../tools/sim/src/broker';
@@ -23,10 +24,12 @@ const broker = await startBroker({ port: Number(process.env.MQTT_PORT ?? 1883), 
   process.exit(1);
 });
 const url = `mqtt://127.0.0.1:${broker.port}`;
-// Vision on a PC: a sample photo, looked at by the free mock model, unless .env says otherwise
-const cfg = loadConfig({ CAMERA: 'sim', LLM_VISION: 'mock', ...process.env, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '', VOICE_PORT: process.env.VOICE_PORT || '8091', VOICE_HOST: '127.0.0.1' });
+// the Console's token (M8): the dev proxy below adds it, so the page itself needs none
+const consoleToken = process.env.CONSOLE_TOKEN || randomBytes(24).toString('hex');
+// Vision on a PC: a sample photo, looked at by the free mock model; a home for the simulated phone (M8) unless .env has one
+const cfg = loadConfig({ CAMERA: 'sim', LLM_VISION: 'mock', HOME_LAT: '21.0285', HOME_LON: '105.8542', ...process.env, CONSOLE_TOKEN: consoleToken, MQTT_URL: url, MQTT_USER: '', MQTT_PASS: '', VOICE_PORT: process.env.VOICE_PORT || '8091', VOICE_HOST: '127.0.0.1' });
 // with real CI watched, the simulator neither fakes a CI state nor runs its demo CI -> scene rule
-const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }), ...(cfg.google && { nextEvent: false }) });
+const sim = await runSim({ url, ...(cfg.github && { initialCi: 'none' as const, sceneRule: false }), ...(cfg.google && { nextEvent: false }), ...(cfg.home && { phone: cfg.home }) });
 for (const w of cfg.warnings) log(`[brain] config: ${w}`);
 const brain = startBrain(cfg, { log });
 
@@ -39,7 +42,11 @@ const voicePort = await brain.voicePort;
 const live = await startVisionLive(fileURLToPath(SAMPLE_PHOTO));
 const proxy = {
   '/vision/live': `http://127.0.0.1:${live.port}`,
-  ...(voicePort && { '/voice/stt': `http://127.0.0.1:${voicePort}`, '/vision/frame': `http://127.0.0.1:${voicePort}` }),
+  ...(voicePort && {
+    '/voice/stt': `http://127.0.0.1:${voicePort}`,
+    '/vision/frame': `http://127.0.0.1:${voicePort}`,
+    '/api': { target: `http://127.0.0.1:${voicePort}`, headers: { authorization: `Bearer ${consoleToken}` } },
+  }),
   ...(process.env.VOICE_TTS_URL && { '/voice/tts': process.env.VOICE_TTS_URL }),
 };
 const ui = await createServer({ root, configFile: `${root}vite.config.ts`, server: { proxy, ...(process.env.PORT && { port: Number(process.env.PORT) }) } });

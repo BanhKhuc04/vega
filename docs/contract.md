@@ -1,4 +1,4 @@
-# VEGA contract, revision 7
+# VEGA contract, revision 8
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
@@ -12,8 +12,11 @@ disagree, the code wins and this page is a bug.
 - Revision **6** (M7) = new retained topic `vega/desk/camera/state`; the `vision` scene gains `frame`, `summary`, `objects`,
   `status`. Additive: a `vision` scene with only `camera` stays valid.
 - Revision **7** (M7.1) = the `vision` scene gains `mode: "photo" | "live"`. Additive: no `mode` means `"photo"`.
+- Revision **8** (M8) = new retained topics `vega/system/health`, `vega/system/backup`, `vega/system/presence`; the brain
+  reads OwnTracks locations on `owntracks/<user>/<device>`; the `locate` scene's `target` gains `lat`, `lon`, `accuracyM`.
+  Additive.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 7` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 8` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -44,9 +47,13 @@ disagree, the code wins and this page is a bug.
 | `vega/system/pi` | Pi agent → all | yes | `piStats` |
 | `vega/system/net` | Pi agent → all | yes | `netStats` |
 | `vega/ui/scene` | brain → all displays | yes | `sceneMessage` |
+| `vega/system/health` | `infra/pi/health.sh` → brain (v8), every minute | yes | `systemHealth`: `{v, ts, services: [{name, state, health, restarts}]}` |
+| `vega/system/backup` | `infra/pi/backup.sh` → brain (v8), each run | yes | `backupState`: `{v, ts, ok, bytes?, offsite, error?}` |
+| `vega/system/presence` | brain → all (v8) | yes | `presenceState`: `{v, ts, state: "home" \| "away"}` |
+| `owntracks/<user>/<device>` | OwnTracks app on the phone → brain (v8) | yes (app setting) | OwnTracks' own JSON; the brain reads `_type: "location"` (`lat`, `lon`, `acc`, `tst`, `inregions`) and ignores the rest |
 
 The dashboard subscribes to `vega/+/+/state`, `vega/+/+/meta`, `vega/+/+/availability`, `vega/system/events`,
-`vega/system/events/+`, `vega/system/pi`, `vega/system/net`, `vega/ui/scene`.
+`vega/system/events/+`, `vega/system/pi`, `vega/system/net`, `vega/system/presence` (the AWAY chip), `vega/ui/scene`.
 
 ## Device payloads
 

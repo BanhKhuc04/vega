@@ -22,6 +22,8 @@ const CI: [('ci_explain' | 'ci_status' | 'system_status'), string[]][] = [
 const INFO: [ToolCall, string[]][] = [
   [{ name: 'look', args: { live: true } }, ['xem camera truc tiep', 'camera truc tiep', 'xem camera', 'mo camera', 'bat camera', 'live camera', 'camera live', 'show the camera', 'open the camera', 'show me the camera']],
   [{ name: 'look', args: {} }, ['tren ban co nhung gi', 'tren ban co gi', 'ban co gi', 'camera thay gi', 'camera dang thay gi', 'nhin ban xem', 'nhin xem', 'what s on the desk', 'whats on the desk', 'what is on the desk', 'what s on my desk', 'what do you see', 'look at the desk', 'look at my desk']],
+  [{ name: 'set_home', args: {} }, ['day la nha cua toi', 'day la nha', 'nha toi o day', 'nha o day', 'dat nha o day', 'luu vi tri nha', 'set home here', 'this is home', 'home is here']],
+  [{ name: 'locate', args: {} }, ['toi dang o dau', 'toi o dau', 'minh dang o dau', 'minh o dau', 'dien thoai o dau', 'dien thoai cua toi o dau', 'vi tri cua toi', 'vi tri dien thoai', 'vi tri', 'where am i', 'where is my phone', 'wheres my phone', 'my location', 'locate my phone', 'find my phone']],
   [{ name: 'briefing', args: {} }, ['tom tat hom nay', 'tom tat buoi sang', 'tom tat ngay', 'morning briefing', 'daily briefing', 'briefing', 'tom tat']],
   [{ name: 'list_reminders', args: {} }, ['danh sach nhac nho', 'nhac nho cua toi', 'nhung loi nhac', 'loi nhac', 'nhac nho', 'my reminders', 'list reminders', 'list my reminders', 'reminders']],
   [{ name: 'snooze', args: {} }, ['nhac lai sau', 'hoan nhac', 'snooze']],
@@ -60,7 +62,8 @@ class Clause {
     for (const p of phrases) {
       const i = this.s.indexOf(` ${p} `);
       if (i >= 0) {
-        this.s = `${this.s.slice(0, i)} ${this.s.slice(i + p.length + 1)}`;
+        // one space where the phrase was: "vị trí hiện tại của tôi" minus "hiện tại" must still read "vi tri cua toi"
+        this.s = `${this.s.slice(0, i)} ${this.s.slice(i + p.length + 2)}`;
         return p;
       }
     }
@@ -69,7 +72,7 @@ class Clause {
   /** Removes the first match of `re` (which must match surrounding spaces); returns its groups. */
   takeRe(re: RegExp): RegExpExecArray | null {
     const m = re.exec(this.s);
-    if (m) this.s = `${this.s.slice(0, m.index)} ${this.s.slice(m.index + m[0].length)} `;
+    if (m) this.s = ` ${`${this.s.slice(0, m.index)} ${this.s.slice(m.index + m[0].length)}`.replace(/\s+/g, ' ').trim()} `;
     return m;
   }
   /** Words that are left and are not filler. */

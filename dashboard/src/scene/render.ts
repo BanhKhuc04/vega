@@ -1,5 +1,6 @@
 import { SCENES } from '@vega/contract';
 import type { SceneMessage, SceneName } from '@vega/contract';
+import { showOsm } from '../ui/osm';
 
 /**
  * Pours scene `data` into the template's DOM. Every field is optional: a missing field restores the text and
@@ -20,6 +21,10 @@ function pr(el: Element): Pristine {
     pristine.set(el, p);
   }
   return p;
+}
+/** Puts back the template's own markup (captured by `pr`, never network text). */
+function restore(el: Element): void {
+  el.innerHTML = pr(el).html; // eslint-disable-line no-restricted-syntax -- pristine template HTML only
 }
 
 export interface Hooks {
@@ -53,8 +58,7 @@ function dataAttr(el: HTMLElement | null, key: string, v: string | undefined): v
 }
 function list<T>(el: Element | null, items: T[] | undefined, build: (item: T, i: number) => Node): void {
   if (!el) return;
-  const p = pr(el);
-  if (!items) el.innerHTML = p.html;
+  if (!items) restore(el);
   else el.replaceChildren(...items.map(build));
 }
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, txt?: string): HTMLElementTagNameMap[K] {
@@ -66,9 +70,8 @@ function node<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, txt?:
 /** Replaces the last text node of `el` (used where the template mixes a tag and a trailing label). */
 function setTail(el: Element | null, v: string | undefined): void {
   if (!el) return;
-  const p = pr(el);
   if (v === undefined) {
-    el.innerHTML = p.html;
+    restore(el);
     return;
   }
   const last = el.lastChild;
@@ -142,7 +145,7 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
       const over = c.values.filter((v) => v > limit).length;
       text(foot, c.footnote ?? (over ? `Above threshold for ${over} h` : 'Within range all day'));
     } else {
-      for (const el of [bars, labels, yax, summary, foot]) if (el) el.innerHTML = pr(el).html;
+      for (const el of [bars, labels, yax, summary, foot]) if (el) restore(el);
       if (thr) {
         thr.style.bottom = '';
         if (!thr.getAttribute('style')) thr.removeAttribute('style');
@@ -188,8 +191,8 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
         }),
       );
     } else {
-      if (head) head.innerHTML = pr(head).html;
-      if (body) body.innerHTML = pr(body).html;
+      if (head) restore(head);
+      if (body) restore(body);
     }
     // note
     const note = q('#note');
@@ -203,7 +206,22 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
   locate(d, q) {
     text(q('[data-tpl=locate] .rhead h1'), d.title);
     text(q('[data-tpl=locate] .rstep'), d.status);
-    const t = d.target as { name?: string; distanceKm?: number; detail?: string; coord?: string } | undefined;
+    const t = d.target as { name?: string; distanceKm?: number; detail?: string; coord?: string; lat?: number; lon?: number; accuracyM?: number } | undefined;
+    // M8: a real position gets an OpenStreetMap map; anything else (or no tile loading) keeps the template's drawn map
+    const real = t?.lat !== undefined && t.lon !== undefined;
+    const map = q('#map');
+    if (map) {
+      pr(map);
+      if (real) showOsm(map, { lat: t.lat!, lon: t.lon!, ...(t.accuracyM !== undefined && { accuracyM: t.accuracyM }) }, () => restore(map));
+      else if (map.querySelector('.osm')) restore(map);
+    }
+    // a real position is not sample data, and the simulated GNSS stream would only be noise next to it
+    heading(q('[data-p=map] .hd [data-scr]'), 'map', real ? 'around the phone' : undefined);
+    text(q('[data-p=map] .hd .id'), real ? 'openstreetmap' : undefined);
+    text(q('[data-p=target] .hd .id'), real ? 'live' : undefined);
+    text(q('[data-p=route] .hd .id'), real ? 'phone' : undefined);
+    const nmea = q('[data-p=nmea]');
+    if (nmea) nmea.hidden = real;
     heading(q('[data-p=target] .hd [data-scr]'), 'target', t?.name);
     dataAttr(q('#dist'), 'to', t?.distanceKm === undefined ? undefined : String(t.distanceKm));
     text(q('[data-p=target] .t'), t?.detail);
@@ -243,13 +261,13 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     });
     const room = q('[data-p=b3] .t');
     if (room) {
-      if (d.room === undefined) room.innerHTML = pr(room).html;
+      if (d.room === undefined) restore(room);
       else room.textContent = d.room;
     }
     const builds = d.builds as { passing: number; failing: number; repo?: string } | undefined;
     const bt = q('[data-p=b4] .t');
     if (bt) {
-      if (!builds) bt.innerHTML = pr(bt).html;
+      if (!builds) restore(bt);
       else {
         bt.replaceChildren(node('b', 'ok', `${builds.passing} passing`), ' · ', node('b', 'bad', `${builds.failing} failing`), builds.repo && builds.failing ? ` (${builds.repo})` : '');
       }
@@ -292,7 +310,7 @@ const R: Record<SceneName, (d: Data, q: Q, h: Hooks) => void> = {
     // hint first: restoring its pristine HTML re-creates #lightsOff, so look that element up afterwards
     const hint = q('[data-tpl=sleep] .hint');
     if (hint) {
-      if (d.alarm === undefined && d.dnd === undefined) hint.innerHTML = pr(hint).html;
+      if (d.alarm === undefined && d.dnd === undefined) restore(hint);
       else setTail(hint, ` s · alarm ${d.alarm ?? '07:00'} · do not disturb ${d.dnd === false ? 'off' : 'on'}`);
     }
     const n = q('#lightsOff');

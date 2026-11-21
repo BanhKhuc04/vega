@@ -19,6 +19,22 @@ export interface Reminder {
   at: number;
   text: string;
 }
+/** The phone's latest position (M8, OwnTracks). Only the latest is kept: no history. */
+export interface Location {
+  device: string;
+  lat: number;
+  lon: number;
+  accM: number | null;
+  /** When the phone took it, ms. */
+  ts: number;
+  regions: string[];
+}
+export interface CostRow {
+  day: string;
+  task: string;
+  usd: number;
+  calls: number;
+}
 export interface UsageRow {
   ts: number;
   commandId: string;
@@ -58,6 +74,11 @@ export class Store {
       CREATE TABLE IF NOT EXISTS reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
         done INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS home (id INTEGER PRIMARY KEY CHECK (id = 1), lat REAL NOT NULL, lon REAL NOT NULL);
+      CREATE TABLE IF NOT EXISTS location (
+        id INTEGER PRIMARY KEY CHECK (id = 1), device TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL, acc REAL,
+        ts INTEGER NOT NULL, regions TEXT NOT NULL
       );
     `);
   }
@@ -152,6 +173,45 @@ export class Store {
   /** Cancels a pending reminder; false if there is none with that id. */
   cancelReminder(id: number): boolean {
     return Number(this.db.prepare('DELETE FROM reminders WHERE id = ? AND done = 0').run(id).changes) > 0;
+  }
+
+  /** Replaces the one stored position. */
+  saveLocation(l: Location): void {
+    this.db
+      .prepare('INSERT OR REPLACE INTO location (id, device, lat, lon, acc, ts, regions) VALUES (1, ?, ?, ?, ?, ?, ?)')
+      .run(l.device, l.lat, l.lon, l.accM, l.ts, JSON.stringify(l.regions));
+  }
+
+  lastLocation(): Location | null {
+    const r = this.db.prepare('SELECT device, lat, lon, acc, ts, regions FROM location WHERE id = 1').get() as { device: string; lat: number; lon: number; acc: number | null; ts: number; regions: string } | undefined;
+    return r ? { device: r.device, lat: r.lat, lon: r.lon, accM: r.acc, ts: r.ts, regions: JSON.parse(r.regions) as string[] } : null;
+  }
+
+  /** Home set with "đây là nhà" (M8); it wins over HOME_LAT / HOME_LON. */
+  saveHome(lat: number, lon: number): void {
+    this.db.prepare('INSERT OR REPLACE INTO home (id, lat, lon) VALUES (1, ?, ?)').run(lat, lon);
+  }
+
+  savedHome(): { lat: number; lon: number } | null {
+    return (this.db.prepare('SELECT lat, lon FROM home WHERE id = 1').get() as { lat: number; lon: number } | undefined) ?? null;
+  }
+
+  /** AI spending per local day and kind of work since `fromDay` (speech to text as task `stt`), newest day first. */
+  costsSince(fromDay: string): CostRow[] {
+    return this.db
+      .prepare(
+        `SELECT day, task, SUM(usd) AS usd, COUNT(*) AS calls FROM llm_usage WHERE day >= ? GROUP BY day, task
+         UNION ALL SELECT day, 'stt' AS task, SUM(usd) AS usd, COUNT(*) AS calls FROM stt_usage WHERE day >= ? GROUP BY day
+         ORDER BY day DESC, task`,
+      )
+      .all(fromDay, fromDay) as unknown as CostRow[];
+  }
+
+  /** When a command last used a tool whose chip starts with `prefix` (the camera: `look`); null if never. */
+  lastToolUse(prefix: string): number | null {
+    // prefix comes from code (a tool name), never from a user: no LIKE escaping needed
+    const r = this.db.prepare('SELECT MAX(ts) AS ts FROM commands WHERE tools LIKE ?').get(`%"${prefix}%`) as { ts: number | null };
+    return r.ts;
   }
 
   close(): void {

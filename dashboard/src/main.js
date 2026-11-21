@@ -480,7 +480,7 @@ function panelFx(p) {
   if (k === 'source') gsap.fromTo('.schem g:first-child *', { strokeDashoffset: 600 }, { strokeDashoffset: 0, duration: 1.8, stagger: .12, ease: 'power2.inOut' });
   if (k === 'compare') gsap.from('.cmp tbody tr', { opacity: 0, x: -12, stagger: .18, duration: .4, delay: .2 });
   if (k === 'note') typeText($('#note'), $('#note').dataset.text, 60);
-  if (k === 'map') {
+  if (k === 'map' && $('#route')) { // the drawn map only: a real OpenStreetMap (M8) has no route to animate
     const r = $('#route'); const len = r.getTotalLength(); r.style.strokeDasharray = len; 
     gsap.fromTo(r, { strokeDashoffset: len }, { strokeDashoffset: 0, duration: 2.2, ease: 'power2.inOut', delay: .3 });
     gsap.from('#map .you', { scale: 0, transformOrigin: '140px 400px', duration: .6, ease: 'back.out(3)' });

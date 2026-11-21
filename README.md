@@ -208,6 +208,27 @@ chạy video thật từ camera, khung và nhãn tiếng Việt bám theo đồ 
 - Chỉnh trong `infra/pi/.env`: `CAMERA_SIZE` (mặc định `1280x720`), `LIVE_FPS` (10), `DETECT_HZ` (4), `LIVE_MAX_MIN` (15).
 - **Trên PC** (`npm run vega`): một server giả phát ảnh mẫu kèm vài khung di chuyển, để thử màn hình.
 
+### Backup, giám sát, Console, vị trí điện thoại (M8)
+
+| Gõ hoặc mở | Kết quả |
+|---|---|
+| `/console` (trên Pi), `http://localhost:5173/console.html` (`npm run vega`) | **Console**: Hôm nay (Pi, AI, thiết bị, lời nhắc, bạn ở nhà hay không, backup, đĩa, container), Thiết bị (bật/tắt), Lời nhắc (huỷ), Nhật ký lệnh, Chi phí 30 ngày, Quyền |
+| `tôi đang ở đâu`, `điện thoại ở đâu`, `where am i` | màn **Locate**: bản đồ OpenStreetMap quanh điện thoại, độ chính xác, khoảng cách tới nhà. Câu trả lời không đọc toạ độ |
+| `/status` | thêm container, % đĩa trống, backup lần cuối, ở nhà hay vắng nhà |
+
+- **Backup mỗi đêm 03:30** (`infra/pi/backup.sh`, timer `vega-backup`): `brain.db`, `.env`, `brain.env`, `mosquitto/passwd`, mã hoá
+  bằng `age`. Giữ 14 bản trên Pi, một bản lên Google Drive nếu đặt `RCLONE_REMOTE`. Dựng lại: `sudo ./infra/pi/setup.sh --restore <file>`
+  (`docs/pi-setup.md`, mục "Dựng lại từ đầu").
+- **Giám sát** (`infra/pi/health.sh` mỗi phút): container chết, khởi động lại ≥ 3 lần trong 10 phút, đĩa còn < 10%, Pi ≥ 80 °C trong 2
+  phút, backup quá 36 giờ: mỗi việc hiện **Alert** một lần, `/status` và Console liệt kê.
+- **Điện thoại**: mở VEGA trên điện thoại và cho phép Vị trí là đủ: trang đang mở thì gửi vị trí trình duyệt (`POST /api/location`).
+  Muốn theo dõi cả khi không mở trang: app OwnTracks qua Tailscale tới Mosquitto (user `phone`). Bộ não chỉ giữ điểm mới nhất. Ra khỏi
+  nhà thì header hiện **AWAY**.
+- **Cài lên màn hình chính** điện thoại: mở trang qua HTTPS (Tailscale) → *Thêm vào màn hình chính*. Mất mạng vẫn mở được, header hiện
+  OFFLINE.
+- Trên PC (`npm run vega`): điện thoại giả đi bộ quanh nhà (ra khỏi nhà rồi về), Console dùng dữ liệu của bộ não dev, không có giám sát
+  (chỉ chạy trên Pi, `HEALTH_WATCH=1`).
+
 ### Chỉ màn hình, không broker
 
 ```bash
@@ -301,17 +322,19 @@ npm run compare                                # ảnh cạnh nhau với templat
 ## Triển khai
 
 - Chỉ dashboard, chế độ SIM: `docker compose -f infra/docker-compose.yml up --build` → http://localhost:8080
-- Raspberry Pi 3 (Mosquitto có mật khẩu và ACL, `vega-brain`, dashboard, kiosk Chromium ở mức `css`): xem **`docs/pi-setup.md`**.
+- Raspberry Pi 4 (Mosquitto có mật khẩu và ACL, `vega-brain`, dashboard, kiosk Chromium ở mức `css`): xem **`docs/pi-setup.md`**.
   Ảnh `vega-brain` build được cho cả amd64 và arm64: `docker buildx build --platform linux/arm64 -f brain/Dockerfile .`
 - Dashboard (8080) và WebSocket MQTT (9001) trên Pi chỉ nghe ở `localhost` và địa chỉ Tailscale, không nghe ở LAN.
   HTTPS (để dùng mic) qua `tailscale serve`; trang HTTPS nối MQTT bằng `wss://<cùng host>/mqtt`.
 
 ## Tài liệu
 
-- `docs/contract.md`: topic, payload, giao thức cảnh (revision 7)
+- `docs/contract.md`: topic, payload, giao thức cảnh (revision 8)
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0013-m8-phone-console-ops.md`: brief M8 (backup, giám sát, Console, Locate, PWA)
+- `docs/decisions/0012-roadmap-m9-m16.md`: lộ trình sau 1.0 (bản nháp)
 - `docs/decisions/0011-m7.1-live-vision.md`: brief M7.1 (camera trực tiếp, YOLO trên Pi)
 - `docs/decisions/0010-m7-vision.md`: brief M7 (camera)
 - `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vega")

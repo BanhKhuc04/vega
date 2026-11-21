@@ -42,7 +42,20 @@ export interface SimOptions {
   sceneRule?: boolean;
   /** Publish a made-up next calendar event (default on). Off when the brain reads the real calendar (M4). */
   nextEvent?: boolean;
+  /** A phone sending OwnTracks locations around this home (M8): a few fixes at home, a walk of about 1 km, back home. */
+  phone?: { lat: number; lon: number };
+  phoneIntervalMs?: number;
   log?: (msg: string) => void;
+}
+
+/** The simulated phone's walk: metres north of home per step (12 steps, then it repeats). */
+export const PHONE_WALK_M = [5, -8, 3, 0, 300, 650, 1000, 1000, 650, 300, 10, -4];
+
+/** One OwnTracks location `step` fixes into the walk. */
+export function phoneFix(home: { lat: number; lon: number }, step: number, tstS: number): { _type: 'location'; lat: number; lon: number; acc: number; tst: number; inregions?: string[] } {
+  const north = PHONE_WALK_M[step % PHONE_WALK_M.length]!;
+  const lat = Math.round((home.lat + north / 111_320) * 1e6) / 1e6;
+  return { _type: 'location', lat, lon: home.lon, acc: Math.abs(north) < 50 ? 12 : 35, tst: tstS, ...(Math.abs(north) < 50 && { inregions: ['Nhà'] }) };
 }
 
 export interface Sim {
@@ -192,6 +205,13 @@ export async function runSim(opts: SimOptions): Promise<Sim> {
   };
   piTick();
   timers.push(setInterval(telemetry, interval), setInterval(piTick, opts.piIntervalMs ?? 5000));
+  if (opts.phone) {
+    const home = opts.phone;
+    let step = 0;
+    const phoneTick = () => pub(sys, 'owntracks/vega/phone', phoneFix(home, step++, Math.floor(now().getTime() / 1000))); // retained, like the OwnTracks app
+    phoneTick();
+    timers.push(setInterval(phoneTick, opts.phoneIntervalMs ?? 20_000));
+  }
 
   return {
     deviceKeys: DEVICES.map(deviceKey),

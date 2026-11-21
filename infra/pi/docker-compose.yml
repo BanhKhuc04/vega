@@ -1,4 +1,4 @@
-# VEGA on a Raspberry Pi 3 (64-bit OS):  cd infra/pi && docker compose up -d
+# VEGA on a Raspberry Pi 4 (64-bit OS):  cd infra/pi && docker compose up -d
 # setup.sh prepares .env, mosquitto/passwd and everything else. Run it first.
 name: vega
 services:
@@ -43,6 +43,8 @@ services:
       VEGA_MQTT_USER: ui
       VEGA_MQTT_PASS: ${MQTT_UI_PASS:?run setup.sh first}
       VEGA_ROOM: ${VEGA_ROOM:-bedroom}
+      # the Console's API token (M8): same exposure as the `ui` password above
+      VEGA_CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
     depends_on:
       - mosquitto
     mem_limit: 48m
@@ -68,6 +70,9 @@ services:
       VISION_URL: http://vega-vision:8092
       # the host's /dev, read-only, only to see whether the camera is plugged in (the CAM OFF chip); the brain never opens it
       CAMERA_DEVICE: ${CAMERA_DEVICE:-/hostdev/video0}
+      # M8: Alerts from vega/system/health and vega/system/backup, disk and temperature; the Console API's token
+      HEALTH_WATCH: "1"
+      CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
     # AI providers, budget, rate limit: brain.env (copy brain.env.example). Optional: without it only local commands work.
     env_file:
       - path: ./brain.env
@@ -78,6 +83,11 @@ services:
     depends_on:
       - mosquitto
     mem_limit: 160m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8091/voice/stt').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
 
   # Piper reads answers aloud, offline (M5). No port on the host: vega-ui's nginx forwards /voice/tts to it.
   vega-voice:
@@ -87,6 +97,11 @@ services:
     image: vega-voice:local
     restart: unless-stopped
     mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:5002/health',timeout=4)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
 
   # The camera, live video and YOLO for the Vision screen (M7.1). No port on the host: vega-ui's nginx forwards /vision/live*
   # to it, and the brain asks it for /snapshot. The camera runs only while someone watches or a photo is taken.
@@ -114,6 +129,11 @@ services:
     # YOLO gets two of the Pi's four cores; the brain, broker and dashboard keep the others (L10)
     cpus: 2
     mem_limit: 384m
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8092/health',timeout=4)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
 
 volumes:
   mosquitto-data:

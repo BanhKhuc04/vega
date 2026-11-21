@@ -150,8 +150,28 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
 - **Rút camera là tắt thật (D9):** chỉ `vega-vision` được mở thiết bị video4linux (major 81) qua `/hostdev` chỉ đọc; bộ não chỉ xem
   thiết bị có mặt hay không. Rút ra thì màn hiện **CAM OFF** trong 5 giây và lệnh trả lời "Camera đang rút", cắm lại là dùng tiếp.
 
-## 10. Việc còn lại
+## 10. Backup, Console, vị trí (M8)
 
-- TLS cho MQTT và truy cập từ xa (M8).
+- **Backup mã hoá bằng `age`** cho một người nhận: Pi chỉ có khoá công khai, khoá bí mật chỉ ở chỗ chủ (trình quản lý mật khẩu, file
+  trên PC). Dữ liệu chưa mã hoá chỉ nằm trong thư mục tạm quyền `700`, xoá ngay sau khi xong. Bản trên Google Drive cũng là file đã mã
+  hoá. Mất khoá bí mật là mất mọi backup: `setup.sh` in nó một lần, nhắc lưu, và tài liệu hướng dẫn thử giải mã ngay.
+- **Bộ não không có quyền vào Docker.** `health.sh` chạy trên máy (systemd) và chỉ báo trạng thái qua MQTT bằng user `health`, chỉ ghi
+  được hai topic của nó. Socket Docker tương đương quyền root nên không bao giờ được mount vào container nào.
+- **Console** gọi `/api/*` của bộ não với `Authorization: Bearer <CONSOLE_TOKEN>` (so sánh thời gian cố định). Token nằm trong
+  `/config.js` như mật khẩu MQTT `ui`: ai mở được trang (localhost, Tailscale) là dùng được Console. Chấp nhận được với một người dùng.
+  API chỉ đọc SQLite; hai hành động (huỷ lời nhắc, bật/tắt thiết bị) đi qua cùng hàng đợi, bộ định tuyến và xác nhận như lệnh gõ trên
+  màn. Không có lệnh shell, tham số được kiểm kiểu và độ dài, thân request tối đa 4 KB.
+- **Vị trí điện thoại** là dữ liệu nhạy cảm: chỉ giữ **điểm mới nhất** (một dòng trong SQLite), không lịch sử, không ghi toạ độ vào log
+  hay câu trả lời, không gửi cho model AI (lệnh "tôi đang ở đâu" chạy cục bộ). Toạ độ chỉ hiện trên màn Locate. User MQTT `phone` chỉ ghi
+  được `owntracks/vega/+`; kết nối đi qua Tailscale (WireGuard) nên không cần TLS riêng.
+- **Vị trí từ trình duyệt**: chỉ trang mở trên màn cảm ứng (điện thoại, máy tính bảng) mới gửi, sau khi hệ điều hành hỏi chủ một lần;
+  máy tính và kiosk không gửi. `POST /api/location` cần token Console như mọi `/api/*`, kiểm `lat`, `lon`, `acc` là số trong giới hạn.
+- **Bản đồ**: ô OpenStreetMap do trình duyệt tải trực tiếp, nên OSM biết khu vực đang xem (không biết là của ai). Màn VEGA không tải trước
+  hàng loạt, có ghi nguồn theo chính sách của OSM.
+- **Service worker** chỉ cache vỏ trang tĩnh. `/api`, `/voice`, `/vision`, `/mqtt` và `/config.js` (chứa mật khẩu) luôn đi qua mạng.
+
+## 11. Việc còn lại
+
+- TLS cho MQTT ngoài Tailscale.
 - User MQTT và ACL riêng cho từng thiết bị (M2), để một ESP không tự khai `risk: low` thay cho thiết bị khác.
-- Telegram khoá theo ID người dùng (M8).
+- Thông báo đẩy về điện thoại (M10, brief 0012), Telegram khoá theo ID người dùng.

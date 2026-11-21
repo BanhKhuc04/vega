@@ -10,5 +10,6 @@ esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
   [ -n "${VEGA_MQTT_USER:-}" ] && printf '  username: "%s",\n' "$(esc "$VEGA_MQTT_USER")"
   [ -n "${VEGA_MQTT_PASS:-}" ] && printf '  password: "%s",\n' "$(esc "$VEGA_MQTT_PASS")"
   [ -n "${VEGA_ROOM:-}" ] && printf '  room: "%s",\n' "$(esc "$VEGA_ROOM")"
+  [ -n "${VEGA_CONSOLE_TOKEN:-}" ] && printf '  consoleToken: "%s",\n' "$(esc "$VEGA_CONSOLE_TOKEN")"
   printf '};\n'
 } > "$out"

@@ -56,6 +56,13 @@ export interface Config {
   /** Camera of the Vision screen (M7). `sim`: a sample photo instead of the device. `maxDay`: photos looked at per day. */
   /** `device`: only checked for presence (CAM OFF); photos come from vega-vision at `url` (M7.1). */
   camera: { device: string; url: string; sim: boolean; maxDay: number };
+  /** Alerts on the Pi's health (M8): containers from vega/system/health, disk, temperature, backup age. Only on the Pi (HEALTH_WATCH=1). */
+  health: { on: boolean; backupMaxH: number };
+  /** Bearer token of the Console API `/api/*` (M8). null = the API answers 503. */
+  consoleToken: string | null;
+  /** Home for the phone's location (M8): OwnTracks regions that mean home, and a circle (HOME_LAT/LON, else the weather coordinates). */
+  home: { lat: number; lon: number; radiusM: number } | null;
+  homeRegions: string[];
   /** Settings that were ignored, with the reason (logged at start). */
   warnings: string[];
 }
@@ -132,6 +139,22 @@ function google(env: Env, dbPath: string, warnings: string[]): GoogleConfig | nu
   const dir = dbPath === ':memory:' ? '.' : dirname(dbPath);
   const refreshToken = env.GOOGLE_REFRESH_TOKEN?.trim();
   return { clientId, clientSecret, tokenFile: env.GOOGLE_TOKEN_FILE?.trim() || join(dir, 'google-token.json'), ...(refreshToken && { refreshToken }), calendars: calendars.length ? calendars : ['primary'], apiUrl, tokenUrl, authUrl };
+}
+
+function consoleToken(env: Env, warnings: string[]): string | null {
+  const t = env.CONSOLE_TOKEN?.trim();
+  if (!t) return null;
+  if (t.length < 16 || t === 'change-me') return warnings.push('CONSOLE_TOKEN must be at least 16 characters (setup.sh makes one): the Console API is off'), null;
+  return t;
+}
+
+function home(env: Env, warnings: string[]): Config['home'] {
+  const [la, lo] = env.HOME_LAT || env.HOME_LON ? [env.HOME_LAT, env.HOME_LON] : [env.WEATHER_LAT, env.WEATHER_LON];
+  if (!la && !lo) return null;
+  const lat = Number(la);
+  const lon = Number(lo);
+  if (!la || !lo || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return warnings.push('HOME_LAT / HOME_LON must be numbers: no home circle for the phone'), null;
+  return { lat, lon, radiusM: num(env.HOME_RADIUS_M, 150, 20) };
 }
 
 function weather(env: Env, warnings: string[]): Config['weather'] {
@@ -255,6 +278,10 @@ export function loadConfig(env: Env = process.env): Config {
       maxDay: num(env.VISION_MAX_DAY, 50, 1),
     },
     voiceHttp: env.VOICE_PORT ? { host: env.VOICE_HOST?.trim() || '127.0.0.1', port: num(env.VOICE_PORT, 8091) } : null,
+    health: { on: env.HEALTH_WATCH === '1', backupMaxH: num(env.BACKUP_ALERT_H, 36, 1) },
+    consoleToken: consoleToken(env, warnings),
+    home: home(env, warnings),
+    homeRegions: (env.HOME_REGIONS ?? 'Nhà,Home').split(',').map((r) => r.trim()).filter(Boolean),
     warnings,
   };
 }

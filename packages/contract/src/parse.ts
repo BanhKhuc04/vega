@@ -2,9 +2,9 @@ import { availability, cameraState, coreState, deviceMeta, deviceState } from '.
 import type { CoreStateMsg, DeviceKind, Risk } from './device';
 import { parseScene } from './scene';
 import type { SceneMessage } from './scene';
-import { netStats, piStats, systemCommand, systemEvent } from './system';
+import { netStats, piStats, presenceState, systemCommand, systemEvent } from './system';
 import type { SourceRef } from './system';
-import { CAMERA_STATE, CORE_STATE, SYSTEM_COMMAND, SYSTEM_NET, SYSTEM_PI, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
+import { CAMERA_STATE, CORE_STATE, SYSTEM_COMMAND, SYSTEM_NET, SYSTEM_PI, SYSTEM_PRESENCE, UI_SCENE, isEventsTopic, parseDeviceTopic } from './topics';
 
 /** One MQTT message, decoded and validated. */
 export type Update =
@@ -20,6 +20,7 @@ export type Update =
   | { type: 'core'; state: CoreStateMsg['state']; mic: NonNullable<CoreStateMsg['mic']> | null }
   | { type: 'voiceCommand'; id: string; text: string }
   | { type: 'camera'; present: boolean }
+  | { type: 'presence'; home: boolean }
   | { type: 'pi'; cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null }
   | { type: 'net'; latencyMs: number }
   | { type: 'scene'; scene: SceneMessage }
@@ -79,6 +80,10 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
       if (!r.success) return null;
       const p = r.data;
       return { type: 'pi', cpuPct: p.cpu_pct ?? null, tempC: p.temp_c ?? null, memPct: p.mem_pct ?? null, uptimeS: p.uptime_s ?? null };
+    }
+    if (topic === SYSTEM_PRESENCE) {
+      const r = presenceState.safeParse(json(payload));
+      return r.success ? { type: 'presence', home: r.data.state === 'home' } : null;
     }
     if (topic === SYSTEM_NET) {
       const r = netStats.safeParse(json(payload));

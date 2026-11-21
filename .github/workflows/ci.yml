@@ -37,6 +37,11 @@ jobs:
           pip install --no-deps openwakeword==0.6.0
           python -m unittest discover pc-agent
           PC_AGENT_PYTHON=python npx vitest run brain/tests/pc-agent.test.ts
+      - name: Backup round trip (M8 backup.sh with age, no Pi)
+        run: |
+          sudo apt-get install -y age
+          bash infra/pi/tests/backup-roundtrip.sh
+          for f in infra/pi/setup.sh infra/pi/health.sh infra/pi/backup.sh; do bash -n "$f"; done
       - name: Provider bench (mock only, no API keys in CI)
         run: npm run bench -- --provider mock
       - run: npm run build

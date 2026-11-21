@@ -48,6 +48,8 @@ Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc
 | `brain` | đọc/ghi `vega/#` | bộ não (M1), công cụ `npm run sim` / `npm run scene` |
 | `ui` | đọc `vega/#`, ghi `vega/system/command` | dashboard. Mật khẩu này nằm trong `/config.js` nên ai mở được dashboard đều thấy: vì vậy nó không ghi được gì khác, và dashboard chỉ mở được qua `localhost`/Tailscale |
 | `device` | ghi `state`, `meta`, `availability`; đọc `set` | ESP. Từng thiết bị riêng có ở M2 |
+| `health` | chỉ ghi `vega/system/health`, `vega/system/backup` | `health.sh`, `backup.sh` (M8) |
+| `phone` | ghi `owntracks/vega/+`, đọc `owntracks/vega/+/cmd` | app OwnTracks trên điện thoại (M8) |
 
 Mật khẩu: `grep MQTT_ infra/pi/.env`.
 
@@ -79,6 +81,57 @@ màn Vision chạy video trực tiếp (log `vega-vision` ghi `[vision] camera o
 `docker compose … up -d vega-brain`, rồi hỏi "trên bàn có gì?". Log bộ não ghi `[vision] camera /hostdev/video0 ready`. Camera ở số khác (`/dev/video2`…): đặt `CAMERA_DEVICE=/hostdev/video2` trong `infra/pi/.env`. Nhóm `video` của
 máy khác 44: đặt `VIDEO_GID` (xem `getent group video`).
 
+## Backup (M8)
+
+`setup.sh` cài `age` và `rclone`, tạo khoá backup và **in khoá bí mật đúng một lần**. Lưu ngay vào trình quản lý mật khẩu **và** thành
+file `vega-backup-key.txt` trên PC. Pi chỉ giữ khoá công khai (`AGE_RECIPIENT` trong `.env`): ai lấy được thẻ nhớ hay file backup cũng
+không đọc được.
+
+- Mỗi đêm 03:30 (timer `vega-backup`): một file `vega-YYYYMMDD-HHMMSS.tar.gz.age` trong `BACKUP_DIR` (mặc định `/var/backups/vega`,
+  nên đặt trên SSD), giữ 14 bản.
+- Chạy tay và xem kết quả: `sudo ./infra/pi/backup.sh`, `systemctl list-timers 'vega-*'`, `journalctl -u vega-backup`.
+- **Một bản ra khỏi Pi (khuyên dùng):** `rclone config` → tạo remote `gdrive` loại Google Drive (làm theo hướng dẫn trên màn hình, đăng
+  nhập trên PC khi rclone hỏi) → thêm `RCLONE_REMOTE=gdrive:vega-backups` vào `infra/pi/.env`. Không đặt thì backup chỉ nằm trên Pi và
+  Console ghi "on the Pi only".
+- Thử giải mã một lần ngay sau khi cài, trên PC: `age -d -i vega-backup-key.txt vega-….tar.gz.age | tar -tzf -`.
+
+## Dựng lại từ đầu (M8)
+
+Thẻ nhớ hỏng, mua Pi mới, hay chỉ muốn chắc backup dùng được. Mục tiêu: dưới 1 giờ. Ghi lại thời gian thật của bạn vào bảng.
+
+| Bước | Việc | Thời gian |
+|---|---|---|
+| 1 | Ghi Pi OS Lite 64-bit bằng Raspberry Pi Imager (bật SSH, đặt Wi-Fi nếu cần) | ~10 phút |
+| 2 | Cài Tailscale và đăng nhập (`sudo tailscale up`) | ~3 phút |
+| 3 | `git clone` repo, chép file backup mới nhất (từ Google Drive hoặc ổ khác) và `vega-backup-key.txt` sang Pi | ~5 phút |
+| 4 | `sudo ./infra/pi/setup.sh --restore vega-….tar.gz.age` (hỏi đường dẫn file khoá, hoặc đặt sẵn `AGE_KEY=…`) | ~25 phút (build) |
+| 5 | Kiểm tra: `/status`, Console › Reminders còn lời nhắc cũ, hỏi "lịch hôm nay" (Google không cần đăng nhập lại) | ~5 phút |
+
+`--restore` đặt lại `.env`, `brain.env`, `mosquitto/passwd` (bản cũ giữ lại thành `*.before-restore`), nạp `brain.db` và
+`google-token.json` vào volume của bộ não trước khi nó chạy, rồi làm tiếp như một lần cài thường. Khoá backup cũ vẫn dùng tiếp.
+
+## Điện thoại: vị trí
+
+**Cách đơn giản (không cài app):** mở VEGA trên điện thoại (`https://<tên-máy-pi>.<tailnet>.ts.net`, hoặc bản đã cài lên màn hình
+chính), cho phép **Vị trí** khi iPhone hay Android hỏi. Trang đang mở thì cứ 2 phút gửi vị trí của trình duyệt cho bộ não
+(`POST /api/location`). Máy tính và kiosk trên Pi không bao giờ gửi. Giới hạn: trang web không lấy được vị trí khi đã đóng, nên chip
+**AWAY** chỉ đổi khi bạn mở VEGA trên điện thoại. Muốn theo dõi cả lúc không mở trang thì dùng OwnTracks bên dưới.
+
+**Đặt nhà:** khi đang ở nhà, mở VEGA trên điện thoại rồi nói hoặc gõ **"đây là nhà"**: vị trí điện thoại vừa gửi (mới hơn 10 phút,
+sai số dưới 150 m) thành tâm vòng tròn nhà, lưu trong SQLite. Chưa đặt thì dùng `HOME_LAT` / `HOME_LON` trong `brain.env`, rồi tới toạ
+độ thời tiết. Bán kính: `HOME_RADIUS_M` (mặc định 150 m).
+
+### OwnTracks (theo dõi cả khi không mở trang)
+
+1. Cài **Tailscale** trên điện thoại, đăng nhập cùng tailnet.
+2. Cài **OwnTracks** (Android, iOS). *Preferences › Connection*: Mode **MQTT**, Host = địa chỉ Tailscale của Pi (`tailscale ip -4`),
+   Port `1883`, TLS **tắt** (Tailscale đã mã hoá), Username `phone`, Password = `MQTT_PHONE_PASS` trong `infra/pi/.env`, User ID `vega`,
+   Device ID tuỳ đặt (vd. `phone`).
+3. *Regions*: thêm vùng tên **Nhà** quanh nhà (bán kính ~100 m). Không có vùng thì bộ não dùng vòng tròn `HOME_LAT` / `HOME_LON` /
+   `HOME_RADIUS_M` (mặc định 150 m) trong `brain.env`, hoặc toạ độ thời tiết.
+4. Hỏi "tôi đang ở đâu". Ra khỏi nhà vài phút thì header hiện **AWAY**. iPhone gửi vị trí thưa hơn khi app chạy nền, nên có thể trễ vài
+   phút.
+
 ## Mất điện, rút điện cắm lại
 
 Docker tự bật lại các container (`restart: unless-stopped`) và `vega-kiosk.service` tự mở trình duyệt. Kiosk chờ nginx
@@ -94,5 +147,5 @@ sẵn sàng rồi mới mở trang.
 
 ```bash
 docker compose -f infra/pi/docker-compose.yml --env-file infra/pi/.env down
-sudo systemctl disable --now vega-kiosk.service
+sudo systemctl disable --now vega-kiosk.service vega-backup.timer vega-health.timer
 ```

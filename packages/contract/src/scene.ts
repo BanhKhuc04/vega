@@ -72,6 +72,10 @@ export const locateData = z.object({
       distanceKm: num.min(0).max(20_000).optional(),
       detail: sn(120).optional(),
       coord: sn(40).optional(),
+      /** v8: a real position (the phone, M8): the map shows OpenStreetMap around it instead of the sample district. */
+      lat: num.min(-90).max(90).optional(),
+      lon: num.min(-180).max(180).optional(),
+      accuracyM: num.min(0).max(100_000).optional(),
     })
     .optional(),
   route: z.object({ title: sn(40).optional(), steps: z.array(sn(80)).min(1).max(8) }).optional(),

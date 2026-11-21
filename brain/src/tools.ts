@@ -24,13 +24,15 @@ export type ToolCall =
   | { name: 'snooze'; args: Record<string, never> }
   | { name: 'focus_stop'; args: Record<string, never> }
   | { name: 'web_search'; args: { query: string } }
-  | { name: 'look'; args: { question?: string; live?: boolean } }; // live: the Vision screen's live video (M7.1), local command only
+  | { name: 'look'; args: { question?: string; live?: boolean } } // live: the Vision screen's live video (M7.1), local command only
+  | { name: 'locate'; args: Record<string, never> } // the phone's position (M8), local command only: coordinates never reach an AI
+  | { name: 'set_home'; args: Record<string, never> }; // "đây là nhà": the phone's position becomes home (M8), local command only
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
  * They only run on a direct command from the owner, never with outside content (mail, calendar, logs) in play.
  */
-export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene', 'add_reminder', 'cancel_reminder']);
+export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene', 'add_reminder', 'cancel_reminder', 'set_home']);
 
 /** "2026-11-19T15:30" (local) or an ISO time with offset -> ms; NaN if neither. */
 export function parseWhen(s: string): number {
