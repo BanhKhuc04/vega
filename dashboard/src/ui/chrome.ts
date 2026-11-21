@@ -31,6 +31,12 @@ export function renderCam(s: Pick<Snapshot, 'camera'>, root: ParentNode = docume
   if (chip) chip.hidden = s.camera !== false;
 }
 
+/** Header chip of the owner's presence (M8): only while the phone says away. */
+export function renderHome(s: Pick<Snapshot, 'home'>, root: ParentNode = document): void {
+  const chip = root.querySelector<HTMLElement>('#awayChip');
+  if (chip) chip.hidden = s.home !== false;
+}
+
 /** Header chip of the voice agent's microphone: hidden while it listens normally (or no agent runs). */
 export function renderMic(s: Pick<Snapshot, 'mic'>, root: ParentNode = document): void {
   const chip = root.querySelector<HTMLElement>('#micChip');

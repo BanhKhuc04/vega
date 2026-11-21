@@ -50,7 +50,7 @@ export async function noHorizontalScroll(page: Page): Promise<void> {
       const cs = getComputedStyle(e);
       if (cs.visibility === 'hidden' || cs.display === 'none') return false;
       const r = e.getBoundingClientRect();
-      return r.width > 0 && (r.right > window.innerWidth + 1 || r.left < -1) && Number(cs.opacity) > 0.05 && !e.closest('.vspec:not(.on), .log, .dock, .table, svg, canvas, .cmp, .x-layer');
+      return r.width > 0 && (r.right > window.innerWidth + 1 || r.left < -1) && Number(cs.opacity) > 0.05 && !e.closest('.vspec:not(.on), .log, .dock, .table, svg, canvas, .cmp, .x-layer, .osm');
     }).map((e) => `${e.tagName}.${e.className}`),
   );
   expect(inner, 'content must stay inside the viewport').toEqual([]);

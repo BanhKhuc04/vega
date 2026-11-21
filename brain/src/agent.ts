@@ -3,6 +3,8 @@ import type { Assistant, Lang } from './assistant';
 import type { Bus, SceneOut } from './bus';
 import type { Config, Provider } from './config';
 import type { CiWatcher } from './github';
+import type { HealthWatch } from './health';
+import type { Locator } from './locate';
 import { RateLimiter, reply } from './guard';
 import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
@@ -85,6 +87,10 @@ export interface AgentDeps {
   assistant?: Assistant | null;
   /** Camera and the photo cache behind /vision/frame (M7). */
   vision?: { camera: Camera; frames: FrameCache } | null;
+  /** The phone's location (M8). */
+  locator?: Locator | null;
+  /** The Pi's health (M8), on the Pi only. */
+  health?: HealthWatch | null;
   chat?: ChatFn;
   now?: () => number;
   log?: (msg: string) => void;
@@ -477,6 +483,13 @@ export class Agent {
         return { ok: false, text: 'web_search runs asynchronously' }; // handled by execAny
       case 'look':
         return { ok: false, text: 'look runs asynchronously' }; // handled by execAny
+      case 'locate': {
+        const loc = this.deps.locator;
+        if (!loc) return { ok: false, text: L(run.lang, 'Chưa bật định vị.', 'Location is not set up.') };
+        const a2 = loc.answer(run.lang);
+        if (a2.scene) run.screen = a2.scene;
+        return { ok: !!a2.scene, text: a2.text };
+      }
       case 'focus_stop': {
         const end = a?.stopFocus(run.lang);
         if (!end) return { ok: true, text: L(run.lang, 'Không có phiên tập trung nào.', 'Not focusing.') };
@@ -506,7 +519,9 @@ export class Agent {
         const ciText = !this.deps.ci ? '' : !st ? 'CI: not checked yet' : st.failing.length ? `CI: ${st.failing.length} failing` : 'CI: all green';
         const u = this.deps.store.usageOn(dayOf(this.now()));
         const ai = `AI $${u.usd.toFixed(4)} of $${config.budgetUsdDay} today`;
-        const text = [pi, `${all.filter((d) => d.online).length}/${all.length} devices online`, ciText, ai].filter(Boolean).join(' · ');
+        const home = this.deps.locator?.atHome;
+        const homeText = home === true ? 'owner home' : home === false ? 'owner away' : '';
+        const text = [pi, `${all.filter((d) => d.online).length}/${all.length} devices online`, ciText, ai, this.deps.health?.summary() ?? '', homeText].filter(Boolean).join(' · ');
         return { ok: true, text };
       }
       case 'list_devices': {

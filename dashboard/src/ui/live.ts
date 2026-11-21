@@ -166,7 +166,8 @@ export class LiveBinder {
       if (this.last.get('spark') !== key) {
         this.last.set('spark', key);
         const sp = this.root.querySelector('#spark');
-        if (sp) sp.innerHTML = this.hud.barHtml(t.spark); // numbers only: no network text in this HTML
+        // eslint-disable-next-line no-restricted-syntax -- numbers only: no network text in this HTML
+        if (sp) sp.innerHTML = this.hud.barHtml(t.spark);
       }
     }
     const tag = this.root.querySelector<HTMLElement>('#sampleTag');

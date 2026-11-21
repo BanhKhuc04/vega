@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VEGA Core</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#010207">
 <script src="/config.js"></script>
 </head>
 <body>
@@ -33,6 +36,7 @@
       <span class="conn" id="conn" role="status" aria-live="polite" data-state="sim" title="Data connection"><i></i><b id="connTxt">SIM</b></span>
       <span class="conn mic" id="micChip" role="status" aria-live="polite" hidden><i></i><b>MIC OFF</b></span>
       <span class="conn mic" id="camChip" role="status" aria-live="polite" title="The Vision camera is unplugged" hidden><i></i><b>CAM OFF</b></span>
+      <span class="conn mic" id="awayChip" role="status" aria-live="polite" title="You are away from home (your phone, OwnTracks)" hidden><i></i><b>AWAY</b></span>
       <button type="button" class="qbtn" id="qBtn" aria-label="Render quality: full. Activate to change"><span class="qk">QUALITY</span> <b id="qTxt">FULL</b></button>
     </div>
   </header>

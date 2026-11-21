@@ -51,6 +51,8 @@ export interface Snapshot {
   mic: 'on' | 'off' | 'missing' | null;
   /** The Vision camera on the Pi (M7): plugged in or not; null = no vision model, nothing reported. */
   camera: boolean | null;
+  /** The owner home or away, from the phone (M8); null = no phone reports. */
+  home: boolean | null;
 }
 
 export interface VegaDataSource {

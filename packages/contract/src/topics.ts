@@ -17,6 +17,12 @@ export const SYSTEM_NET = 'vega/system/net';
 export const UI_SCENE = 'vega/ui/scene';
 export const CORE_STATE = 'vega/desk/core/state';
 export const CAMERA_STATE = 'vega/desk/camera/state';
+/** M8 (v8), all retained: containers seen by infra/pi/health.sh, the last run of backup.sh, the owner home or away. */
+export const SYSTEM_HEALTH = 'vega/system/health';
+export const SYSTEM_BACKUP = 'vega/system/backup';
+export const SYSTEM_PRESENCE = 'vega/system/presence';
+/** Locations from the OwnTracks app on the owner's phone: `owntracks/<user>/<device>` (its own format, not `v`). */
+export const OWNTRACKS = 'owntracks/+/+';
 
 /** Topics the dashboard subscribes to. `vega/desk/core/state` is matched by the first pattern. */
 export const DASHBOARD_SUBSCRIPTIONS = [
@@ -27,6 +33,7 @@ export const DASHBOARD_SUBSCRIPTIONS = [
   SYSTEM_EVENTS_RETAINED,
   SYSTEM_PI,
   SYSTEM_NET,
+  SYSTEM_PRESENCE,
   UI_SCENE,
   // commands the voice agent heard (`via: "voice"`, v5): shown in the chat of every screen
   SYSTEM_COMMAND,

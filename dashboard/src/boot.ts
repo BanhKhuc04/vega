@@ -26,7 +26,7 @@ import type { PttState } from './ui/ptt';
 import { Voice } from './ui/speech';
 import { SceneController } from './scene/controller';
 import { capturePristine } from './scene/render';
-import { bindQualityButton, renderCam, renderConn, renderMic } from './ui/chrome';
+import { bindQualityButton, renderCam, renderConn, renderHome, renderMic } from './ui/chrome';
 import { LiveBinder } from './ui/live';
 
 const source = createDataSource();
@@ -48,6 +48,7 @@ const paint = () => {
   renderConn(latest);
   renderMic(latest);
   renderCam(latest);
+  renderHome(latest);
 };
 capturePristine(document, { setLog: () => {}, setVision: () => {} }); // remember the template's own text before any animation touches it
 paint(); // first values go in before the intro animations read them (countUp targets)
@@ -227,3 +228,8 @@ document.addEventListener('keyup', (e) => {
 });
 source.start();
 setInterval(paint, 15_000); // "4 min ago" / "in 3 h 06 min" keep moving without new data
+
+// installable app with an offline shell (M8, public/sw.js). Not in dev: Vite's modules must never come from a cache.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}

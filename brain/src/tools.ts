@@ -24,7 +24,8 @@ export type ToolCall =
   | { name: 'snooze'; args: Record<string, never> }
   | { name: 'focus_stop'; args: Record<string, never> }
   | { name: 'web_search'; args: { query: string } }
-  | { name: 'look'; args: { question?: string; live?: boolean } }; // live: the Vision screen's live video (M7.1), local command only
+  | { name: 'look'; args: { question?: string; live?: boolean } } // live: the Vision screen's live video (M7.1), local command only
+  | { name: 'locate'; args: Record<string, never> }; // the phone's position (M8), local command only: coordinates never reach an AI
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.

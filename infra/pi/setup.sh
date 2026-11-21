@@ -4,18 +4,27 @@
 #   sudo ./infra/pi/setup.sh               # Docker, zram, secrets, stack, Chromium kiosk
 #   sudo ./infra/pi/setup.sh --no-kiosk    # everything except the kiosk
 #   ./infra/pi/setup.sh --dry-run          # print what would be done, change nothing
+#   sudo ./infra/pi/setup.sh --restore vega-YYYYMMDD-HHMMSS.tar.gz.age   # rebuild from a backup (M8, docs/pi-setup.md)
 #
 # Written and syntax-checked off the Pi; the first real run is the owner's (see docs/pi-setup.md).
 set -euo pipefail
 
 DRY=0
 KIOSK=1
+RESTORE=""
+want_restore=0
 for arg in "$@"; do
+  if [ "$want_restore" = 1 ]; then
+    RESTORE="$arg"
+    want_restore=0
+    continue
+  fi
   case "$arg" in
     --dry-run) DRY=1 ;;
     --no-kiosk) KIOSK=0 ;;
+    --restore) want_restore=1 ;;
     -h | --help)
-      sed -n '2,8p' "$0"
+      sed -n '2,9p' "$0"
       exit 0
       ;;
     *)
@@ -24,6 +33,11 @@ for arg in "$@"; do
       ;;
   esac
 done
+if [ "$want_restore" = 1 ] || { [ -n "$RESTORE" ] && [ ! -f "$RESTORE" ]; }; then
+  echo "--restore needs an existing backup file (vega-*.tar.gz.age)" >&2
+  exit 2
+fi
+if [ -n "$RESTORE" ]; then RESTORE="$(cd "$(dirname "$RESTORE")" && pwd)/$(basename "$RESTORE")"; fi
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$HERE/.env"
@@ -67,13 +81,16 @@ need_root() {
 }
 
 random_hex() { openssl rand -hex 16; }
+UNITS=/etc/systemd/system
+RESTORED=""
 
 env_get() { sed -n "s/^$1=//p" "$ENV_FILE" | head -n1; }
 
 step_packages() {
   say "Base packages"
   run apt-get update -y
-  run apt-get install -y ca-certificates curl openssl
+  # age encrypts the backups, rclone copies one off the Pi (M8)
+  run apt-get install -y ca-certificates curl openssl age rclone
 }
 
 step_docker() {
@@ -127,13 +144,164 @@ step_env() {
   tmp="$(mktemp)"
   while IFS= read -r line; do
     case "$line" in
-      MQTT_*_PASS=change-me) printf '%s=%s\n' "${line%%=*}" "$(random_hex)" ;;
+      MQTT_*_PASS=change-me | CONSOLE_TOKEN=change-me) printf '%s=%s\n' "${line%%=*}" "$(random_hex)" ;;
       *) printf '%s\n' "$line" ;;
     esac
   done <"$HERE/.env.example" >"$tmp"
   install -m 600 "$tmp" "$ENV_FILE"
   rm -f "$tmp"
   echo "   created $ENV_FILE"
+}
+
+# A .env from before a milestone lacks its new settings: add them, with fresh random passwords and tokens.
+step_env_upgrade() {
+  say "New settings in .env"
+  if [ "$DRY" = 1 ]; then
+    echo "   [dry-run] would add the keys of .env.example missing from $ENV_FILE"
+    return
+  fi
+  local line key added=0
+  while IFS= read -r line; do
+    case "$line" in '#'* | '') continue ;; esac
+    key="${line%%=*}"
+    if grep -q "^$key=" "$ENV_FILE"; then continue; fi
+    case "$line" in
+      MQTT_*_PASS=change-me | CONSOLE_TOKEN=change-me) printf '%s=%s\n' "$key" "$(random_hex)" >>"$ENV_FILE" ;;
+      *) printf '%s\n' "$line" >>"$ENV_FILE" ;;
+    esac
+    echo "   added $key"
+    added=1
+  done <"$HERE/.env.example"
+  if [ "$added" = 0 ]; then echo "   nothing new"; fi
+}
+
+# The backup key (M8): the public half stays in .env, the private half is shown once and kept only by the owner.
+step_age_key() {
+  say "Backup encryption key (age)"
+  if [ "$DRY" = 1 ]; then
+    echo "   [dry-run] would create an age key (if AGE_RECIPIENT is empty) and print its private half once"
+    return
+  fi
+  if [ -n "$(env_get AGE_RECIPIENT)" ]; then
+    echo "   AGE_RECIPIENT is set, keeping it"
+    return
+  fi
+  local key pub
+  key="$(mktemp -u)"
+  age-keygen -o "$key" 2>/dev/null
+  pub="$(sed -n 's/^# public key: //p' "$key")"
+  sed -i "s|^AGE_RECIPIENT=.*|AGE_RECIPIENT=$pub|" "$ENV_FILE"
+  echo
+  echo "   ##########################################################################################"
+  echo "   #  PRIVATE BACKUP KEY, shown only now. Save it in your password manager AND as a file on #"
+  echo "   #  your PC (vega-backup-key.txt). Without it no backup can be read. It is not kept here. #"
+  echo "   ##########################################################################################"
+  sed 's/^/   /' "$key"
+  echo
+  shred -u "$key" 2>/dev/null || rm -f "$key"
+}
+
+# --restore, part 1: the old Pi's secrets (passwords, AI keys, Google token, backup key) before anything reads .env
+step_restore_files() {
+  say "Restore: decrypting $RESTORE"
+  if [ "$DRY" = 1 ]; then
+    echo "   [dry-run] would decrypt it and put back .env, brain.env, mosquitto/passwd"
+    return
+  fi
+  local keyfile="${AGE_KEY:-}" f
+  if [ -z "$keyfile" ]; then read -r -p "   Path of the private backup key file (vega-backup-key.txt): " keyfile; fi
+  if [ ! -f "$keyfile" ]; then
+    echo "   key file not found: $keyfile" >&2
+    exit 1
+  fi
+  RESTORED="$(mktemp -d)"
+  chmod 700 "$RESTORED"
+  trap 'rm -rf "$RESTORED"' EXIT
+  age -d -i "$keyfile" "$RESTORE" | tar -xzf - -C "$RESTORED"
+  for f in .env brain.env mosquitto/passwd; do
+    [ -f "$RESTORED/infra/$f" ] || continue
+    if [ -f "$HERE/$f" ]; then cp "$HERE/$f" "$HERE/$f.before-restore"; fi
+    install -m 600 "$RESTORED/infra/$f" "$HERE/$f"
+    echo "   restored $f"
+  done
+  # the new install may get another Tailscale address: find it again
+  sed -i 's/^TAILSCALE_IP=.*/TAILSCALE_IP=/' "$ENV_FILE"
+}
+
+# --restore, part 2: brain.db (reminders, command log, cost ledger) into the brain's volume before the brain starts
+step_restore_db() {
+  if [ -z "$RESTORE" ]; then return 0; fi
+  say "Restore: the brain's database"
+  if [ "$DRY" = 1 ]; then
+    echo "   [dry-run] would copy brain.db (and google-token.json) into the vega-brain volume"
+    return
+  fi
+  local f
+  "${COMPOSE[@]}" build vega-brain
+  "${COMPOSE[@]}" create vega-brain
+  for f in brain.db google-token.json; do
+    [ -f "$RESTORED/$f" ] || continue
+    chown 1000:1000 "$RESTORED/$f" # the brain runs as node (uid 1000)
+    chmod 600 "$RESTORED/$f"
+    "${COMPOSE[@]}" cp "$RESTORED/$f" "vega-brain:/data/$f"
+    echo "   restored $f"
+  done
+}
+
+# Nightly backup at 03:30 and the health report every minute (M8)
+step_timers() {
+  say "Timers: backup every night at 03:30, health report every minute"
+  local changed=0
+  if write_if_changed "$UNITS/vega-backup.service" 0644 <<UNIT; then changed=1; fi
+# managed by VEGA infra/pi/setup.sh
+[Unit]
+Description=VEGA backup (infra/pi/backup.sh)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $HERE/backup.sh
+UNIT
+  if write_if_changed "$UNITS/vega-backup.timer" 0644 <<'UNIT'; then changed=1; fi
+# managed by VEGA infra/pi/setup.sh
+[Unit]
+Description=VEGA backup every night
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
+UNIT
+  if write_if_changed "$UNITS/vega-health.service" 0644 <<UNIT; then changed=1; fi
+# managed by VEGA infra/pi/setup.sh
+[Unit]
+Description=VEGA health report (infra/pi/health.sh)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $HERE/health.sh
+UNIT
+  if write_if_changed "$UNITS/vega-health.timer" 0644 <<'UNIT'; then changed=1; fi
+# managed by VEGA infra/pi/setup.sh
+[Unit]
+Description=VEGA health report every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
+UNIT
+  if [ "$changed" = 1 ]; then run systemctl daemon-reload; fi
+  run systemctl enable --now vega-backup.timer vega-health.timer
 }
 
 step_tailscale_ip() {
@@ -191,12 +359,12 @@ step_brain_env() {
 step_mosquitto_users() {
   say "Mosquitto users"
   if [ "$DRY" = 1 ]; then
-    echo "   [dry-run] would (re)build mosquitto/passwd for users brain, ui, device from .env"
+    echo "   [dry-run] would (re)build mosquitto/passwd for users brain, ui, device, health, phone from .env"
     return
   fi
   local pw="$HERE/mosquitto/passwd" user key
   : >"$pw"
-  for user in brain ui device; do
+  for user in brain ui device health phone; do
     key="MQTT_$(printf '%s' "$user" | tr '[:lower:]' '[:upper:]')_PASS"
     docker run --rm -v "$HERE/mosquitto:/work" eclipse-mosquitto:2 \
       mosquitto_passwd -b /work/passwd "$user" "$(env_get "$key")"
@@ -209,6 +377,8 @@ step_mosquitto_users() {
 step_stack() {
   say "Starting the stack (the first build takes 10-20 minutes on a Pi)"
   run "${COMPOSE[@]}" up -d --build
+  # mosquitto reads passwd and acl only when it starts: new users (M8: health, phone) need a restart
+  run "${COMPOSE[@]}" restart mosquitto
 }
 
 step_kiosk() {
@@ -252,11 +422,16 @@ need_root "$@"
 step_packages
 step_docker
 step_zram
+if [ -n "$RESTORE" ]; then step_restore_files; fi
 step_env
+step_env_upgrade
+step_age_key
 step_tailscale_ip
 step_brain_env
 step_mosquitto_users
+step_restore_db
 step_stack
+step_timers
 step_tailscale_serve
 if [ "$KIOSK" = 1 ]; then step_kiosk; fi
 say "Done. Dashboard: http://$( [ -f "$ENV_FILE" ] && [ -n "$(env_get TAILSCALE_IP)" ] && env_get TAILSCALE_IP || echo localhost ):$( [ -f "$ENV_FILE" ] && env_get UI_PORT || echo 8080 )/"

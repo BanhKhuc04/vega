@@ -5,6 +5,8 @@
  */
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { handleApi } from './api';
+import type { ApiDeps } from './api';
 import type { Config, SttConfig } from './config';
 import { dayOf } from './store';
 import type { Store } from './store';
@@ -101,6 +103,8 @@ export interface VoiceDeps {
   onSpent(): void;
   /** The photo the Vision screen shows (M7), served at /vision/frame/<id>. */
   frames?: FrameCache;
+  /** The Console API (M8) at /api/*. */
+  api?: ApiDeps;
   now?: () => number;
   fetchImpl?: typeof fetch;
 }
@@ -148,12 +152,13 @@ function readBody(req: IncomingMessage, max: number): Promise<Uint8Array<ArrayBu
 
 /**
  * `GET /voice/stt` → `{ on }` (does the brain transcribe?) · `POST /voice/stt` (audio body) → `{ text }` or `{ error }` ·
- * `GET /vision/frame/<id>` → the photo just taken (M7), from memory, 404 once gone.
+ * `GET /vision/frame/<id>` → the photo just taken (M7), from memory, 404 once gone · `/api/*` → the Console (M8, api.ts).
  * Nothing else. Reachable only through vega-ui's nginx on the Pi (no host port) or on 127.0.0.1 in dev.
  */
 export function voiceServer(d: VoiceDeps): Server {
   return createServer((req, res) => {
     const path = (req.url ?? '').split('?')[0]!;
+    if (path.startsWith('/api/')) return d.api ? handleApi(req, res, d.api) : json(res, 404, { error: 'not found' });
     const frame = /^\/vision\/frame\/([A-Za-z0-9_-]{8,64})$/.exec(path);
     if (frame && req.method === 'GET') {
       const jpeg = d.frames?.get(frame[1]!);

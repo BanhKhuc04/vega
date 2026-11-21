@@ -1,6 +1,6 @@
 import mqtt from 'mqtt';
 import type { MqttClient } from 'mqtt';
-import { CAMERA_STATE, PAYLOAD_VERSION, cameraState, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, relaySet, sceneMessage, systemEvent } from '@vega/contract';
+import { CAMERA_STATE, OWNTRACKS, PAYLOAD_VERSION, SYSTEM_BACKUP, SYSTEM_HEALTH, SYSTEM_PRESENCE, cameraState, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, presenceState, relaySet, sceneMessage, systemEvent } from '@vega/contract';
 import type { SceneMessage, SourceRef } from '@vega/contract';
 
 /** A scene as the brain writes it: the envelope fields `v` and `ts` are added on publish. */
@@ -24,10 +24,12 @@ export interface Bus {
   usage(u: { day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }): void;
   /** Is the Vision camera plugged in (retained, M7). */
   camera(present: boolean): void;
+  /** The owner home or away, from the phone (retained, M8). */
+  presence(home: boolean): void;
 }
 
 /** Topics the brain listens to. */
-export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_PI, SYSTEM_COMMAND];
+export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_PI, SYSTEM_COMMAND, SYSTEM_HEALTH, SYSTEM_BACKUP, OWNTRACKS];
 
 export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
   const v = PAYLOAD_VERSION;
@@ -72,6 +74,9 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
     },
     camera(present) {
       client.publish(CAMERA_STATE, JSON.stringify(cameraState.parse({ v, camera: present ? 'on' : 'missing' })), { retain: true });
+    },
+    presence(home) {
+      client.publish(SYSTEM_PRESENCE, JSON.stringify(presenceState.parse({ v, ts: new Date(now()).toISOString(), state: home ? 'home' : 'away' })), { retain: true });
     },
   };
 }

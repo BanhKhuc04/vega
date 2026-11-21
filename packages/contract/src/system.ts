@@ -91,6 +91,50 @@ export const piStats = z.object({
 });
 export type PiStats = z.infer<typeof piStats>;
 
+/** `vega/system/health` (v8, retained): every container of the Pi stack, once a minute from infra/pi/health.sh. */
+export const HEALTH_STATES = ['healthy', 'unhealthy', 'starting', 'none'] as const;
+export const systemHealth = z.object({
+  v,
+  ts,
+  services: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(40),
+        state: z.string().min(1).max(20),
+        health: z.enum(HEALTH_STATES),
+        restarts: z.number().int().min(0).max(1_000_000),
+      }),
+    )
+    .max(20),
+});
+export type SystemHealth = z.infer<typeof systemHealth>;
+
+/** `vega/system/backup` (v8, retained): the last run of infra/pi/backup.sh. `offsite`: a copy also left the Pi. */
+export const backupState = z.object({
+  v,
+  ts,
+  ok: z.boolean(),
+  bytes: z.number().int().min(0).optional(),
+  offsite: z.boolean(),
+  error: z.string().max(200).optional(),
+});
+export type BackupState = z.infer<typeof backupState>;
+
+/** `vega/system/presence` (v8, retained): the owner is home or away, from the phone's location (brief 0013 B12). */
+export const presenceState = z.object({ v, ts, state: z.enum(['home', 'away']) });
+export type PresenceState = z.infer<typeof presenceState>;
+
+/** A location from OwnTracks (`owntracks/<user>/<device>`, `_type: location`): only the fields VEGA reads. */
+export const owntracksLocation = z.object({
+  _type: z.literal('location'),
+  lat: num.min(-90).max(90),
+  lon: num.min(-180).max(180),
+  acc: num.min(0).max(100_000).optional(),
+  tst: z.number().int().positive(),
+  inregions: z.array(z.string().max(60)).max(20).optional(),
+});
+export type OwntracksLocation = z.infer<typeof owntracksLocation>;
+
 /** `vega/system/net`: round-trip latency from the Pi to the broker. */
 export const netStats = z.object({ v, ts: ts.optional(), latency_ms: num.min(0).max(60_000) });
 export type NetStats = z.infer<typeof netStats>;

@@ -3,6 +3,8 @@
 # the brain (M1) and the simulator/CLI tools may do everything under vega/
 user brain
 topic readwrite vega/#
+# the phone's location (M8)
+topic read owntracks/#
 
 # the dashboard: read everything, and send commands. Nothing else.
 user ui
@@ -15,3 +17,13 @@ topic write vega/+/+/state
 topic write vega/+/+/meta
 topic write vega/+/+/availability
 topic read vega/+/+/set
+
+# infra/pi/health.sh and backup.sh (M8): their two reports, nothing else
+user health
+topic write vega/system/health
+topic write vega/system/backup
+
+# the owner's phone, OwnTracks over Tailscale (M8): its own location, and commands the app may receive
+user phone
+topic write owntracks/vega/+
+topic read owntracks/vega/+/cmd

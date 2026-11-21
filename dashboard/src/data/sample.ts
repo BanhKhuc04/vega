@@ -39,6 +39,7 @@ export function emptySnapshot(kind: 'mock' | 'mqtt', primaryRoom = 'bedroom'): S
     core: 'idle',
     mic: null,
     camera: null,
+    home: null,
   };
 }
 

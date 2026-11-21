@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEGA Console</title>
+<meta name="theme-color" content="#010207">
+<link rel="icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/config.js"></script>
+<style>
+  /* Plain management page (brief 0013 B7): VEGA's colours, no FUI. One column, tabs, tables that scroll on their own. */
+  :root {
+    --bg: #010207; --panel: #07101e; --line: #16253d; --ink: #ddebff; --dim: #7f93b6;
+    --accent: #4fc3ff; --ok: #5ef0a0; --warn: #ffc266; --bad: #ff5c77;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  .wrap { grid-template-columns: minmax(0, 1fr); max-width: 1080px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font: 600 1rem/1 var(--mono); letter-spacing: .35em; }
+  header a { color: var(--dim); font-size: .85rem; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  nav a { color: var(--dim); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: .9rem; }
+  nav a[aria-current="page"] { color: var(--accent); background: rgba(79,195,255,.1); }
+  nav a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .banner { border: 1px solid var(--bad); color: var(--bad); border-radius: 8px; padding: 10px 14px; }
+  .banner.info { border-color: var(--line); color: var(--dim); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+  .card span { color: var(--dim); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+  .card b { font: 600 1.25rem var(--mono); font-variant-numeric: tabular-nums; }
+  .card small { color: var(--dim); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .dim { color: var(--dim); }
+  h2 { font-size: 1rem; margin: 6px 0 0; }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  thead th { border-top: 0; color: var(--dim); font: 400 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.wrap { min-width: 220px; }
+  button { font: inherit; font-size: .82rem; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type="search"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; width: min(100%, 320px); }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .note { color: var(--dim); font-size: .85rem; }
+  ul.plain { margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>VEGA · CONSOLE</h1><a href="/">Back to VEGA</a></header>
+  <nav id="tabs" aria-label="Sections">
+    <a href="#today">Today</a><a href="#devices">Devices</a><a href="#reminders">Reminders</a><a href="#commands">Commands</a><a href="#costs">Costs</a><a href="#access">Access</a>
+  </nav>
+  <div id="msg" class="banner" role="alert" hidden></div>
+  <main id="view" aria-live="polite"></main>
+</div>
+<script type="module" src="/src/console/main.ts"></script>
+</body>
+</html>

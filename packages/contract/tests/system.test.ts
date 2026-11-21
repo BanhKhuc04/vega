@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { netStats, piStats, systemCommand, systemEvent } from '../src';
+import { SYSTEM_PRESENCE, backupState, netStats, owntracksLocation, parseMessage, piStats, systemCommand, systemEvent, systemHealth } from '../src';
 
 const ok = (schema: { safeParse: (x: unknown) => { success: boolean } }, v: unknown) => schema.safeParse(v).success;
 
@@ -48,5 +48,31 @@ describe('systemCommand / pi / net', () => {
     expect(ok(netStats, { v: 1 })).toBe(false);
     expect(ok(netStats, { v: 1, latency_ms: -1 })).toBe(false);
     expect(ok(netStats, { v: 1, latency_ms: '38' })).toBe(false);
+  });
+});
+
+describe('M8: health, backup, presence, OwnTracks', () => {
+  const ts = '2026-11-21T10:00:00Z';
+  it('systemHealth', () => {
+    expect(ok(systemHealth, { v: 1, ts, services: [{ name: 'vega-brain', state: 'running', health: 'healthy', restarts: 0 }] })).toBe(true);
+    expect(ok(systemHealth, { v: 1, ts, services: [] })).toBe(true);
+    expect(ok(systemHealth, { v: 1, ts, services: [{ name: 'x', state: 'running', health: 'sick', restarts: 0 }] })).toBe(false);
+    expect(ok(systemHealth, { v: 1, ts, services: [{ name: 'x', state: 'running', health: 'none', restarts: -1 }] })).toBe(false);
+    expect(ok(systemHealth, { v: 1, services: [] })).toBe(false);
+  });
+  it('backupState', () => {
+    expect(ok(backupState, { v: 1, ts, ok: true, bytes: 1234, offsite: false })).toBe(true);
+    expect(ok(backupState, { v: 1, ts, ok: false, offsite: false, error: 'age is not installed' })).toBe(true);
+    expect(ok(backupState, { v: 1, ts, ok: 'yes', offsite: false })).toBe(false);
+  });
+  it('presence: parsed for the screen', () => {
+    expect(parseMessage(SYSTEM_PRESENCE, JSON.stringify({ v: 1, ts, state: 'away' }))).toEqual({ type: 'presence', home: false });
+    expect(parseMessage(SYSTEM_PRESENCE, JSON.stringify({ v: 1, ts, state: 'gone' }))).toBeNull();
+  });
+  it('owntracksLocation keeps the fields VEGA reads, rejects other message types', () => {
+    const r = owntracksLocation.safeParse({ _type: 'location', lat: 21.03, lon: 105.85, acc: 12, tst: 1795000000, batt: 80, inregions: ['Nhà'] });
+    expect(r.success && r.data).toEqual({ _type: 'location', lat: 21.03, lon: 105.85, acc: 12, tst: 1795000000, inregions: ['Nhà'] });
+    expect(ok(owntracksLocation, { _type: 'transition', lat: 1, lon: 1, tst: 1 })).toBe(false);
+    expect(ok(owntracksLocation, { _type: 'location', lat: 91, lon: 1, tst: 1 })).toBe(false);
   });
 });
