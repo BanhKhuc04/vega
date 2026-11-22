@@ -5,7 +5,7 @@
 #   ./infra/pi/backup.sh --dry-run         # no MQTT report, no offsite copy (CI; BRAIN_DB_FILE points at a local file)
 #
 # What: brain.db (a consistent copy taken with VACUUM INTO while the brain runs), google-token.json if any, .env,
-# brain.env and mosquitto/passwd. Images and models are rebuilt from the repository, so they are not backed up.
+# brain.env, mosquitto/passwd and rclone's config (the Drive token, so a rebuilt Pi keeps the offsite copy). Images and models are rebuilt from the repository, so they are not backed up.
 # Encrypted with age for AGE_RECIPIENT (.env); only the owner holds the private key. 14 copies stay in BACKUP_DIR,
 # one more goes to RCLONE_REMOTE when set. Restore: sudo ./infra/pi/setup.sh --restore <file.age> (docs/pi-setup.md).
 set -euo pipefail
@@ -70,6 +70,9 @@ fi
 cp "$ENV_FILE" "$TMP/infra/.env"
 [ -f "$HERE/brain.env" ] && cp "$HERE/brain.env" "$TMP/infra/brain.env"
 [ -f "$HERE/mosquitto/passwd" ] && cp "$HERE/mosquitto/passwd" "$TMP/infra/mosquitto/passwd"
+RCONF="${RCLONE_CONFIG:-}"
+if [ -z "$RCONF" ] && command -v rclone >/dev/null; then RCONF="$(rclone config file 2>/dev/null | tail -n1 || true)"; fi
+if [ -n "$RCONF" ] && [ -f "$RCONF" ]; then cp "$RCONF" "$TMP/infra/rclone.conf"; fi
 
 # 3. one encrypted file; nothing unencrypted ever lands in BACKUP_DIR
 mkdir -p "$BACKUP_DIR"

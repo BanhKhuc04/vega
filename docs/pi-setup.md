@@ -102,14 +102,24 @@ Thẻ nhớ hỏng, mua Pi mới, hay chỉ muốn chắc backup dùng được.
 
 | Bước | Việc | Thời gian |
 |---|---|---|
-| 1 | Ghi Pi OS Lite 64-bit bằng Raspberry Pi Imager (bật SSH, đặt Wi-Fi nếu cần) | ~10 phút |
-| 2 | Cài Tailscale và đăng nhập (`sudo tailscale up`) | ~3 phút |
+| 1 | Ghi Pi OS Lite 64-bit bằng Raspberry Pi Imager (cùng tên máy và user như cũ, bật SSH bằng khoá, đặt Wi-Fi nếu cần) | ~10 phút |
+| 2 | Cài Tailscale và đăng nhập (`sudo tailscale up --hostname=vega`), xem "Tên trong tailnet" bên dưới | ~3 phút |
 | 3 | `git clone` repo, chép file backup mới nhất (từ Google Drive hoặc ổ khác) và `vega-backup-key.txt` sang Pi | ~5 phút |
-| 4 | `sudo ./infra/pi/setup.sh --restore vega-….tar.gz.age` (hỏi đường dẫn file khoá, hoặc đặt sẵn `AGE_KEY=…`) | ~25 phút (build) |
-| 5 | Kiểm tra: `/status`, Console › Reminders còn lời nhắc cũ, hỏi "lịch hôm nay" (Google không cần đăng nhập lại) | ~5 phút |
+| 4 | `sudo ./infra/pi/setup.sh --restore vega-….tar.gz.age` (thêm `--kiosk` nếu Pi có màn hình; hỏi đường dẫn file khoá, hoặc đặt sẵn `AGE_KEY=…`) | ~25 phút (build) |
+| 5 | Kiểm tra: `/status`, Console › Reminders còn lời nhắc cũ, hỏi "lịch hôm nay" (Google không cần đăng nhập lại), Console › Backup ghi "offsite" sau lần backup kế tiếp | ~5 phút |
 
-`--restore` đặt lại `.env`, `brain.env`, `mosquitto/passwd` (bản cũ giữ lại thành `*.before-restore`), nạp `brain.db` và
-`google-token.json` vào volume của bộ não trước khi nó chạy, rồi làm tiếp như một lần cài thường. Khoá backup cũ vẫn dùng tiếp.
+`--restore` đặt lại `.env`, `brain.env`, `mosquitto/passwd` và cấu hình rclone (bản cũ giữ lại thành `*.before-restore`), nạp
+`brain.db` và `google-token.json` vào volume của bộ não trước khi nó chạy, rồi làm tiếp như một lần cài thường. Khoá backup cũ vẫn
+dùng tiếp, bản sao lên Google Drive cũng chạy tiếp mà không cần `rclone config` lại. Xong thì xoá `vega-backup-key.txt` khỏi Pi.
+
+**Diễn tập (khi thẻ cũ vẫn tốt):** cài lên một thẻ hoặc SSD khác, cất thẻ cũ. Hỏng giữa chừng thì cắm lại thẻ cũ là về như trước.
+
+**Tên trong tailnet:** máy cũ vẫn giữ tên `vega` trong Tailscale, nên máy mới sẽ thành `vega-1` và mọi đường dẫn (PWA trên điện
+thoại, Console) đổi theo. Trước bước 2, vào trang Machines của Tailscale, đổi tên máy cũ thành `vega-old`. Dựng lại thành công thì xoá
+`vega-old`. Phải lùi về thẻ cũ thì xoá máy mới rồi đổi `vega-old` về `vega`.
+
+**SSH báo khoá máy đổi:** Pi mới có khoá SSH mới. Trên PC xoá khoá cũ (`ssh-keygen -R vega.<tailnet>.ts.net` và `-R <IP Tailscale>`)
+rồi nối lại, so vân tay với dòng `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` trên màn hình Pi.
 
 ## Điện thoại: vị trí
 

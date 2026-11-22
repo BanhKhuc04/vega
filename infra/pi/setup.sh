@@ -224,6 +224,14 @@ step_restore_files() {
     install -m 600 "$RESTORED/infra/$f" "$HERE/$f"
     echo "   restored $f"
   done
+  # rclone's config holds the Drive token: without it the rebuilt Pi stops copying backups off the Pi
+  if [ -f "$RESTORED/infra/rclone.conf" ]; then
+    local rconf="${RCLONE_CONFIG:-$(rclone config file 2>/dev/null | tail -n1)}"
+    if [ -f "$rconf" ]; then cp "$rconf" "$rconf.before-restore"; fi
+    install -d -m 700 "$(dirname "$rconf")"
+    install -m 600 "$RESTORED/infra/rclone.conf" "$rconf"
+    echo "   restored rclone.conf"
+  fi
   # the new install may get another Tailscale address: find it again
   sed -i 's/^TAILSCALE_IP=.*/TAILSCALE_IP=/' "$ENV_FILE"
 }
