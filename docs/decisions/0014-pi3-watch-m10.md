@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-22 |
-| **Trạng thái** | Bản nháp, chờ duyệt |
+| **Trạng thái** | Đã duyệt (2026-11-22): làm M10 trước M9. Câu hỏi mở 3 và 4 theo đề xuất (ntfy; dây mạng nếu được) |
 | **Dựa trên** | 0012 (M10, M12, M13, R5 ngân sách CPU, R7 riêng tư, rủi ro 7 ntfy trên iOS), 0013 (B5–B6 giám sát, B12 `presence`), 0009 (`pc-agent` viết để chạy được trên Linux) |
 | **Sửa** | 0012: R2 (làm M10 trước M9), M10 (ntfy chạy trên Pi 3), M12 và M13 (phần nghe 24/7 chạy trên Pi 3) |
 | **Nhánh** | `feat/m10-watch`, từ `main` |

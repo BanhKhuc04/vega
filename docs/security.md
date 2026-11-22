@@ -170,8 +170,22 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
   hàng loạt, có ghi nguồn theo chính sách của OSM.
 - **Service worker** chỉ cache vỏ trang tĩnh. `/api`, `/voice`, `/vision`, `/mqtt` và `/config.js` (chứa mật khẩu) luôn đi qua mạng.
 
+## 10a. Người gác Pi 3 và thông báo điện thoại (M10)
+
+- **ntfy chỉ nghe trên `127.0.0.1` của Pi 3**, ra ngoài chỉ qua `tailscale serve` (HTTPS trong tailnet, không funnel). `auth-default-access:
+  deny-all`; tài khoản `vega` chỉ ghi được topic của VEGA (bộ não và `vega-watch` dùng token `tk_…`), tài khoản `phone` chỉ đọc. Tên
+  topic ngẫu nhiên. Token nằm ở `/etc/vega-watch.env` (quyền `600`) trên Pi 3 và `brain.env` trên Pi 4, và đi theo backup đã mã hoá.
+- **ntfy.sh chuyển tiếp cho iPhone** (`upstream-base-url`): Apple chỉ đánh thức app qua máy chủ trung gian, nên ntfy.sh nhận mã tin và mã
+  băm của tên topic, **không nhận nội dung**. iPhone tải nội dung thẳng từ Pi 3 qua Tailscale.
+- **Tin gửi đi** chỉ là tiêu đề và dòng `error` ngắn của Alert (lỗi sức khoẻ, CI, nội dung lời nhắc). Màn trả lời (vị trí, lịch, mail)
+  không bao giờ được đẩy, nên không có toạ độ hay nội dung mail trên điện thoại. Có test kiểm điều này.
+- **User MQTT `watch`** chỉ đọc `vega/system/health` và chỉ ghi `vega/system/watch`. Lộ mật khẩu này thì người khác chỉ giả được nhịp tim
+  (che việc Pi 3 chết) và đọc được tên container.
+- Pi 3 không giữ bí mật nào khác của VEGA: không key AI, không token Google, không khoá backup.
+
 ## 11. Việc còn lại
 
 - TLS cho MQTT ngoài Tailscale.
 - User MQTT và ACL riêng cho từng thiết bị (M2), để một ESP không tự khai `risk: low` thay cho thiết bị khác.
-- Thông báo đẩy về điện thoại (M10, brief 0012), Telegram khoá theo ID người dùng.
+- Telegram khoá theo ID người dùng, nếu ntfy trên iPhone không dùng được (brief 0014).
+- Báo cả khi mất điện hay mất internet cả nhà: cần một máy ngoài nhà (brief 0014, rủi ro 1).

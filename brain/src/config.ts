@@ -60,6 +60,8 @@ export interface Config {
   health: { on: boolean; backupMaxH: number };
   /** Bearer token of the Console API `/api/*` (M8). null = the API answers 503. */
   consoleToken: string | null;
+  /** Phone alerts through ntfy on the Pi 3 (M10, brief 0014). null = off (NTFY_URL unset). */
+  phone: { url: string; token: string; topic: string } | null;
   /** Home for the phone's location (M8): OwnTracks regions that mean home, and a circle (HOME_LAT/LON, else the weather coordinates). */
   home: { lat: number; lon: number; radiusM: number } | null;
   homeRegions: string[];
@@ -146,6 +148,17 @@ function consoleToken(env: Env, warnings: string[]): string | null {
   if (!t) return null;
   if (t.length < 16 || t === 'change-me') return warnings.push('CONSOLE_TOKEN must be at least 16 characters (setup.sh makes one): the Console API is off'), null;
   return t;
+}
+
+function phone(env: Env, warnings: string[]): Config['phone'] {
+  const url = env.NTFY_URL?.trim().replace(/\/+$/, '');
+  if (!url) return null;
+  const token = env.NTFY_TOKEN?.trim() ?? '';
+  const topic = env.NTFY_TOPIC?.trim() ?? '';
+  if (!/^https?:\/\/[^\s/]+$/.test(url)) return warnings.push('NTFY_URL must be the ntfy server root, like https://vega-watch.<tailnet>.ts.net: phone alerts are off'), null;
+  if (!/^tk_[A-Za-z0-9]{8,64}$/.test(token)) return warnings.push('NTFY_TOKEN must be an ntfy access token (tk_…, from infra/pi3/setup.sh): phone alerts are off'), null;
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(topic)) return warnings.push('NTFY_TOPIC must be 8–64 letters, digits, - or _: phone alerts are off'), null;
+  return { url, token, topic };
 }
 
 function home(env: Env, warnings: string[]): Config['home'] {
@@ -280,6 +293,7 @@ export function loadConfig(env: Env = process.env): Config {
     voiceHttp: env.VOICE_PORT ? { host: env.VOICE_HOST?.trim() || '127.0.0.1', port: num(env.VOICE_PORT, 8091) } : null,
     health: { on: env.HEALTH_WATCH === '1', backupMaxH: num(env.BACKUP_ALERT_H, 36, 1) },
     consoleToken: consoleToken(env, warnings),
+    phone: phone(env, warnings),
     home: home(env, warnings),
     homeRegions: (env.HOME_REGIONS ?? 'Nhà,Home').split(',').map((r) => r.trim()).filter(Boolean),
     warnings,

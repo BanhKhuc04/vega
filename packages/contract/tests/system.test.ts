@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SYSTEM_PRESENCE, backupState, netStats, owntracksLocation, parseMessage, piStats, systemCommand, systemEvent, systemHealth } from '../src';
+import { SYSTEM_PRESENCE, backupState, watchBeat, netStats, owntracksLocation, parseMessage, piStats, systemCommand, systemEvent, systemHealth } from '../src';
 
 const ok = (schema: { safeParse: (x: unknown) => { success: boolean } }, v: unknown) => schema.safeParse(v).success;
 
@@ -59,6 +59,11 @@ describe('M8: health, backup, presence, OwnTracks', () => {
     expect(ok(systemHealth, { v: 1, ts, services: [{ name: 'x', state: 'running', health: 'sick', restarts: 0 }] })).toBe(false);
     expect(ok(systemHealth, { v: 1, ts, services: [{ name: 'x', state: 'running', health: 'none', restarts: -1 }] })).toBe(false);
     expect(ok(systemHealth, { v: 1, services: [] })).toBe(false);
+  });
+  it('watchBeat (v9)', () => {
+    expect(ok(watchBeat, { v: 1, ts })).toBe(true);
+    expect(ok(watchBeat, { v: 1 })).toBe(false);
+    expect(ok(watchBeat, { v: 2, ts })).toBe(false);
   });
   it('backupState', () => {
     expect(ok(backupState, { v: 1, ts, ok: true, bytes: 1234, offsite: false })).toBe(true);

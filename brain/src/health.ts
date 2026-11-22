@@ -4,7 +4,7 @@
  * starts and is logged when it clears; `/status` and the Console list what is wrong now. The brain never touches Docker.
  */
 import { statfsSync } from 'node:fs';
-import { backupState, systemHealth } from '@vega/contract';
+import { backupState, systemHealth, watchBeat } from '@vega/contract';
 import type { BackupState, SystemHealth } from '@vega/contract';
 import type { SceneOut } from './bus';
 
@@ -16,6 +16,8 @@ const HOT_FOR = 2 * MIN;
 const DISK_MIN_PCT = 10;
 /** health.sh publishes every minute: silence this long means it (or its timer) stopped. */
 const HEALTH_STALE = 5 * MIN;
+/** The Pi 3 watchdog beats every minute (brief 0014 P4). */
+const WATCH_STALE = 5 * MIN;
 
 export interface Problem {
   key: string;
@@ -30,6 +32,8 @@ export interface HealthDeps {
   log(msg: string): void;
   /** Free space of the disk that holds the database, 0–100; null when unknown. */
   diskFreePct(): number | null;
+  /** The last failure of phone alerts (M10), null when fine or off. */
+  phoneError?: () => string | null;
   now?: () => number;
 }
 
@@ -49,6 +53,8 @@ export class HealthWatch {
   private restarts = new Map<string, { at: number; n: number }[]>();
   private hotSince: number | null = null;
   private tempC: number | null = null;
+  /** Time of the watchdog's last beat (its own `ts`: a retained beat can be old); null = no Pi 3 watchdog installed. */
+  private watchAt: number | null = null;
   private active = new Map<string, Problem>();
   private readonly startedAt: number;
 
@@ -81,6 +87,13 @@ export class HealthWatch {
     return r.success;
   }
 
+  /** `vega/system/watch`: the Pi 3 watchdog is alive. */
+  onWatch(payload: string): boolean {
+    const r = watchBeat.safeParse(parse(payload));
+    if (r.success) this.watchAt = Date.parse(r.data.ts);
+    return r.success;
+  }
+
   /** The SoC temperature from the brain's own Pi stats (every 30 s). */
   onTemp(tempC: number | null): void {
     this.tempC = tempC;
@@ -108,6 +121,9 @@ export class HealthWatch {
     const disk = this.d.diskFreePct();
     if (disk !== null && disk < DISK_MIN_PCT) out.push({ key: 'disk', title: 'disk almost full', detail: `${disk}% free on the Pi's disk.` });
     if (this.hotSince !== null && now - this.hotSince >= HOT_FOR) out.push({ key: 'hot', title: 'Pi too hot', detail: `The Pi has been at ${Math.round(this.tempC ?? HOT_C)} °C for ${ago(now - this.hotSince)}. Check its fan and airflow.` });
+    if (this.watchAt !== null && now - this.watchAt > WATCH_STALE) out.push({ key: 'watch', title: 'Pi 3 watchdog silent', detail: `No heartbeat from the Pi 3 for ${ago(now - this.watchAt)}: nothing would tell your phone if this Pi went down.` });
+    const phoneErr = this.d.phoneError?.() ?? null;
+    if (phoneErr) out.push({ key: 'phone', title: 'phone alerts failing', detail: `ntfy on the Pi 3 refused or did not answer (${phoneErr}).` });
     const maxMs = this.d.backupMaxH * 60 * MIN;
     const b = this.backup;
     if (!b) {
@@ -136,8 +152,8 @@ export class HealthWatch {
   }
 
   /** For the Console: the latest reports as they came, plus the problems. */
-  snapshot(): { services: SystemHealth['services'] | null; reportedAt: number | null; backup: BackupState | null; diskFreePct: number | null; problems: Problem[] } {
-    return { services: this.health?.msg.services ?? null, reportedAt: this.health?.at ?? null, backup: this.backup, diskFreePct: this.d.diskFreePct(), problems: this.problems() };
+  snapshot(): { services: SystemHealth['services'] | null; reportedAt: number | null; backup: BackupState | null; diskFreePct: number | null; watchAt: number | null; problems: Problem[] } {
+    return { services: this.health?.msg.services ?? null, reportedAt: this.health?.at ?? null, backup: this.backup, diskFreePct: this.d.diskFreePct(), watchAt: this.watchAt, problems: this.problems() };
   }
 
   /** One line for `/status`. */
@@ -149,6 +165,7 @@ export class HealthWatch {
     if (disk !== null) parts.push(`disk ${Math.round(disk)}% free`);
     const b = this.backup;
     parts.push(!b ? 'backup: none yet' : !b.ok ? 'backup: failed' : `backup ${ago(this.now() - Date.parse(b.ts))} ago${b.offsite ? '' : ' (on the Pi only)'}`);
+    if (this.watchAt !== null) parts.push(this.now() - this.watchAt > WATCH_STALE ? 'watchdog silent' : 'watchdog ok');
     const p = this.problems();
     if (p.length) parts.push(`problems: ${p.map((x) => x.title).join(', ')}`);
     return parts.join(' · ');

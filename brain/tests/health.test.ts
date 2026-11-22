@@ -5,7 +5,7 @@ import { HealthWatch, ago } from '../src/health';
 const MIN = 60_000;
 const T0 = Date.parse('2026-11-21T10:00:00Z');
 
-function watch(opts: { disk?: number | null; backupMaxH?: number } = {}) {
+function watch(opts: { disk?: number | null; backupMaxH?: number; phoneError?: () => string | null } = {}) {
   let now = T0;
   const alerts: { title: string; label: string }[] = [];
   const logs: string[] = [];
@@ -19,6 +19,7 @@ function watch(opts: { disk?: number | null; backupMaxH?: number } = {}) {
     },
     log: (m) => logs.push(m),
     diskFreePct: () => disk.pct,
+    ...(opts.phoneError && { phoneError: opts.phoneError }),
     now: () => now,
   });
   const at = (iso: number) => new Date(iso).toISOString();
@@ -119,5 +120,67 @@ describe('HealthWatch', () => {
 
   it('ago', () => {
     expect([ago(0), ago(59 * MIN), ago(3 * 60 * MIN), ago(72 * 60 * MIN)]).toEqual(['0 min', '59 min', '3 h', '3 d']);
+  });
+});
+
+describe('HealthWatch: the Pi 3 watchdog and phone alerts (M10)', () => {
+  const beat = (ms: number) => JSON.stringify({ v: 1, ts: new Date(ms).toISOString() });
+  const fine = (h: ReturnType<typeof watch>) => {
+    h.w.onHealth(h.services());
+    h.w.onBackup(h.backup());
+  };
+
+  it('no watchdog installed: nothing to report', () => {
+    const h = watch();
+    fine(h);
+    h.tick(60 * MIN);
+    fine(h);
+    h.w.check();
+    expect(h.alerts).toEqual([]);
+    expect(h.w.summary()).not.toContain('watchdog');
+  });
+
+  it('heartbeat older than 5 minutes: one Alert, cleared when it beats again', () => {
+    const h = watch();
+    fine(h);
+    expect(h.w.onWatch(beat(h.now()))).toBe(true);
+    h.w.check();
+    expect(h.w.summary()).toContain('watchdog ok');
+    h.tick(6 * MIN);
+    fine(h);
+    h.w.check();
+    h.tick(MIN);
+    fine(h);
+    h.w.check();
+    expect(h.alerts.map((a) => a.title)).toEqual(['Pi 3 watchdog silent']);
+    expect(h.w.summary()).toContain('watchdog silent');
+    h.w.onWatch(beat(h.now()));
+    h.w.check();
+    expect(h.logs.some((l) => l.includes('cleared: Pi 3 watchdog silent'))).toBe(true);
+    expect(h.w.snapshot().watchAt).toBe(h.now());
+  });
+
+  it('a stale retained heartbeat counts by its own time, not when it arrived', () => {
+    const h = watch();
+    fine(h);
+    h.w.onWatch(beat(h.now() - 30 * MIN));
+    h.w.check();
+    expect(h.alerts.map((a) => a.title)).toEqual(['Pi 3 watchdog silent']);
+  });
+
+  it('rejects a heartbeat outside the contract', () => {
+    expect(watch().w.onWatch('{"v":1}')).toBe(false);
+  });
+
+  it('phone alerts failing: one Alert, listed in /status', () => {
+    let err: string | null = 'HTTP 401';
+    const h = watch({ phoneError: () => err });
+    fine(h);
+    h.w.check();
+    h.w.check();
+    expect(h.alerts.map((a) => a.title)).toEqual(['phone alerts failing']);
+    expect(h.w.summary()).toContain('phone alerts failing');
+    err = null;
+    expect(h.w.problems()).toEqual([]);
   });
 });

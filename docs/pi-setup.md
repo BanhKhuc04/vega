@@ -50,6 +50,7 @@ Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc
 | `device` | ghi `state`, `meta`, `availability`; đọc `set` | ESP. Từng thiết bị riêng có ở M2 |
 | `health` | chỉ ghi `vega/system/health`, `vega/system/backup` | `health.sh`, `backup.sh` (M8) |
 | `phone` | ghi `owntracks/vega/+`, đọc `owntracks/vega/+/cmd` | app OwnTracks trên điện thoại (M8) |
+| `watch` | đọc `vega/system/health`, ghi `vega/system/watch` | người gác trên Pi 3 (M10) |
 
 Mật khẩu: `grep MQTT_ infra/pi/.env`.
 
@@ -131,6 +132,33 @@ sai số dưới 150 m) thành tâm vòng tròn nhà, lưu trong SQLite. Chưa �
    `HOME_RADIUS_M` (mặc định 150 m) trong `brain.env`, hoặc toạ độ thời tiết.
 4. Hỏi "tôi đang ở đâu". Ra khỏi nhà vài phút thì header hiện **AWAY**. iPhone gửi vị trí thưa hơn khi app chạy nền, nên có thể trễ vài
    phút.
+
+## Pi 3: người gác và thông báo điện thoại (M10)
+
+Pi 3 đứng ngoài trông Pi 4 và giữ máy chủ thông báo **ntfy** (brief 0014). Pi 4 mất điện, treo hay rớt mạng quá 3 phút thì iPhone nhận
+một tin khẩn; Pi 4 lên lại thì có tin "đã trở lại". Bộ não trên Pi 4 cũng đẩy Alert qua đây: lỗi sức khoẻ của Pi luôn gửi, CI hỏng và lời
+nhắc chỉ gửi khi bạn **vắng nhà** (chip AWAY), Briefing 7:00 gửi nhẹ một dòng. Pi 3 im quá 5 phút thì màn VEGA hiện Alert.
+
+1. **Pi 4 trước:** `cd ~/vega && git pull && sudo ./infra/pi/setup.sh` (tạo user MQTT `watch`). Lấy mật khẩu của nó:
+   `grep MQTT_WATCH_PASS ~/vega/infra/pi/.env`.
+2. **Pi 3:** ghi **Pi OS Lite 64-bit** bằng Raspberry Pi Imager (bật SSH, nên cắm dây mạng và khác ổ điện với Pi 4), rồi:
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up --hostname=vega-watch
+   sudo apt install -y git && git clone https://github.com/BanhKhuc04/vega.git ~/vega
+   sudo ~/vega/infra/pi3/setup.sh
+   ```
+   Script hỏi tên Pi 4 trong tailnet (mặc định `vega`), mật khẩu `MQTT_WATCH_PASS`, và mật khẩu bạn chọn cho tài khoản ntfy `phone`.
+3. Cuối script in **ba dòng `NTFY_…`**: dán vào `~/vega/infra/pi/brain.env` trên Pi 4 rồi `cd ~/vega/infra/pi && sudo docker compose up -d vega-brain`.
+   Ba dòng này là bí mật, đừng dán chỗ khác.
+4. **iPhone** (Tailscale đang bật): cài app **ntfy** từ App Store › Settings › Default server: `https://vega-watch.<tailnet>.ts.net` ›
+   Users: thêm user `phone` với mật khẩu ở bước 2 › Subscribe topic script đã in. Cho phép thông báo khi iOS hỏi. Script đã gửi sẵn một
+   tin thử "Pi 3 sẵn sàng".
+
+Kiểm tra: `systemctl list-timers vega-watch`, `journalctl -u vega-watch -n 20`, Console › Hôm nay › **Pi 3 watchdog**. Thử thật: rút điện
+Pi 4, đợi khoảng 4 phút, iPhone phải báo; cắm lại, có tin "đã trở lại". Cập nhật Pi 3: `cd ~/vega && git pull && sudo ./infra/pi3/setup.sh`.
+
+Giới hạn: **mất điện hay mất internet cả nhà** thì Pi 3 cũng tắt hoặc không gửi được. iPhone báo tức thì nhờ ntfy chuyển một mã tin qua
+máy chủ ntfy.sh tới Apple; nội dung tin vẫn đi thẳng từ Pi 3 sang iPhone qua Tailscale.
 
 ## Mất điện, rút điện cắm lại
 

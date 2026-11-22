@@ -29,3 +29,8 @@ topic write vega/system/backup
 user phone
 topic write owntracks/vega/+
 topic read owntracks/vega/+/cmd
+
+# the Pi 3 watchdog (M10, brief 0014 P5): reads the Pi 4's health report, writes its own heartbeat, nothing else
+user watch
+topic read vega/system/health
+topic write vega/system/watch

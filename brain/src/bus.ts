@@ -1,6 +1,6 @@
 import mqtt from 'mqtt';
 import type { MqttClient } from 'mqtt';
-import { CAMERA_STATE, OWNTRACKS, PAYLOAD_VERSION, SYSTEM_BACKUP, SYSTEM_HEALTH, SYSTEM_PRESENCE, cameraState, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, presenceState, relaySet, sceneMessage, systemEvent } from '@vega/contract';
+import { CAMERA_STATE, OWNTRACKS, PAYLOAD_VERSION, SYSTEM_BACKUP, SYSTEM_HEALTH, SYSTEM_PRESENCE, SYSTEM_WATCH, cameraState, SYSTEM_COMMAND, SYSTEM_PI, UI_SCENE, piStats, deviceTopic, eventTopic, presenceState, relaySet, sceneMessage, systemEvent } from '@vega/contract';
 import type { SceneMessage, SourceRef } from '@vega/contract';
 
 /** A scene as the brain writes it: the envelope fields `v` and `ts` are added on publish. */
@@ -29,7 +29,7 @@ export interface Bus {
 }
 
 /** Topics the brain listens to. */
-export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_PI, SYSTEM_COMMAND, SYSTEM_HEALTH, SYSTEM_BACKUP, OWNTRACKS];
+export const BRAIN_SUBSCRIPTIONS = ['vega/+/+/meta', 'vega/+/+/state', 'vega/+/+/availability', SYSTEM_PI, SYSTEM_COMMAND, SYSTEM_HEALTH, SYSTEM_BACKUP, SYSTEM_WATCH, OWNTRACKS];
 
 export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
   const v = PAYLOAD_VERSION;
