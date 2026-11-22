@@ -3,6 +3,8 @@ import type { ChatFn } from '../src/agent';
 import { Aliases, Memory, parseMemoryCommand } from '../src/memory';
 import { kindOf, levelOf, namesIn } from '../src/privacy';
 import { Store } from '../src/store';
+import { loadConfig } from '../src/config';
+import type { Locator } from '../src/locate';
 import { makeAgent } from './harness';
 
 let seq = 0;
@@ -45,6 +47,12 @@ describe('privacy: level of an item (T3–T4)', () => {
     expect(namesIn('anh Tuấn là đồng nghiệp ở công ty Viettel')).toEqual([{ name: 'Tuấn', type: 'person' }, { name: 'Viettel', type: 'place' }]);
     expect(namesIn('tôi thích đèn vàng')).toEqual([]);
   });
+  it('everyday words are no names: lowercase accented words, "xem", "kem", a lowercase place word', () => {
+    for (const t of ['em ấy thích mèo', 'anh đi làm lúc 7 giờ', 'tôi thích xem Netflix', 'quán ăn gần nhà ngon', 'trường học của tôi', 'tôi hay ăn kem Tràng Tiền']) expect(namesIn(t), t).toEqual([]);
+    expect(namesIn('Anh Tuấn học trường Lê Quý Đôn gần nhà')).toEqual([{ name: 'Tuấn', type: 'person' }, { name: 'Lê Quý Đôn', type: 'place' }]);
+    expect(namesIn('Tên bạn ấy là Minh')).toEqual([]);
+    expect(namesIn('con mèo tên Mun')).toEqual([{ name: 'Mun', type: 'person' }]);
+  });
 });
 
 describe('parseMemoryCommand', () => {
@@ -67,6 +75,13 @@ describe('parseMemoryCommand', () => {
   it('not a memory command', () => {
     for (const t of ['bật đèn', 'nhắc tôi 3 giờ chiều gọi mẹ', 'nhớ tắt đèn nhé', 'phòng mấy độ']) expect(parseMemoryCommand(t)).toBeNull();
   });
+  it('"I forgot to …" is no forget; "remember to …" with a time is a reminder', () => {
+    for (const t of ['quên mất tắt đèn', 'quên tắt đèn phòng khách rồi', 'forget to lock the door', 'remember to call mom at 5pm', 'remember to buy milk', 'nhớ giúp tôi gọi mẹ lúc 5 giờ', 'nhớ giúp mình ngày mai đi chợ']) {
+      expect(parseMemoryCommand(t), t).toBeNull();
+    }
+    expect(parseMemoryCommand('nhớ giúp tôi là tôi thích trà')).toEqual({ name: 'remember', args: { text: 'tôi thích trà' } });
+    expect(parseMemoryCommand('remember I wake up at 6')).toEqual({ name: 'remember', args: { text: 'I wake up at 6' } });
+  });
 });
 
 describe('Aliases', () => {
@@ -75,6 +90,10 @@ describe('Aliases', () => {
     expect(a.hide('Gọi Lan và Nguyễn Văn Tuấn, không phải Lana')).toBe('Gọi Người A và Người B, không phải Lana');
     expect(a.hide('lan ơi')).toBe('Người A ơi');
     expect(a.reveal('Nhắc gọi Người A lúc 5 giờ')).toBe('Nhắc gọi Lan lúc 5 giờ');
+  });
+  it('a name that is an everyday word is hidden only as written: "ngày mai" stays', () => {
+    const b = new Aliases([{ name: 'Mai', alias: 'Người A' }]);
+    expect(b.hide('nhắc tôi ngày mai gọi Mai')).toBe('nhắc tôi ngày mai gọi Người A');
   });
 });
 
@@ -215,6 +234,50 @@ describe('Agent with memory (M9)', () => {
     // the answer comes back with the real name
     expect(answers[7]).toContain('Lan');
     expect(answers[7]).not.toContain('Người A');
+  });
+
+  it('"quên chuyện …" shows which item it picked and waits for "yes"', async () => {
+    const store = new Store(':memory:');
+    const t = makeAgent({ deps: { memory: new Memory(store), store } });
+    await t.agent.handle(owner('nhớ là tôi thích đèn vàng'));
+    const out = await t.agent.handle(owner('quên chuyện đèn vàng'));
+    expect(out.path).toBe('confirm');
+    expect(out.answer).toContain('forget #1 "tôi thích đèn vàng"');
+    expect(store.memories(Date.now()).length).toBe(1);
+    expect((await t.agent.handle(owner('yes'))).answer).toMatch(/^Đã quên #1/);
+    expect(store.memories(Date.now())).toEqual([]);
+    expect((await t.agent.handle(owner('quên chuyện đèn vàng'))).answer).toMatch(/không thấy/);
+  });
+
+  it('local answers about where the owner is never reach the AI through the conversation history', async () => {
+    const sent: string[] = [];
+    const recorder: ChatFn = async (_p, req) => (sent.push(JSON.stringify(req.messages)), { message: { role: 'assistant', content: 'Ok.' }, usage: { in: 1, out: 1 } });
+    const locator = { answer: () => ({ text: 'Bạn đang cách nhà 3,2 km, ở Phòng tập (vừa cập nhật).', scene: null }) } as unknown as Locator;
+    const t = makeAgent({ chat: recorder, deps: { locator } });
+    expect((await t.agent.handle(owner('tôi đang ở đâu'))).path).toBe('local');
+    await t.agent.handle(owner('bật đèn phòng khách'));
+    await t.agent.handle(owner('kể chuyện cười đi'));
+    expect(sent.length).toBe(1);
+    expect(sent[0]).toContain('bật đèn phòng khách');
+    expect(sent[0]).not.toContain('3,2 km');
+    expect(sent[0]).not.toContain('Phòng tập');
+  });
+
+  it('the ledger names every provider the memory went to (router and chat differ)', async () => {
+    const base = loadConfig({ LLM_ROUTER: 'mock' });
+    const config = { providers: { ...base.providers, other: { ...base.providers.mock!, name: 'other' } }, tasks: { ...base.tasks, chat: 'other' } };
+    let n = 0;
+    const twoTurns: ChatFn = async () =>
+      n++ % 2 === 0
+        ? { message: { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'list_devices', arguments: '{}' } }] }, usage: { in: 1, out: 1 } }
+        : { message: { role: 'assistant', content: 'Đèn vàng nhé.' }, usage: { in: 1, out: 1 } };
+    const store = new Store(':memory:');
+    const t = makeAgent({ chat: twoTurns, config, deps: { memory: new Memory(store), store } });
+    await t.agent.handle(owner('nhớ là tôi thích đèn vàng'));
+    await t.agent.handle(owner('đèn nào hợp để đọc sách buổi tối?'));
+    const rows = (store as unknown as { db: { prepare(q: string): { all(): { provider: string }[] } } }).db.prepare('SELECT provider FROM memory_sent ORDER BY rowid').all();
+    expect(rows.map((r) => r.provider)).toEqual(['mock', 'other']);
+    expect([...store.memorySent().values()].map((x) => x.n)).toEqual([1]);
   });
 
   it('the AI can only offer to remember; it is stored on "yes"', async () => {

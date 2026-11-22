@@ -22,6 +22,8 @@ const STOP = new Set(
 );
 const words = (s: string) => new Set(fold(s).split(' ').filter((w) => w.length > 1 && !STOP.has(w)));
 const overlap = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w)).length;
+/** A time or day: with it, "remember …" asks for a reminder. */
+const WHEN = /\d{1,2}\s*(?:giờ|gio|h|am|pm|:\d{2})(?:\s|$|[.,])|(?:^|\s)(?:lúc|vào lúc|ngày mai|sáng mai|chiều mai|tối mai|tối nay|chiều nay|tomorrow|tonight|at noon|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))(?:\s|$|[.,])/iu;
 const QUESTION = /\?|(?:^|\s)(?:gì|mấy|nào|đâu|bao giờ|khi nào|ai|bao nhiêu|what|when|who|where|which|how)(?:\s|$)/iu;
 
 /** Memory commands of the owner, read before the device router. null = not one. */
@@ -33,8 +35,9 @@ export function parseMemoryCommand(text: string): ToolCall | null {
   if (m) return { name: 'forget', args: { id: Number(m[1]) } };
   m = /^(?:mục|item)\s*#?(\d{1,6})\s+(riêng tư|bí mật|thường|private|normal)\s*[.!]?$/iu.exec(t);
   if (m) return { name: 'memory_level', args: { id: Number(m[1]), level: /^(riêng tư|bí mật|private)$/iu.test(m[2]!) ? 'private' : 'normal' } };
-  m = /^(?:hãy\s+)?(?:quên|forget)\s+(?:đi\s+)?(?:là\s+|rằng\s+|that\s+|about\s+|chuyện\s+|điều\s+)?(.{2,200})$/iu.exec(t);
-  if (m) return { name: 'forget', args: { query: m[1]!.replace(/[.!]+$/, '').trim() } };
+  // "quên mất tắt đèn", "quên tắt đèn rồi": the owner forgot something, VEGA must not; a forget by words is confirmed anyway
+  m = /^(?:hãy\s+)?(?:quên|forget)\s+(?!mất\s|to\s)(?:đi\s+)?(?:là\s+|rằng\s+|that\s+|about\s+|chuyện\s+|điều\s+)?(.{2,200})$/iu.exec(t);
+  if (m && !/\s(?:rồi|mất rồi)\s*[.!]?$/iu.test(t)) return { name: 'forget', args: { query: m[1]!.replace(/[.!]+$/, '').trim() } };
   if (/^(?:bạn|vega|em)?\s*(?:nhớ|biết)\s+(?:được\s+)?(?:gì|những gì)\s+về\s+(?:tôi|mình|tao|anh|chị)\s*\??$|^what do you (?:remember|know) about me\??$|^(?:bạn nhớ những gì|what do you remember)\??$/iu.test(t)) {
     return { name: 'memory_list', args: {} };
   }
@@ -42,8 +45,10 @@ export function parseMemoryCommand(text: string): ToolCall | null {
   if (m) {
     const how = m[1]!.toLowerCase();
     let what = m[2]!.trim();
+    // "remember to call mom at 5", "nhớ giúp tôi gọi mẹ lúc 5 giờ": a reminder, for the reminder parser or the AI's add_reminder
+    if ((how === 'remember' || how.startsWith('nhớ giúp')) && !/^(?:là|rằng)\s/iu.test(what) && (/^to\s/iu.test(what) || WHEN.test(what))) return null;
     const secret = how.includes('bí mật') || /^(?:bí mật|secret(?:ly)?)\s*[:,]?\s*/iu.test(what) || /\s*\((?:bí mật|secret)\)$/iu.test(what);
-    what = what.replace(/^(?:bí mật|secret(?:ly)?)\s*[:,]?\s*/iu, '').replace(/\s*\((?:bí mật|secret)\)$/iu, '');
+    what = what.replace(/^(?:là|rằng)\s+/iu, '').replace(/^(?:bí mật|secret(?:ly)?)\s*[:,]?\s*/iu, '').replace(/\s*\((?:bí mật|secret)\)$/iu, '');
     return { name: 'remember', args: { text: clip(what, 300), ...(secret && { secret: true }), ...(how.includes('mãi') && { pinned: true }) } };
   }
   return null;
@@ -70,7 +75,9 @@ export class Aliases {
   }
   hide(s: string): string {
     let out = s;
-    for (const [name, alias] of this.pairs) out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${esc(name)}(?![\\p{L}\\p{N}])`, 'giu'), alias);
+    // a name that is also an everyday word ("Mai" / "ngày mai") is only hidden as written; any other name in any case ("lan ơi")
+    // shortcut: COMMON_WORDS is a short hand-made list; a lowercase "mai" meaning the person still goes out as is
+    for (const [name, alias] of this.pairs) out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${esc(name)}(?![\\p{L}\\p{N}])`, COMMON_WORDS.has(name.toLowerCase()) ? 'gu' : 'giu'), alias);
     return out;
   }
   reveal(s: string): string {
@@ -80,6 +87,10 @@ export class Aliases {
   }
 }
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Given names that are also common words: "mai" (tomorrow), "nam" (south), "hoa" (flower), "an toàn"… */
+const COMMON_WORDS = new Set(
+  'an bình công đông đức hà hải hạ hạnh hoa hoà hòa hồng hương khoa long mai minh nam ngọc phúc quang sơn tâm thanh thành thu trung vân việt xuân yên'.split(' '),
+);
 
 export class Memory {
   constructor(
@@ -124,12 +135,16 @@ export class Memory {
   }
 
   forget(target: { id?: number; query?: string }, lang: Lang): { ok: boolean; text: string } {
-    let row: MemoryRow | undefined;
-    if (target.id !== undefined) row = this.all().find((r) => r.id === target.id);
-    else if (target.query) row = this.best(target.query, this.all(), 1);
+    const row = this.find(target);
     if (!row) return { ok: false, text: L(lang, 'Mình không thấy điều đó trong trí nhớ. Nói "bạn nhớ gì về tôi" để xem danh sách.', 'I cannot find that in my memory. Say "what do you remember about me" for the list.') };
     this.store.deleteMemory(row.id);
     return { ok: true, text: L(lang, `Đã quên #${row.id}: ${clip(row.text, 100)}.`, `Forgot #${row.id}: ${clip(row.text, 100)}.`) };
+  }
+
+  /** The item "quên mục 3" or "quên chuyện …" points at. */
+  find(target: { id?: number; query?: string }): MemoryRow | undefined {
+    if (target.id !== undefined) return this.all().find((r) => r.id === target.id);
+    return target.query ? this.best(target.query, this.all(), 1) : undefined;
   }
 
   forgetAll(lang: Lang): string {

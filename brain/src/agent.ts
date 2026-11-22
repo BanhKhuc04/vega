@@ -20,7 +20,7 @@ import { dayOf } from './store';
 import type { Store } from './store';
 import { clip, fold, wrapExternal } from './text';
 import type { SourceRef } from '@vega/contract';
-import { MEMORY_TOOLS, PHYSICAL, chipLabel, parseToolCall, toolSpecs } from './tools';
+import { NO_HISTORY, PHYSICAL, chipLabel, parseToolCall, toolSpecs } from './tools';
 import type { ToolCall } from './tools';
 import { parseSeen, visionMessages } from './vision';
 import type { Camera, FrameCache } from './vision';
@@ -229,7 +229,7 @@ export class Agent {
     }
     if (run.pending.length) {
       const what = run.pending
-        .map((c) => (c.name === 'set_device' ? `turn ${c.args.on ? 'on' : 'off'} ${label(this.deps.registry.get(c.args.device)!)}` : c.name === 'remember' ? `remember "${clip(c.args.text, 120)}"` : c.name === 'forget_all' ? 'forget everything VEGA remembers' : chipLabel(c)))
+        .map((c) => (c.name === 'set_device' ? `turn ${c.args.on ? 'on' : 'off'} ${label(this.deps.registry.get(c.args.device)!)}` : c.name === 'remember' ? `remember "${clip(c.args.text, 120)}"` : c.name === 'forget_all' ? 'forget everything VEGA remembers' : c.name === 'forget' ? `forget #${c.args.id} "${clip(this.deps.memory?.find(c.args)?.text ?? '', 100)}"` : chipLabel(c)))
         .join(', ');
       this.pending = { calls: run.pending, expires: now + config.confirmTtlS * 1000 };
       run.screen = {
@@ -337,6 +337,7 @@ export class Agent {
     // the date and time, so the LLM can turn "Friday at 5" into a reminder time
     if (a) messages.splice(1, 0, { role: 'system', content: `Local time now: ${new Date(this.now()).toString()}.` });
     let lastTexts: string[] = [];
+    const memoSentTo = new Set<string>();
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const task = turn === 0 ? 'router' : 'chat';
       const provider = config.providers[(config.tasks[task] ?? config.tasks.router)!]!;
@@ -353,8 +354,11 @@ export class Agent {
       chips.push({ label: `LLM ${provider.model}`.slice(0, 40), state: 'run' });
       this.think(chips);
       let res: ChatResponse;
-      // the ledger (T10): which items left the Pi with this command, never their text
-      if (turn === 0 && memo.length) store.logMemorySent(this.now(), cmd.id, provider.name, memo.map((r) => r.id));
+      // the ledger (T10): which items left the Pi with this command and to whom (router and chat can differ), never their text
+      if (memo.length && !memoSentTo.has(provider.name)) {
+        memoSentTo.add(provider.name);
+        store.logMemorySent(this.now(), cmd.id, provider.name, memo.map((r) => r.id));
+      }
       try {
         res = await this.chat(provider, { messages, tools: tools() }, { timeoutMs: config.llmTimeoutMs });
       } catch (e) {
@@ -550,8 +554,17 @@ export class Agent {
         const r = this.deps.memory?.all().find((x) => x.id === c.args.id);
         return r ? { ok: true, text: L(run.lang, `Bạn đã dặn: ${r.text}`, `You told me: ${r.text}`) } : { ok: false, text: L(run.lang, 'Mình không nhớ điều đó.', 'I do not remember that.') };
       }
-      case 'forget':
-        return this.deps.memory ? this.deps.memory.forget(c.args, run.lang) : { ok: false, text: L(run.lang, 'Chưa bật trí nhớ.', 'Memory is not set up.') };
+      case 'forget': {
+        const m = this.deps.memory;
+        if (!m) return { ok: false, text: L(run.lang, 'Chưa bật trí nhớ.', 'Memory is not set up.') };
+        const row = c.args.query !== undefined && !run.confirmed ? m.find(c.args) : undefined;
+        if (row) {
+          // forgetting by words picks an item by guess: the owner sees which one and confirms
+          run.pending.push({ name: 'forget', args: { id: row.id } });
+          return { ok: true, text: 'Forgetting an item: waiting for the owner to confirm on screen', data: { pending: true } };
+        }
+        return m.forget(c.args, run.lang);
+      }
       case 'forget_all':
         if (!this.deps.memory) return { ok: false, text: L(run.lang, 'Chưa bật trí nhớ.', 'Memory is not set up.') };
         if (!run.confirmed) {
@@ -677,7 +690,7 @@ export class Agent {
     }
     const sensor = out.calls.find((x) => x.name === 'get_sensor');
     if (sensor?.name === 'get_sensor' && sensor.args.room) c.room = sensor.args.room;
-    if (out.calls.some((x) => MEMORY_TOOLS.has(x.name)) || !['local', 'llm', 'confirmed'].includes(out.path)) return;
+    if (out.calls.some((x) => NO_HISTORY.has(x.name)) ||!['local', 'llm', 'confirmed'].includes(out.path)) return;
     c.turns = [...c.turns, { user: clip(cmd.text, 500), answer: clip(out.answer, 500) }].slice(-CONVO_TURNS);
   }
 

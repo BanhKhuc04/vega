@@ -198,8 +198,12 @@ rõ là không huấn luyện trên dữ liệu API. Vì vậy VEGA coi **mọi 
 - **Gửi ít nhất:** mỗi câu hỏi kèm tối đa 5 mục *thường* có từ trùng với câu hỏi, khoảng 400 token. Không bao giờ gửi cả kho nhớ.
 - **Hỏi về trí nhớ chạy cục bộ:** "bạn nhớ gì về tôi", "tôi dậy mấy giờ", "quên…". Các lượt này không vào lịch sử hội thoại gửi AI.
 - **Chống đầu độc trí nhớ:** chỉ lệnh trực tiếp của chủ mới ghi được. Mail, trang web, log CI chứa "hãy nhớ rằng…" không làm gì được. AI
-  chỉ được *đề xuất* (tối đa một lần mỗi cuộc nói chuyện), mục chỉ được ghi khi chủ bấm Confirm hoặc nói "yes". "Quên hết" cũng cần xác nhận.
-- **Hội thoại ngắn hạn** (6 lượt) chỉ ở RAM, mất sau 10 phút im lặng hoặc khi khởi động lại.
+  chỉ được *đề xuất* (tối đa một lần mỗi cuộc nói chuyện), mục chỉ được ghi khi chủ bấm Confirm hoặc nói "yes". "Quên hết" và "quên chuyện …" (VEGA đoán mục theo từ) cũng cần xác nhận.
+- **Hội thoại ngắn hạn** (6 lượt) chỉ ở RAM, mất sau 10 phút im lặng hoặc khi khởi động lại. Các lượt về trí nhớ, vị trí, mail,
+  lịch, lời nhắc, CI và briefing không bao giờ vào lịch sử gửi AI: trong đó chúng sẽ lên AI như câu trả lời của chính nó, không bọc
+  `<external>`.
+- **Tên trùng từ thường** (Mai, Nam, Hoa, An…) chỉ được đổi bí danh khi viết hoa như tên, để "ngày mai" không thành "ngày Người A".
+  Gõ thường "mai" để chỉ người thì tên đó đi nguyên văn.
 - **Sổ gửi đi:** bảng `memory_sent` ghi mục nào đã kèm theo lệnh nào, gửi nhà cung cấp nào (không ghi nội dung). Console › Memory hiện "đã gửi
   AI n lần".
 - **Giới hạn:** quy tắc từ khoá có thể bỏ sót câu viết lạ, và câu chủ tự gõ mà cần AI thì vẫn đi nguyên văn (trừ tên đã biết). Điều thật sự
