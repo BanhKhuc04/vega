@@ -26,6 +26,7 @@ export interface DataEnv {
  * Picks the data source. Precedence: URL (`?source=mqtt&mqtt=ws://host:9001`) > /config.js > build-time env > SIM.
  * Default broker URL: on an HTTPS page, `wss://<same host>/mqtt` (proxied by the page's nginx; a secure page may not
  * open `ws://`, and the microphone needs a secure page); otherwise the WebSocket listener on that host, port 9001.
+ * A URL that is only a path (`/mqtt`) means the page's own address, ws:// or wss:// like the page.
  */
 export function createDataSource(
   env: DataEnv = import.meta.env,
@@ -37,7 +38,9 @@ export function createDataSource(
   const q = new URLSearchParams(search);
   const kind = q.get('source') || cfg.source || env.VITE_DATA_SOURCE || 'mock';
   if (kind !== 'mqtt') return new MockSource();
-  const url = q.get('mqtt') || cfg.mqttUrl || env.VITE_MQTT_URL || (secure.https ? `wss://${secure.host}/mqtt` : `ws://${host}:9001`);
+  const raw = q.get('mqtt') || cfg.mqttUrl || env.VITE_MQTT_URL || (secure.https ? '/mqtt' : `ws://${host}:9001`);
+  // a path = through the page's own nginx (same host and port): browsers may refuse a second port on a private address
+  const url = raw.startsWith('/') ? `${secure.https ? 'wss' : 'ws'}://${secure.host}${raw}` : raw;
   const room = cfg.room || env.VITE_ROOM;
   return new MqttSource({
     url,

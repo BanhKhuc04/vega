@@ -24,6 +24,9 @@ describe('createDataSource', () => {
     expect(src.opts).toMatchObject({ url: 'ws://url:2', username: 'ui', password: 'secret', primaryRoom: 'office' });
     const https = createDataSource({}, '?source=mqtt', {}, 'vega.tail1234.ts.net', { https: true, host: 'vega.tail1234.ts.net' }) as unknown as { opts: { url: string } };
     expect(https.opts.url).toBe('wss://vega.tail1234.ts.net/mqtt'); // a secure page: same address, through nginx
+    // the Pi's config.js says /mqtt: same host and port as the page (a plain-http Tailscale address included)
+    const path = createDataSource({}, '?source=mqtt', { mqttUrl: '/mqtt' }, '100.87.86.18', { https: false, host: '100.87.86.18:8080' }) as unknown as { opts: { url: string } };
+    expect(path.opts.url).toBe('ws://100.87.86.18:8080/mqtt');
     const cfg = createDataSource({ VITE_MQTT_URL: 'ws://env:1' }, '?source=mqtt', {}, 'h') as unknown as { opts: { url: string } };
     expect(cfg.opts.url).toBe('ws://env:1');
   });
