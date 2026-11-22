@@ -38,8 +38,8 @@ services:
       - "${TAILSCALE_IP:-127.0.0.2}:${UI_PORT:-8080}:80"
     environment:
       VEGA_SOURCE: mqtt
-      # empty = ws://<host that served the page>:9001
-      VEGA_MQTT_URL: ""
+      # through this page's nginx: Chrome refused the page's ws:// to port 9001 on the Tailscale address (2026-11)
+      VEGA_MQTT_URL: /mqtt
       VEGA_MQTT_USER: ui
       VEGA_MQTT_PASS: ${MQTT_UI_PASS:?run setup.sh first}
       VEGA_ROOM: ${VEGA_ROOM:-bedroom}

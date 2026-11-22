@@ -21,7 +21,10 @@ if [ "$(id -u)" != 0 ]; then
   exit 1
 fi
 say() { printf '\n==> %s\n' "$*"; }
-conf_get() { sed -n "s/^$1=//p" "$CONF" 2>/dev/null | head -n1; }
+# no pipe: under pipefail a missing file (first run) or a closed pipe would end the script
+conf_get() { [ -f "$CONF" ] || return 0; sed -n "/^$1=/{s///p;q}" "$CONF"; }
+# ntfy's CLI prints to stderr
+has_user() { local u; u="$(ntfy user list 2>&1 || true)"; [[ $u == *"user $1 "* ]]; }
 conf_set() {
   touch "$CONF"
   chmod 600 "$CONF"
@@ -102,11 +105,11 @@ upstream-base-url: "https://ntfy.sh"
 EOF
 systemctl enable --now ntfy
 sleep 2
-if ! ntfy user list 2>/dev/null | grep -q 'user vega '; then
+if ! has_user vega; then
   # the brain and vega-watch only use a token: this password is never needed
   NTFY_PASSWORD="$(openssl rand -hex 24)" ntfy user add vega
 fi
-if ! ntfy user list 2>/dev/null | grep -q 'user phone '; then
+if ! has_user phone; then
   echo "   Choose the password the ntfy app on your phone will use (account 'phone'):"
   ntfy user add phone
 fi

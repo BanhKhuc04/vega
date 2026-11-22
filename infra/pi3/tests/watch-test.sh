@@ -9,10 +9,12 @@ mkdir -p "$W/bin" "$W/state"
 
 cat >"$W/bin/mosquitto_sub" <<'EOF'
 #!/usr/bin/env bash
+[ -f "$FAKE/hang" ] && exec sleep 30
 [ -f "$FAKE/health" ] && cat "$FAKE/health" || exit 27
 EOF
 cat >"$W/bin/mosquitto_pub" <<'EOF'
 #!/usr/bin/env bash
+[ -f "$FAKE/hang" ] && exec sleep 30
 while [ $# -gt 0 ]; do [ "$1" = -m ] && echo "$2" >>"$FAKE/beats"; shift; done
 EOF
 cat >"$W/bin/tailscale" <<'EOF'
@@ -30,7 +32,7 @@ T0=$(date -d '2026-11-22T10:00:00Z' +%s)
 now=$T0
 report() { printf '{"v":1,"ts":"%s","services":[]}' "$(date -u -d "@$1" +%Y-%m-%dT%H:%M:%SZ)" >"$W/health"; }
 run() {
-  FAKE="$W" PATH="$W/bin:$PATH" PI4_HOST=vega MQTT_PASS=p NTFY_TOKEN=tk_test NTFY_TOPIC=vega-test STATE_DIR="$W/state" NOW="$now" \
+  FAKE="$W" PATH="$W/bin:$PATH" PI4_HOST=vega MQTT_PASS=p NTFY_TOKEN=tk_test NTFY_TOPIC=vega-test STATE_DIR="$W/state" NOW="$now" MQTT_TIMEOUT_S=3 \
     bash "$ROOT/infra/pi3/vega-watch.sh" >/dev/null 2>&1
   now=$((now + 60))
 }
@@ -81,6 +83,15 @@ before=$(pushes)
 report "$now"
 run
 [ "$(pushes)" = $((before + 1)) ] || fail "'back' push not retried after ntfy was down"
+
+# Pi 4 powered off: MQTT hangs instead of failing; each run must still end quickly and count a miss
+touch "$W/hang"
+before=$(cat "$W/state/fails")
+start=$(date +%s)
+run
+[ $(($(date +%s) - start)) -lt 15 ] || fail "a hanging MQTT call held the run"
+[ "$(cat "$W/state/fails")" = $((before + 1)) ] || fail "a hanging MQTT call did not count as a miss"
+rm -f "$W/hang"
 
 # the token never ends up in a message
 if grep -q tk_test "$W/pushes"; then fail "token in a message"; fi
