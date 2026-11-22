@@ -247,7 +247,7 @@ Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). C
 | `nhớ bí mật là …` | Nhớ ở mức **riêng tư**: không bao giờ gửi cho AI |
 | `nhớ mãi là hôm nay tôi tốt nghiệp` | Chuyện đã xảy ra bình thường tự quên sau 30 ngày; "nhớ mãi" thì giữ |
 | `tôi dậy mấy giờ?`, `bạn nhớ gì về tôi` | Trả lời từ trí nhớ, không gọi AI |
-| `quên chuyện …`, `quên mục 3`, `quên hết` (cần xác nhận) | Xoá |
+| `quên mục 3`; `quên chuyện …`, `quên hết` (cần xác nhận) | Xoá |
 | `bật đèn phòng khách` rồi `tắt nó đi`, `bật luôn`, `phòng đó mấy độ` | Hiểu theo câu vừa nói (10 phút), không gọi AI |
 
 - Mật khẩu, OTP, số thẻ, số tài khoản, số giấy tờ: VEGA từ chối nhớ.

@@ -55,18 +55,27 @@ export function kindOf(text: string): MemoryKind {
   return 'fact';
 }
 
-const CAP = '[A-ZÀ-ỸĐ][\\p{L}]*';
+// A capitalised word: \p{Lu}, never an [A-Ỹ] range (it holds lowercase "đ", "ấ"…) and never the `i` flag (it makes \p{Lu}
+// match lowercase too). So "anh đi làm" teaches no name "đi".
+const CAP = '\\p{Lu}\\p{L}*';
+/** The words as written, or with the first letter capitalised (start of a sentence). */
+const either = (words: string[]) => words.map((w) => `[${w[0]!.toUpperCase()}${w[0]}]${w.slice(1)}`).join('|');
+/** Not inside a word: the "em" of "xem" or "kem" is no kin word. */
+const START = '(?<![\\p{L}\\p{N}])';
 const NAME_RE = [
-  new RegExp(`(?:tên(?: là)?|named|called)\\s+(${CAP}(?:\\s+${CAP}){0,2})`, 'u'),
-  new RegExp(`(?:anh|chị|em|cô|chú|bác|ông|bà|bạn|cậu|dì|mợ|thím)\\s+(${CAP}(?:\\s+${CAP}){0,2})`, 'u'),
+  new RegExp(`${START}(?:${either(['tên là', 'tên', 'named', 'called'])})\\s+(${CAP}(?:\\s+${CAP}){0,2})`, 'u'),
+  new RegExp(`${START}(?:${either(['anh', 'chị', 'em', 'cô', 'chú', 'bác', 'ông', 'bà', 'bạn', 'cậu', 'dì', 'mợ', 'thím'])})\\s+(${CAP}(?:\\s+${CAP}){0,2})`, 'u'),
 ];
-const PLACE_RE = new RegExp(`(?:công ty|trường|quán|nhà hàng|bệnh viện|viện|phòng khám|company|school|hospital|clinic|cafe)\\s+(${CAP}(?:\\s+[\\p{L}0-9]+){0,3})`, 'iu');
+const PLACE_RE = new RegExp(
+  `${START}(?:${either(['công ty', 'trường', 'quán', 'nhà hàng', 'bệnh viện', 'viện', 'phòng khám', 'company', 'school', 'hospital', 'clinic', 'cafe'])})\\s+(${CAP}(?:\\s+(?:${CAP}|\\d+)){0,3})`,
+  'u',
+);
 
 /** The person and place names an item teaches, as written (capitalised), with their type. */
 export function namesIn(text: string): { name: string; type: 'person' | 'place' }[] {
   const out: { name: string; type: 'person' | 'place' }[] = [];
   const add = (name: string, type: 'person' | 'place') => out.some((x) => x.name === name) || out.push({ name, type });
   for (const re of NAME_RE) for (const m of text.matchAll(new RegExp(re.source, 'gu'))) if (m[1]) add(m[1].trim(), 'person');
-  for (const m of text.matchAll(new RegExp(PLACE_RE.source, 'giu'))) if (m[1]) add(m[1].trim(), 'place');
+  for (const m of text.matchAll(new RegExp(PLACE_RE.source, 'gu'))) if (m[1]) add(m[1].trim(), 'place');
   return out;
 }

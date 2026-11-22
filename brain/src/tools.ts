@@ -37,6 +37,12 @@ export type ToolCall =
 
 /** Tools about the memory: their turns never enter the conversation history sent to an AI (they may show private items). */
 export const MEMORY_TOOLS: ReadonlySet<ToolName> = new Set(['remember', 'memory_list', 'recall', 'forget', 'forget_all', 'memory_level']);
+/**
+ * Turns that never enter the conversation history sent to an AI: the memory, and local answers made of the owner's
+ * whereabouts (locate) or outside content (mail, calendar, CI commit messages, the briefing that holds them). In the
+ * history they would reach the AI unwrapped, as its own earlier answer, with physical tools still offered.
+ */
+export const NO_HISTORY: ReadonlySet<ToolName> = new Set([...MEMORY_TOOLS, 'locate', 'set_home', 'mail_list', 'calendar_list', 'list_reminders', 'briefing', 'ci_status', 'ci_explain', 'look']);
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
