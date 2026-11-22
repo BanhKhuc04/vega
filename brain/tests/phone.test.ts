@@ -74,6 +74,24 @@ describe('PhonePush', () => {
     expect(x.logs.at(-1)).toBe('[phone] pushes go through again');
   });
 
+  it('recheck: nothing while fine; while failing, a GET with the token clears it without reaching the phone', async () => {
+    let up = true;
+    const x = phone(false, async () => (up ? new Response('{}') : new Response('', { status: 502 })));
+    await x.p.recheck();
+    expect(x.f).not.toHaveBeenCalled();
+    up = false;
+    await x.p.push(health, 'a');
+    await x.p.recheck();
+    expect(x.p.error).toBe('HTTP 502');
+    up = true;
+    await x.p.recheck();
+    expect(x.p.error).toBeNull();
+    const [url, init] = x.f.mock.calls.at(-1) as unknown as [string, RequestInit];
+    expect([url, init.method, init.body]).toEqual(['https://vega-watch.example.ts.net/v1/account', 'GET', undefined]);
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer tk_secret123456');
+    expect(x.logs.at(-1)).toBe('[phone] pushes go through again');
+  });
+
   it('network down: error kept, no throw', async () => {
     const x = phone(false, async () => {
       throw new Error('connect ECONNREFUSED');

@@ -49,14 +49,21 @@ export class PhonePush {
     // only the scene's own short text: never a coordinate, a mail body or a key (none of them is in an alert's `error`)
     const message = clip(typeof data?.error === 'string' && data.error ? data.error : (scene.status ?? label), 300);
     const body = JSON.stringify({ topic: this.d.config.topic, title: clip(label, 80), message, priority: PRIORITY[level], tags: TAGS[level] });
+    await this.send(this.d.config.url, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+  }
+
+  /**
+   * While a failure is kept: asks ntfy whether it answers and takes the token again (GET /v1/account, nothing reaches the
+   * phone). Without it the failure would stay in `/status` until the next push, which at home can be days away.
+   */
+  async recheck(): Promise<void> {
+    if (this.error) await this.send(`${this.d.config.url}/v1/account`, { method: 'GET' });
+  }
+
+  private async send(url: string, init: { method: string; headers?: Record<string, string>; body?: string }): Promise<void> {
     let failure: string | null;
     try {
-      const r = await (this.d.fetchImpl ?? fetch)(this.d.config.url, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${this.d.config.token}`, 'content-type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(10_000),
-      });
+      const r = await (this.d.fetchImpl ?? fetch)(url, { ...init, headers: { ...init.headers, authorization: `Bearer ${this.d.config.token}` }, signal: AbortSignal.timeout(10_000) });
       failure = r.ok ? null : `HTTP ${r.status}`;
     } catch (e) {
       failure = (e as Error).name === 'TimeoutError' ? 'timeout' : (e as Error).message.slice(0, 80);
