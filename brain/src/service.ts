@@ -145,7 +145,11 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
       setTimeout(sample, 2000); // a first CPU sample needs a short interval
     }
     locator.republish();
-    if (health && !healthTimer) healthTimer = setInterval(() => health.check(), 60_000);
+    if (health && !healthTimer)
+      healthTimer = setInterval(() => {
+        void phone?.recheck();
+        health.check();
+      }, 60_000);
     if (!started) {
       started = true;
       assistant!.start();
