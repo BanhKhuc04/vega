@@ -134,4 +134,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash -n infra/pi/setup.sh dashboard/docker/40-vega-config.sh
-      - run: shellcheck -x infra/pi/setup.sh dashboard/docker/40-vega-config.sh
+      - run: shellcheck -x infra/pi/setup.sh dashboard/docker/40-vega-config.sh infra/pi3/setup.sh infra/pi3/vega-watch.sh infra/pi3/tests/watch-test.sh
+      - name: Pi 3 watchdog (M10, fake MQTT, ping and ntfy)
+        run: bash infra/pi3/tests/watch-test.sh

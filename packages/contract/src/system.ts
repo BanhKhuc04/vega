@@ -124,6 +124,10 @@ export type BackupState = z.infer<typeof backupState>;
 export const presenceState = z.object({ v, ts, state: z.enum(['home', 'away']) });
 export type PresenceState = z.infer<typeof presenceState>;
 
+/** `vega/system/watch` (v9, retained): heartbeat of the Pi 3 watchdog, every minute (brief 0014 P4). */
+export const watchBeat = z.object({ v, ts });
+export type WatchBeat = z.infer<typeof watchBeat>;
+
 /** A location from OwnTracks (`owntracks/<user>/<device>`, `_type: location`): only the fields VEGA reads. */
 export const owntracksLocation = z.object({
   _type: z.literal('location'),

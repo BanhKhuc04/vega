@@ -61,7 +61,7 @@ interface Overview {
   now: number;
   pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;
   usage: { usd: number; budgetUsd: number; calls: number };
-  health: { services: { name: string; state: string; health: string; restarts: number }[] | null; reportedAt: number | null; backup: { ts: string; ok: boolean; offsite: boolean; bytes?: number; error?: string } | null; diskFreePct: number | null; problems: { title: string; detail: string }[] } | null;
+  health: { services: { name: string; state: string; health: string; restarts: number }[] | null; reportedAt: number | null; backup: { ts: string; ok: boolean; offsite: boolean; bytes?: number; error?: string } | null; diskFreePct: number | null; watchAt?: number | null; problems: { title: string; detail: string }[] } | null;
   presence: { home: boolean | null; device: string; updated: number } | null;
   devices: { online: number; total: number };
   reminders: number;
@@ -101,6 +101,7 @@ const R: Record<Tab, () => Promise<Node[]>> = {
         card('You', o.presence ? (o.presence.home === true ? 'home' : o.presence.home === false ? 'away' : 'located') : '—', o.presence ? `${o.presence.device} · ${ago(o.presence.updated, o.now)}` : 'no phone (OwnTracks)'),
         card('Backup', !h ? 'not on this machine' : !b ? 'none yet' : b.ok ? ago(Date.parse(b.ts), o.now) : 'failed', b ? (b.ok ? (b.offsite ? 'also off the Pi' : 'on the Pi only') : (b.error ?? '')) : '', !h ? 'dim' : !b || !b.ok || !b.offsite ? 'warn' : 'ok'),
         card('Disk', h?.diskFreePct != null ? `${Math.round(h.diskFreePct)}%` : '—', 'free', h?.diskFreePct != null && h.diskFreePct < 10 ? 'bad' : ''),
+        card('Pi 3 watchdog', h?.watchAt != null ? ago(h.watchAt, o.now) : '—', h?.watchAt != null ? 'last heartbeat' : 'not installed', h?.watchAt == null ? 'dim' : o.now - h.watchAt > 300_000 ? 'bad' : 'ok'),
       ),
     );
     if (!h) out.push(el('p', { class: 'note' }, 'Health checks run on the Pi only (HEALTH_WATCH=1): containers, disk, temperature, backups.'));

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { SYSTEM_BACKUP, SYSTEM_COMMAND, SYSTEM_HEALTH, systemCommand } from '@vega/contract';
+import { SYSTEM_BACKUP, SYSTEM_COMMAND, SYSTEM_HEALTH, SYSTEM_WATCH, systemCommand } from '@vega/contract';
 import { Agent } from './agent';
 import { Assistant } from './assistant';
 import type { ChatFn } from './agent';
@@ -9,6 +9,7 @@ import type { Config } from './config';
 import { CiWatcher, GithubClient, ciEvent, ciScene } from './github';
 import { HealthWatch, diskFreeOf } from './health';
 import { Locator } from './locate';
+import { PhonePush } from './phone';
 import { GoogleApi, GoogleAuth } from './google';
 import { piStatsReader } from './pistats';
 import { Registry } from './registry';
@@ -66,6 +67,8 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     : null;
   const g = cfg.google;
   const w = cfg.weather;
+  const phone = cfg.phone ? new PhonePush({ config: cfg.phone, atHome: () => locator.atHome, log }) : null;
+  if (phone) log(`[phone] alerts through ntfy at ${cfg.phone!.url}`);
   assistant = new Assistant({
     bus,
     registry,
@@ -75,12 +78,13 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     google: g ? new GoogleApi(new GoogleAuth(g), g) : null,
     weather: w ? () => fetchWeather(w) : null,
     log,
+    ...(phone && { push: (s, label) => void phone.push(s, label) }),
     ...(opts.now && { now: opts.now }),
   });
   const locator = new Locator({ store, home: cfg.home, homeRegions: cfg.homeRegions, presence: (home) => bus.presence(home), log, ...(opts.now && { now: opts.now }) });
   const dbDir = cfg.dbPath === ':memory:' ? '.' : dirname(resolve(cfg.dbPath));
   const health = cfg.health.on
-    ? new HealthWatch({ backupMaxH: cfg.health.backupMaxH, notify: (s, label) => assistant!.notify(s, label), log, diskFreePct: () => diskFreeOf(dbDir), ...(opts.now && { now: opts.now }) })
+    ? new HealthWatch({ backupMaxH: cfg.health.backupMaxH, notify: (s, label) => assistant!.notify(s, label), log, diskFreePct: () => diskFreeOf(dbDir), phoneError: () => phone?.error ?? null, ...(opts.now && { now: opts.now }) })
     : null;
   let healthTimer: ReturnType<typeof setInterval> | null = null;
   let started = false;
@@ -153,6 +157,7 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   client.on('message', (topic, payload, packet) => {
     if (topic === SYSTEM_HEALTH) return void health?.onHealth(payload.toString());
     if (topic === SYSTEM_BACKUP) return void health?.onBackup(payload.toString());
+    if (topic === SYSTEM_WATCH) return void health?.onWatch(payload.toString());
     if (topic.startsWith('owntracks/')) return locator.onMessage(topic, payload.toString());
     if (topic !== SYSTEM_COMMAND) return void registry.apply(topic, payload.toString());
     let raw: unknown;

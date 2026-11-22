@@ -229,6 +229,16 @@ chạy video thật từ camera, khung và nhãn tiếng Việt bám theo đồ 
 - Trên PC (`npm run vega`): điện thoại giả đi bộ quanh nhà (ra khỏi nhà rồi về), Console dùng dữ liệu của bộ não dev, không có giám sát
   (chỉ chạy trên Pi, `HEALTH_WATCH=1`).
 
+### Người gác Pi 3 và thông báo điện thoại (M10)
+
+Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). Cài: `docs/pi-setup.md`, mục "Pi 3".
+
+- Pi 4 mất liên lạc quá 3 phút (mất điện, treo, rớt mạng, MQTT chết) thì iPhone nhận **một** tin khẩn có ghi nguyên nhân, lên lại thì có
+  tin "đã trở lại" (`infra/pi3/vega-watch.sh`, mỗi phút).
+- Bộ não đẩy Alert lên điện thoại: lỗi sức khoẻ của Pi luôn gửi; CI hỏng và lời nhắc chỉ gửi khi bạn **vắng nhà**; Briefing gửi nhẹ một
+  dòng. Không cấu hình `NTFY_URL` thì tắt (PC, CI).
+- Pi 3 im quá 5 phút thì màn VEGA hiện Alert, Console › Hôm nay có ô **Pi 3 watchdog**.
+
 ### Chỉ màn hình, không broker
 
 ```bash
@@ -329,10 +339,11 @@ npm run compare                                # ảnh cạnh nhau với templat
 
 ## Tài liệu
 
-- `docs/contract.md`: topic, payload, giao thức cảnh (revision 8)
+- `docs/contract.md`: topic, payload, giao thức cảnh (revision 9)
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0014-pi3-watch-m10.md`: brief M10 (Pi 3 làm người gác, thông báo điện thoại qua ntfy)
 - `docs/decisions/0013-m8-phone-console-ops.md`: brief M8 (backup, giám sát, Console, Locate, PWA)
 - `docs/decisions/0012-roadmap-m9-m16.md`: lộ trình sau 1.0 (bản nháp)
 - `docs/decisions/0011-m7.1-live-vision.md`: brief M7.1 (camera trực tiếp, YOLO trên Pi)

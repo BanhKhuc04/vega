@@ -63,7 +63,12 @@ async function forwardApi(page: Page): Promise<void> {
   await page.route('**/config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: `window.__VEGA__ = { consoleToken: "${TOKEN}" };` }));
   await page.route('**/api/**', async (route) => {
     const u = new URL(route.request().url());
-    route.fulfill({ response: await route.fetch({ url: `http://127.0.0.1:${port}${u.pathname}${u.search}` }) });
+    try {
+      await route.fulfill({ response: await route.fetch({ url: `http://127.0.0.1:${port}${u.pathname}${u.search}` }) });
+    } catch (e) {
+      // the page navigated (tab switch, goto) while this request was in flight: nobody is waiting for the answer
+      if (!/disposed|closed/i.test((e as Error).message)) throw e;
+    }
   });
 }
 

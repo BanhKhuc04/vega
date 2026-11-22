@@ -21,6 +21,8 @@ export const CAMERA_STATE = 'vega/desk/camera/state';
 export const SYSTEM_HEALTH = 'vega/system/health';
 export const SYSTEM_BACKUP = 'vega/system/backup';
 export const SYSTEM_PRESENCE = 'vega/system/presence';
+/** M10 (v9), retained: heartbeat of the Pi 3 watchdog (infra/pi3/vega-watch.sh). */
+export const SYSTEM_WATCH = 'vega/system/watch';
 /** Locations from the OwnTracks app on the owner's phone: `owntracks/<user>/<device>` (its own format, not `v`). */
 export const OWNTRACKS = 'owntracks/+/+';
 

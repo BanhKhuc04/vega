@@ -1,4 +1,4 @@
-# VEGA contract, revision 8
+# VEGA contract, revision 9
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
@@ -15,8 +15,9 @@ disagree, the code wins and this page is a bug.
 - Revision **8** (M8) = new retained topics `vega/system/health`, `vega/system/backup`, `vega/system/presence`; the brain
   reads OwnTracks locations on `owntracks/<user>/<device>`; the `locate` scene's `target` gains `lat`, `lon`, `accuracyM`.
   Additive.
+- Revision **9** (M10) = new retained topic `vega/system/watch`, the heartbeat of the Pi 3 watchdog. Additive.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 8` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 9` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -50,6 +51,7 @@ disagree, the code wins and this page is a bug.
 | `vega/system/health` | `infra/pi/health.sh` → brain (v8), every minute | yes | `systemHealth`: `{v, ts, services: [{name, state, health, restarts}]}` |
 | `vega/system/backup` | `infra/pi/backup.sh` → brain (v8), each run | yes | `backupState`: `{v, ts, ok, bytes?, offsite, error?}` |
 | `vega/system/presence` | brain → all (v8) | yes | `presenceState`: `{v, ts, state: "home" \| "away"}` |
+| `vega/system/watch` | `infra/pi3/vega-watch.sh` on the Pi 3 → brain (v9), every minute | yes | `watchBeat`: `{v, ts}` |
 | `owntracks/<user>/<device>` | OwnTracks app on the phone → brain (v8) | yes (app setting) | OwnTracks' own JSON; the brain reads `_type: "location"` (`lat`, `lon`, `acc`, `tst`, `inregions`) and ignores the rest |
 
 The dashboard subscribes to `vega/+/+/state`, `vega/+/+/meta`, `vega/+/+/availability`, `vega/system/events`,

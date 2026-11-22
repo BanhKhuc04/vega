@@ -42,6 +42,8 @@ export interface AssistantDeps {
   log?: (msg: string) => void;
   /** setTimeout, replaceable in tests. */
   later?: (fn: () => void, ms: number) => void;
+  /** Phone alerts (M10): sees everything VEGA shows on its own, Focus or not (Focus is about the desk). */
+  push?: (scene: SceneOut, label: string) => void;
 }
 
 interface Held {
@@ -247,6 +249,7 @@ export class Assistant {
   // --- Focus: what VEGA shows on its own waits until it ends (G8) ---
 
   notify(scene: SceneOut, label: string, speech?: string): void {
+    this.deps.push?.(scene, label);
     if (this.focus) {
       this.focus.held.push({ scene, label, ...(speech && { speech }) });
       return;
