@@ -12,6 +12,8 @@ NTFY_URL="${NTFY_URL:-http://127.0.0.1:2586}"
 STATE_DIR="${STATE_DIR:-/var/lib/vega-watch}"
 STALE_S="${STALE_S:-180}"
 FAILS="${FAILS:-3}"
+# a powered-off Pi 4 leaves the MQTT connect hanging for minutes (-W does not cover it): cap every call
+MQTT_TIMEOUT_S="${MQTT_TIMEOUT_S:-15}"
 NOW="${NOW:-$(date +%s)}"
 
 mkdir -p "$STATE_DIR"
@@ -24,13 +26,13 @@ push() {
 }
 
 # 1. the Pi 4's last health report
-msg="$(mosquitto_sub "${mqtt[@]}" -t vega/system/health -C 1 -W 10 2>/dev/null)"
+msg="$(timeout "$MQTT_TIMEOUT_S" mosquitto_sub "${mqtt[@]}" -t vega/system/health -C 1 -W 10 2>/dev/null)"
 ts="$(printf '%s' "$msg" | sed -n 's/.*"ts":"\([^"]*\)".*/\1/p')"
 ok=0
 if [ -n "$ts" ] && t="$(date -d "$ts" +%s 2>/dev/null)" && [ $((NOW - t)) -le "$STALE_S" ]; then ok=1; fi
 
 # 2. heartbeat for the Pi 4 (fails quietly while the Pi 4 is down)
-mosquitto_pub "${mqtt[@]}" -r -t vega/system/watch -m "{\"v\":1,\"ts\":\"$(date -u -d "@$NOW" +%Y-%m-%dT%H:%M:%SZ)\"}" 2>/dev/null || true
+timeout "$MQTT_TIMEOUT_S" mosquitto_pub "${mqtt[@]}" -r -t vega/system/watch -m "{\"v\":1,\"ts\":\"$(date -u -d "@$NOW" +%Y-%m-%dT%H:%M:%SZ)\"}" 2>/dev/null || true
 
 # 3. count failures, push once when the Pi 4 goes and once when it comes back
 fails="$(cat "$STATE_DIR/fails" 2>/dev/null || echo 0)"
