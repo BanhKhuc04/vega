@@ -239,6 +239,22 @@ Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). C
   dòng. Không cấu hình `NTFY_URL` thì tắt (PC, CI).
 - Pi 3 im quá 5 phút thì màn VEGA hiện Alert, Console › Hôm nay có ô **Pi 3 watchdog**.
 
+### Trí nhớ, giữ bí mật với AI trên cloud (M9)
+
+| Nói | Kết quả |
+|---|---|
+| `nhớ là tôi dậy lúc 6 giờ`, `remember that I like warm light` | Đã nhớ, không gọi AI. Khởi động lại vẫn nhớ |
+| `nhớ bí mật là …` | Nhớ ở mức **riêng tư**: không bao giờ gửi cho AI |
+| `nhớ mãi là hôm nay tôi tốt nghiệp` | Chuyện đã xảy ra bình thường tự quên sau 30 ngày; "nhớ mãi" thì giữ |
+| `tôi dậy mấy giờ?`, `bạn nhớ gì về tôi` | Trả lời từ trí nhớ, không gọi AI |
+| `quên chuyện …`, `quên mục 3`, `quên hết` (cần xác nhận) | Xoá |
+| `bật đèn phòng khách` rồi `tắt nó đi`, `bật luôn`, `phòng đó mấy độ` | Hiểu theo câu vừa nói (10 phút), không gọi AI |
+
+- Mật khẩu, OTP, số thẻ, số tài khoản, số giấy tờ: VEGA từ chối nhớ.
+- Khi phải hỏi AI: chỉ kèm tối đa 5 mục *thường* liên quan; tên người và nơi chốn đã dạy đi dưới dạng `Người A`, `Nơi B`. AI có thể đề xuất
+  nhớ một sở thích, bạn bấm Confirm mới lưu (`MEMORY_SUGGEST=0` để tắt).
+- Console › **Memory**: xem, đổi mức, xoá, và xem mục nào đã gửi AI bao nhiêu lần. Chi tiết: `docs/security.md` §10b, brief 0015.
+
 ### Chỉ màn hình, không broker
 
 ```bash
@@ -343,6 +359,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0015-m9-memory-private.md`: brief M9 (trí nhớ, mức bí mật, bí danh khi gửi AI)
 - `docs/decisions/0014-pi3-watch-m10.md`: brief M10 (Pi 3 làm người gác, thông báo điện thoại qua ntfy)
 - `docs/decisions/0013-m8-phone-console-ops.md`: brief M8 (backup, giám sát, Console, Locate, PWA)
 - `docs/decisions/0012-roadmap-m9-m16.md`: lộ trình sau 1.0 (bản nháp)

@@ -7,6 +7,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Config } from './config';
 import type { HealthWatch } from './health';
+import type { Memory } from './memory';
 import type { Locator } from './locate';
 import { fold } from './text';
 import type { Registry } from './registry';
@@ -21,6 +22,8 @@ export interface ApiDeps {
   registry: Registry;
   health: HealthWatch | null;
   locator: Locator | null;
+  /** What VEGA remembers (M9): the Console lists it; changes go through `command` like any other. */
+  memory?: Memory | null;
   /** Runs a command as the owner (the Console's two actions: cancel a reminder, switch a device) and returns the answer. */
   command(text: string): Promise<{ id: string; answer: string }>;
   now?: () => number;
@@ -115,6 +118,10 @@ export function handleApi(req: IncomingMessage, res: ServerResponse, d: ApiDeps)
       );
     case 'GET /api/reminders':
       return json(res, 200, d.store.pendingReminders());
+    case 'GET /api/memory': {
+      const sent = d.store.memorySent();
+      return json(res, 200, (d.memory?.all() ?? []).map((m) => ({ id: m.id, kind: m.kind, level: m.level, text: m.text, pinned: m.pinned, created: m.created, expires: m.expires, sent: sent.get(m.id) ?? { n: 0, last: null } })));
+    }
     case 'GET /api/commands': {
       const limit = intParam(url.searchParams, 'limit', 100, 1, 500);
       if (limit === null) return json(res, 400, { error: 'limit must be 1-500' });

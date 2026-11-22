@@ -88,7 +88,9 @@ export function mockChat(req: ChatRequest): ChatResponse {
     });
     message = { role: 'assistant', content: texts.join(' · ') };
   } else {
-    const text = fold(msgs.flatMap((m) => (m.role === 'user' && typeof m.content === 'string' ? [m.content] : [])).join(' \n '));
+    // this turn only (outside data and the command): earlier turns of the conversation (M9) were already acted on
+    const prevAnswer = msgs.slice(0, lastUser).map((m) => m.role).lastIndexOf('assistant');
+    const text = fold(msgs.slice(prevAnswer + 1, lastUser + 1).flatMap((m) => (m.role === 'user' && typeof m.content === 'string' ? [m.content] : [])).join(' \n '));
     const calls = guess(text, req.tools);
     message = calls.length
       ? { role: 'assistant', content: null, tool_calls: calls.map((c, i): ToolCallMsg => ({ id: `call_${i}`, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.args) } })) }

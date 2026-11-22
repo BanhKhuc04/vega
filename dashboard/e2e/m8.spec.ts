@@ -112,6 +112,37 @@ test('M8 Console: Today, devices (switch one), reminders (cancel one), commands,
   expect(w.external).toEqual([]);
 });
 
+test('M9 Console › Memory: items with their level, make one private, forget one; no sideways scroll at 390 px', async ({ browser }) => {
+  const page = await context(browser);
+  const w = await watch(page);
+  await forwardApi(page);
+  const now = Date.now();
+  const light = brain.store.addMemory({ kind: 'fact', level: 'normal', text: 'tôi thích đèn vàng', name: null, alias: null, pinned: false, created: now, expires: null });
+  const mom = brain.store.addMemory({ kind: 'person', level: 'private', text: 'mẹ tôi tên Lan', name: 'Lan', alias: 'Người A', pinned: false, created: now, expires: null });
+  brain.store.logMemorySent(now, 'UI-x', 'mock', [light.id]);
+
+  await page.goto('/console.html#memory');
+  const row = (text: string) => page.locator('tr', { hasText: text });
+  await expect(row('đèn vàng')).toContainText('normal', { timeout: T(4000) });
+  await expect(row('đèn vàng')).toContainText('1×');
+  await expect(row('tên Lan')).toContainText('private');
+  await expect(row('tên Lan')).toContainText('never');
+
+  await row('đèn vàng').getByRole('button', { name: 'Make private' }).click();
+  await expect.poll(() => brain.store.memories(Date.now()).find((m) => m.id === light.id)?.level, { timeout: T(3000) }).toBe('private');
+  await page.goto('/console.html#memory');
+  await row('tên Lan').getByRole('button', { name: 'Forget' }).click();
+  await expect.poll(() => brain.store.memories(Date.now()).some((m) => m.id === mom.id), { timeout: T(3000) }).toBe(false);
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/console.html#memory');
+  await expect(row('đèn vàng')).toBeVisible();
+  const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(iw);
+  expect(w.errors).toEqual([]);
+  brain.store.clearMemory();
+});
+
 test('M8 Console: a wrong token shows how to fix it', async ({ browser }) => {
   const page = await context(browser);
   await page.route('**/config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: 'window.__VEGA__ = { consoleToken: "wrong-token-wrong-token-00" };' }));

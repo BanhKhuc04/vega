@@ -5,7 +5,7 @@
 import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/vietnamese-400.css';
 
-const TABS = ['today', 'devices', 'reminders', 'commands', 'costs', 'access'] as const;
+const TABS = ['today', 'devices', 'reminders', 'memory', 'commands', 'costs', 'access'] as const;
 type Tab = (typeof TABS)[number];
 
 const token = (window as unknown as { __VEGA__?: { consoleToken?: string } }).__VEGA__?.consoleToken;
@@ -57,6 +57,16 @@ function show(text: string | null, info = false): void {
 }
 
 // --- API shapes (brain/src/api.ts) ---
+interface MemoryItem {
+  id: number;
+  kind: string;
+  level: 'normal' | 'private';
+  text: string;
+  pinned: boolean;
+  created: number;
+  expires: number | null;
+  sent: { n: number; last: number | null };
+}
 interface Overview {
   now: number;
   pi: { cpuPct: number | null; tempC: number | null; memPct: number | null; uptimeS: number | null } | null;
@@ -147,6 +157,25 @@ const R: Record<Tab, () => Promise<Node[]>> = {
         }),
         [0, 1],
       ),
+    ];
+  },
+  async memory() {
+    const list = await api<MemoryItem[]>('/api/memory');
+    if (!list.length) return [el('p', { class: 'note' }, 'VEGA remembers nothing yet. Say "nhớ là tôi dậy lúc 6 giờ" to teach it.')];
+    return [
+      table(
+        ['#', 'Kind', 'Level', 'What', 'Sent to AI', '', ''],
+        list.map((m) => {
+          const lvl = el('button', { type: 'button' }, m.level === 'private' ? 'Make normal' : 'Make private');
+          lvl.addEventListener('click', () => void command(`mục ${m.id} ${m.level === 'private' ? 'thường' : 'riêng tư'}`, lvl));
+          const del = el('button', { type: 'button' }, 'Forget');
+          del.addEventListener('click', () => void command(`quên mục ${m.id}`, del));
+          const kind = `${m.kind}${m.pinned ? ' · pinned' : m.expires ? ` · until ${time(m.expires)}` : ''}`;
+          return [String(m.id), kind, el('span', { class: m.level === 'private' ? 'ok' : 'dim' }, m.level === 'private' ? 'private' : 'normal'), m.text, m.sent.n ? `${m.sent.n}× · ${time(m.sent.last!)}` : 'never', lvl, del];
+        }),
+        [0, 4],
+      ),
+      el('p', { class: 'note' }, 'Private items never leave this Pi. Normal ones go to the cloud AI only when a question is about them, with known names replaced by aliases.'),
     ];
   },
   async commands() {

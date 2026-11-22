@@ -28,6 +28,8 @@ export interface Config {
   dbPath: string;
   budgetUsdDay: number;
   ratePerMin: number;
+  /** The AI may offer to remember a preference the owner stated (M9, always confirmed). MEMORY_SUGGEST=0 turns it off. */
+  memorySuggest: boolean;
   confirmTtlS: number;
   llmTimeoutMs: number;
   providers: Record<string, Provider>;
@@ -271,6 +273,7 @@ export function loadConfig(env: Env = process.env): Config {
     dbPath,
     budgetUsdDay: num(env.BUDGET_USD_DAY, 0.2),
     ratePerMin: num(env.RATE_LIMIT_PER_MIN, 10, 1),
+    memorySuggest: env.MEMORY_SUGGEST !== '0',
     confirmTtlS: num(env.CONFIRM_TTL_S, 30, 5),
     llmTimeoutMs: num(env.LLM_TIMEOUT_MS, 20_000, 1000),
     providers: provs,

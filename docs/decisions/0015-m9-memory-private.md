@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ngày** | 2026-11-22 |
-| **Trạng thái** | Bản nháp, chờ duyệt |
+| **Trạng thái** | Đã duyệt (2026-11-22), các câu hỏi mở theo đề xuất |
 | **Dựa trên** | 0012 (M9, R4, R8), 0002 (D4 cổng LLM trung lập, D5 định tuyến cục bộ trước, mục 8 bảo mật), 0013 (B9 API có khoá), `docs/security.md` §3 (nội dung ngoài chỉ là dữ liệu) |
 | **Sửa** | 0012 M9: thêm mức bí mật cho từng mục nhớ, đổi tên thật thành bí danh trước khi gửi AI, sổ ghi những gì đã gửi đi |
 | **Nhánh** | `feat/m9-memory`, từ `main` |
