@@ -26,13 +26,23 @@ export type ToolCall =
   | { name: 'web_search'; args: { query: string } }
   | { name: 'look'; args: { question?: string; live?: boolean } } // live: the Vision screen's live video (M7.1), local command only
   | { name: 'locate'; args: Record<string, never> } // the phone's position (M8), local command only: coordinates never reach an AI
-  | { name: 'set_home'; args: Record<string, never> }; // "đây là nhà": the phone's position becomes home (M8), local command only
+  | { name: 'set_home'; args: Record<string, never> } // "đây là nhà": the phone's position becomes home (M8), local command only
+  // memory (M9): only `remember` is ever offered to an AI, as a suggestion the owner confirms; the rest are local commands
+  | { name: 'remember'; args: { text: string; secret?: boolean; pinned?: boolean; suggested?: boolean } }
+  | { name: 'memory_list'; args: Record<string, never> }
+  | { name: 'recall'; args: { id: number } }
+  | { name: 'forget'; args: { id?: number; query?: string } }
+  | { name: 'forget_all'; args: Record<string, never> }
+  | { name: 'memory_level'; args: { id: number; level: 'normal' | 'private' } };
+
+/** Tools about the memory: their turns never enter the conversation history sent to an AI (they may show private items). */
+export const MEMORY_TOOLS: ReadonlySet<ToolName> = new Set(['remember', 'memory_list', 'recall', 'forget', 'forget_all', 'memory_level']);
 
 /**
  * Tools that act: on the physical world (devices, scenes; a Focus holds notifications) or on the owner's reminders.
  * They only run on a direct command from the owner, never with outside content (mail, calendar, logs) in play.
  */
-export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene', 'add_reminder', 'cancel_reminder', 'set_home']);
+export const PHYSICAL: ReadonlySet<ToolName> = new Set(['set_device', 'run_scene', 'add_reminder', 'cancel_reminder', 'set_home', 'remember', 'forget', 'forget_all', 'memory_level']);
 
 /** "2026-11-19T15:30" (local) or an ISO time with offset -> ms; NaN if neither. */
 export function parseWhen(s: string): number {
@@ -51,7 +61,7 @@ export interface PersonalTools {
  * Tool definitions for the LLM, generated from the registry: the device and room enums are whatever the devices
  * declared, so a new device needs no code. `physical: false` leaves out the tools that act on the world.
  */
-export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools; search?: boolean; camera?: boolean } = {}): ToolSpec[] {
+export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: string[]; personal?: PersonalTools; search?: boolean; camera?: boolean; suggestMemory?: boolean } = {}): ToolSpec[] {
   const fn = (name: ToolName, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ToolSpec => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } },
@@ -108,6 +118,11 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
     specs.push(
       fn('run_scene', 'Run a home scene: sleep (lights off, sleep screen) or focus (focus timer that holds notifications).', { name: { type: 'string', enum: [...SCENE_NAMES] }, minutes: { type: 'integer', description: 'Focus length, 1-180 (default 25).' } }, ['name']),
     );
+    if (opts.suggestMemory) {
+      specs.push(
+        fn('remember', 'Offer to remember a lasting preference or habit the owner just stated (e.g. "likes warm light", "wakes up at 6"). The owner must confirm; at most once per conversation. Never for passwords, numbers, health, money or other people.', { text: { type: 'string', description: 'One short sentence, in the words of the owner.' } }, ['text']),
+      );
+    }
   }
   return specs;
 }
@@ -147,6 +162,9 @@ export function parseToolCall(name: string, argsJson: string, reg: Registry, ciR
       if (typeof a.text !== 'string' || !a.text.trim() || a.text.length > 200) return { ok: false, error: 'text must be 1-200 characters' };
       return { ok: true, call: { name, args: { at, text: a.text.trim() } } };
     }
+    case 'remember':
+      if (typeof a.text !== 'string' || !a.text.trim() || a.text.length > 300) return { ok: false, error: 'text must be 1-300 characters' };
+      return { ok: true, call: { name, args: { text: a.text.trim(), suggested: true } } };
     case 'cancel_reminder':
       if (!Number.isInteger(a.id) || (a.id as number) < 1) return { ok: false, error: 'id must be a reminder number' };
       return { ok: true, call: { name, args: { id: a.id as number } } };

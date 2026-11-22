@@ -9,6 +9,7 @@ import type { Config } from './config';
 import { CiWatcher, GithubClient, ciEvent, ciScene } from './github';
 import { HealthWatch, diskFreeOf } from './health';
 import { Locator } from './locate';
+import { Memory } from './memory';
 import { PhonePush } from './phone';
 import { GoogleApi, GoogleAuth } from './google';
 import { piStatsReader } from './pistats';
@@ -91,7 +92,8 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
   let piTimer: ReturnType<typeof setInterval> | null = null;
   const cam = cfg.camera;
   const vision = { camera: cam.sim ? fileCamera(fileURLToPath(SAMPLE_PHOTO)) : httpCamera(cam.device, cam.url), frames: new FrameCache(120_000, opts.now) };
-  const agent = new Agent({ bus, registry, config: cfg, store, log, ci, assistant, vision, locator, health, ...(opts.chat && { chat: opts.chat }), ...(opts.now && { now: opts.now }) });
+  const memory = new Memory(store, opts.now ?? Date.now);
+  const agent = new Agent({ bus, registry, config: cfg, store, log, ci, assistant, vision, locator, health, memory, ...(opts.chat && { chat: opts.chat }), ...(opts.now && { now: opts.now }) });
   const vh = cfg.voiceHttp;
   /** A command as the owner, through the same queue as MQTT commands; resolves with the logged answer. */
   const runCommand = (text: string): Promise<{ id: string; answer: string }> => {
@@ -100,7 +102,7 @@ export function startBrain(cfg: Config, opts: { log?: (msg: string) => void; cha
     queue = done.catch((e: unknown) => log(`[brain] command ${id} failed: ${(e as Error).stack ?? e}`));
     return done.then(() => ({ id, answer: store.lastCommands(20).find((c) => c.id === id)?.answer ?? '' }));
   };
-  const api = { config: cfg, store, registry, health, locator, command: runCommand, ...(opts.now && { now: opts.now }) };
+  const api = { config: cfg, store, registry, health, locator, memory, command: runCommand, ...(opts.now && { now: opts.now }) };
   const voice = vh ? voiceServer({ config: cfg, store, log, onSpent: () => agent.publishUsage(), frames: vision.frames, api, ...(opts.now && { now: opts.now }) }) : null;
   // plugged / unplugged, for the CAM OFF chip (D9)
   let camPresent: boolean | null = null;

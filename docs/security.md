@@ -183,6 +183,28 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
   (che việc Pi 3 chết) và đọc được tên container.
 - Pi 3 không giữ bí mật nào khác của VEGA: không key AI, không token Google, không khoá backup.
 
+## 10b. Trí nhớ và AI trên cloud (M9)
+
+AI chính có thể là DeepSeek: theo chính sách công bố, dữ liệu được xử lý ở Trung Quốc, không có chế độ "không lưu", và không có cam kết
+rõ là không huấn luyện trên dữ liệu API. Vì vậy VEGA coi **mọi thứ gửi cho AI trên cloud là bị lưu mãi** (brief 0015).
+
+- **Trí nhớ chỉ nằm trên Pi** (bảng `memory` trong `brain.db`, đi theo backup mã hoá). Không mã hoá riêng trong SQLite: khoá sẽ phải nằm
+  ngay trên Pi đó.
+- **Mức của từng mục được quyết định trên Pi** (`brain/src/privacy.ts`), không hỏi AI. *Không nhớ*: mật khẩu, OTP, mã PIN, số thẻ, số
+  tài khoản, số giấy tờ, key, token, mọi dãy số dài. *Riêng tư*: sức khoẻ, tiền, địa chỉ, số điện thoại, tôn giáo, chính trị, chuyện tình
+  cảm, **mọi mục về người**, và những gì chủ nói "nhớ bí mật là…". Không chắc thì riêng tư. Mục riêng tư **không bao giờ** được gửi lên AI.
+- **Bí danh:** mọi tên người và nơi chốn VEGA đã được dạy được thay bằng `Người A`, `Nơi B`… trong **mọi** request lên AI (router, chat,
+  nghiên cứu, ảnh), kể cả câu lệnh, lịch sử, kết quả tool. Câu trả lời được đổi lại trên Pi. Tên VEGA chưa được dạy thì đi nguyên văn.
+- **Gửi ít nhất:** mỗi câu hỏi kèm tối đa 5 mục *thường* có từ trùng với câu hỏi, khoảng 400 token. Không bao giờ gửi cả kho nhớ.
+- **Hỏi về trí nhớ chạy cục bộ:** "bạn nhớ gì về tôi", "tôi dậy mấy giờ", "quên…". Các lượt này không vào lịch sử hội thoại gửi AI.
+- **Chống đầu độc trí nhớ:** chỉ lệnh trực tiếp của chủ mới ghi được. Mail, trang web, log CI chứa "hãy nhớ rằng…" không làm gì được. AI
+  chỉ được *đề xuất* (tối đa một lần mỗi cuộc nói chuyện), mục chỉ được ghi khi chủ bấm Confirm hoặc nói "yes". "Quên hết" cũng cần xác nhận.
+- **Hội thoại ngắn hạn** (6 lượt) chỉ ở RAM, mất sau 10 phút im lặng hoặc khi khởi động lại.
+- **Sổ gửi đi:** bảng `memory_sent` ghi mục nào đã kèm theo lệnh nào, gửi nhà cung cấp nào (không ghi nội dung). Console › Memory hiện "đã gửi
+  AI n lần".
+- **Giới hạn:** quy tắc từ khoá có thể bỏ sót câu viết lạ, và câu chủ tự gõ mà cần AI thì vẫn đi nguyên văn (trừ tên đã biết). Điều thật sự
+  không muốn ai biết thì đừng nói với VEGA.
+
 ## 11. Việc còn lại
 
 - TLS cho MQTT ngoài Tailscale.

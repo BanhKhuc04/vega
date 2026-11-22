@@ -46,6 +46,22 @@ export interface UsageRow {
   usd: number;
 }
 
+export type MemoryKind = 'fact' | 'person' | 'routine' | 'event';
+export type MemoryLevel = 'normal' | 'private';
+export interface MemoryRow {
+  id: number;
+  kind: MemoryKind;
+  level: MemoryLevel;
+  text: string;
+  /** A person or place name the item teaches, and its alias towards cloud AIs ("Người A"). */
+  name: string | null;
+  alias: string | null;
+  pinned: boolean;
+  created: number;
+  /** Events are forgotten after 30 days unless pinned; null = kept. */
+  expires: number | null;
+}
+
 /** Command log and LLM cost ledger in SQLite (`node:sqlite`, built into Node: no extra dependency). */
 export class Store {
   private readonly db: DatabaseSync;
@@ -75,6 +91,12 @@ export class Store {
         id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
         done INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, level TEXT NOT NULL, text TEXT NOT NULL, name TEXT,
+        alias TEXT, pinned INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, expires INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS memory_sent (ts INTEGER NOT NULL, command_id TEXT NOT NULL, provider TEXT NOT NULL, memory_id INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS memory_sent_id ON memory_sent (memory_id);
       CREATE TABLE IF NOT EXISTS home (id INTEGER PRIMARY KEY CHECK (id = 1), lat REAL NOT NULL, lon REAL NOT NULL);
       CREATE TABLE IF NOT EXISTS location (
         id INTEGER PRIMARY KEY CHECK (id = 1), device TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL, acc REAL,
@@ -185,6 +207,49 @@ export class Store {
   lastLocation(): Location | null {
     const r = this.db.prepare('SELECT device, lat, lon, acc, ts, regions FROM location WHERE id = 1').get() as { device: string; lat: number; lon: number; acc: number | null; ts: number; regions: string } | undefined;
     return r ? { device: r.device, lat: r.lat, lon: r.lon, accM: r.acc, ts: r.ts, regions: JSON.parse(r.regions) as string[] } : null;
+  }
+
+  // --- memory (M9, brief 0015): stays on the Pi; memory_sent keeps which items went to a cloud AI, never their text ---
+
+  addMemory(m: Omit<MemoryRow, 'id'>): MemoryRow {
+    const r = this.db
+      .prepare('INSERT INTO memory (kind, level, text, name, alias, pinned, created, expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(m.kind, m.level, m.text, m.name, m.alias, m.pinned ? 1 : 0, m.created, m.expires);
+    return { ...m, id: Number(r.lastInsertRowid) };
+  }
+
+  /** Every item, oldest first, after dropping what has expired. */
+  memories(now: number): MemoryRow[] {
+    this.db.prepare('DELETE FROM memory WHERE expires IS NOT NULL AND expires <= ? AND pinned = 0').run(now);
+    return (this.db.prepare('SELECT * FROM memory ORDER BY id').all() as (Omit<MemoryRow, 'pinned'> & { pinned: number })[]).map((r) => ({ ...r, pinned: r.pinned === 1 }));
+  }
+
+  updateMemory(id: number, set: { level?: MemoryLevel; pinned?: boolean }): boolean {
+    const cur = this.db.prepare('SELECT level, pinned FROM memory WHERE id = ?').get(id) as { level: MemoryLevel; pinned: number } | undefined;
+    if (!cur) return false;
+    this.db.prepare('UPDATE memory SET level = ?, pinned = ? WHERE id = ?').run(set.level ?? cur.level, set.pinned === undefined ? cur.pinned : set.pinned ? 1 : 0, id);
+    return true;
+  }
+
+  deleteMemory(id: number): boolean {
+    this.db.prepare('DELETE FROM memory_sent WHERE memory_id = ?').run(id);
+    return this.db.prepare('DELETE FROM memory WHERE id = ?').run(id).changes > 0;
+  }
+
+  clearMemory(): number {
+    this.db.exec('DELETE FROM memory_sent');
+    return Number(this.db.prepare('DELETE FROM memory').run().changes);
+  }
+
+  logMemorySent(ts: number, commandId: string, provider: string, ids: number[]): void {
+    const q = this.db.prepare('INSERT INTO memory_sent (ts, command_id, provider, memory_id) VALUES (?, ?, ?, ?)');
+    for (const id of ids) q.run(ts, commandId, provider, id);
+  }
+
+  /** Per item: how many commands sent it to a cloud AI, and when last. */
+  memorySent(): Map<number, { n: number; last: number }> {
+    const rows = this.db.prepare('SELECT memory_id AS id, COUNT(DISTINCT command_id) AS n, MAX(ts) AS last FROM memory_sent GROUP BY memory_id').all() as { id: number; n: number; last: number }[];
+    return new Map(rows.map((r) => [r.id, { n: r.n, last: r.last }]));
   }
 
   /** Home set with "đây là nhà" (M8); it wins over HOME_LAT / HOME_LON. */

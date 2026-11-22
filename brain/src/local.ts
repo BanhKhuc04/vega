@@ -51,6 +51,10 @@ const FILLERS = new Set(
   'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu gi'.split(' '),
 );
 const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
+/** "tắt nó đi", "bật cái đó lên": the device(s) just talked about (M9). Folded, so "nó" is "no". */
+const IT = ['thiet bi do', 'cai do', 'cai nay', 'chung no', 'chung', 'no', 'them', 'that', 'it'];
+/** "phòng đó mấy độ": the room just talked about. */
+const THAT_ROOM = ['phong do', 'phong nay', 'trong do', 'o do', 'that room', 'in there', 'there'];
 
 class Clause {
   private s: string;
@@ -86,6 +90,8 @@ const byLength = (a: string, b: string) => b.length - a.length;
 export interface LocalOptions {
   /** Room used when a sensor question names none. */
   defaultRoom: string;
+  /** The conversation (M9): devices and room just talked about, for "nó", "tắt luôn", "phòng đó". */
+  recent?: { devices: string[]; room: string | null };
 }
 
 /** Returns the tool calls for `text`, or null when the local router does not fully understand it. */
@@ -160,7 +166,8 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
     for (const [metric, phrases] of METRICS) {
       if (!c.take(phrases)) continue;
       const roomPhrase = c.take(roomKeys);
-      calls.push({ name: 'get_sensor', args: { metric, room: roomPhrase ? roomPhrases.get(roomPhrase)! : opts.defaultRoom } });
+      const that = !roomPhrase && opts.recent?.room && c.take(THAT_ROOM) ? opts.recent.room : null;
+      calls.push({ name: 'get_sensor', args: { metric, room: roomPhrase ? roomPhrases.get(roomPhrase)! : (that ?? opts.defaultRoom) } });
       understood = true;
     }
 
@@ -169,14 +176,17 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
     const off = c.take(OFF) !== null;
     if (on && off) return null;
     const devicePhrase = c.take(deviceKeys);
+    // "tắt nó đi", or a bare "tắt luôn": what was just switched, if this clause names nothing else
+    const recent = (opts.recent?.devices ?? []).filter((k) => switches.some((d) => d.key === k));
+    const it = !devicePhrase && !all && (on || off) && recent.length > 0 && (c.take(IT) !== null || calls.length === 0) ? recent : null;
     // "có mail gì mới không": "mới" is not "mọi" (all) when the clause only reads something
     if (on || off || devicePhrase || (all && !info)) {
       const want: boolean | null = on ? true : off ? false : lastOn;
       if (want === null) return null;
-      let keys = devicePhrase ? devicePhrases.get(devicePhrase)! : all ? switches.map((d) => d.key) : [];
+      let keys = devicePhrase ? devicePhrases.get(devicePhrase)! : all ? switches.map((d) => d.key) : (it ?? []);
       const roomPhrase = c.take(roomKeys);
       if (roomPhrase) keys = keys.filter((k) => reg.get(k)!.room === roomPhrases.get(roomPhrase));
-      if (keys.length === 0 || (keys.length > 1 && !all)) return null; // nothing, or ambiguous: the LLM can ask
+      if (keys.length === 0 || (keys.length > 1 && !all && !it)) return null; // nothing, or ambiguous: the LLM can ask
       for (const device of keys) calls.push({ name: 'set_device', args: { device, on: want } });
       c.take(['thiet bi', 'devices', 'device']); // "tắt hết thiết bị"
       lastOn = want;
