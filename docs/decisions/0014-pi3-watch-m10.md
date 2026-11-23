@@ -7,6 +7,7 @@
 | **Dựa trên** | 0012 (M10, M12, M13, R5 ngân sách CPU, R7 riêng tư, rủi ro 7 ntfy trên iOS), 0013 (B5–B6 giám sát, B12 `presence`), 0009 (`pc-agent` viết để chạy được trên Linux) |
 | **Sửa** | 0012: R2 (làm M10 trước M9), M10 (ntfy chạy trên Pi 3), M12 và M13 (phần nghe 24/7 chạy trên Pi 3) |
 | **Nhánh** | `feat/m10-watch`, từ `main` |
+| **Bị sửa bởi** | 0016 (bản nháp): P1, Pi 3 nhận thêm vai trò trạm điều hành và cổng thiết bị (mốc P3.x) |
 
 ## 1. Vấn đề
 
