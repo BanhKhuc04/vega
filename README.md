@@ -1,4 +1,8 @@
-# VEGA
+# VEGAS
+
+> Trước 2026-11-23 tên là VEGA. Đổi tên chỉ ở những gì bạn thấy và nghe (màn hình, câu trả lời, thông báo điện thoại, "Hey Vegas");
+> phần bên trong vẫn là `vega`: repo, topic MQTT `vega/…`, container, tên máy Tailscale, thư mục `~/vega`. Các brief cũ trong
+> `docs/decisions` giữ tên cũ.
 
 Trợ lý cá nhân chạy 24/7 trên Raspberry Pi 3, có màn hình FUI ở bàn và trên PC. Bản này là **M1 · Bộ não v1**
 (trên nền **M0 · Nền móng**): `vega-brain` nhận lệnh từ thanh lệnh, hiểu lệnh (cục bộ trước, AI sau), gọi tool thiết bị và điều
@@ -12,7 +16,7 @@ khiển màn hình qua `vega/ui/scene`. Chưa có giọng nói, Telegram, Google
 | Thư mục | Nội dung |
 |---|---|
 | `packages/contract` | topic MQTT, schema payload (zod) và **giao thức cảnh** `vega/ui/scene` cho 11 template. Nơi duy nhất định nghĩa hợp đồng |
-| `dashboard` | màn VEGA Core (template `design/final:vega/`: Three.js + GSAP), lớp dữ liệu, bộ vẽ cảnh |
+| `dashboard` | màn VEGAS Core (template `design/final:vega/`: Three.js + GSAP), lớp dữ liệu, bộ vẽ cảnh |
 | `tools/sim` | thiết bị ảo, `npm run scene`, broker MQTT chạy trong tiến trình (không cần Docker) |
 | `infra` | compose cho dev và cho Pi (Mosquitto có mật khẩu + ACL, nginx), `setup.sh` |
 | `brain` | `vega-brain` (Node 22, TypeScript): sổ thiết bị, định tuyến cục bộ, cổng LLM + provider `mock`, SQLite (nhật ký lệnh, sổ chi phí), bảo mật lệnh, bench chọn nhà cung cấp AI |
@@ -23,24 +27,24 @@ khiển màn hình qua `vega/ui/scene`. Chưa có giọng nói, Telegram, Google
 
 Cần Node.js 22.
 
-### Dùng VEGA: một lệnh
+### Dùng VEGAS: một lệnh
 
 ```bash
 npm ci
-npm run vega         # broker + thiết bị ảo + bộ não (đọc .env) + màn VEGA, trong một tiến trình. Mở địa chỉ nó in ra
+npm run vega         # broker + thiết bị ảo + bộ não (đọc .env) + màn VEGAS, trong một tiến trình. Mở địa chỉ nó in ra
 ```
 
-Gõ vào ô **Ask VEGA…** rồi Enter, hoặc **giữ nút mic** (hay phím Space khi ô nhập trống) để nói, thả ra để gửi. Chạm nhanh một
+Gõ vào ô **Ask VEGAS…** rồi Enter, hoặc **giữ nút mic** (hay phím Space khi ô nhập trống) để nói, thả ra để gửi. Chạm nhanh một
 lần thì nghe tới khi chạm lần nữa (tối đa 15 giây). Câu hỏi và câu trả lời hiện trong khung trò chuyện
-phía trên ô nhập, và VEGA **đọc to** câu trả lời (nút loa để bật/tắt). Hành động cần xác nhận hiện thẻ có nút **Confirm / Cancel**.
+phía trên ô nhập, và VEGAS **đọc to** câu trả lời (nút loa để bật/tắt). Hành động cần xác nhận hiện thẻ có nút **Confirm / Cancel**.
 
 | | Yêu cầu |
 |---|---|
 | Nhắn | trình duyệt nào cũng được |
-| Đọc to | mở từ Pi: giọng **Piper** chạy offline trên Pi, máy nào cũng như nhau (M5). Trên PC dev: giọng có sẵn của máy (câu tiếng Việt cần giọng tiếng Việt: Edge có sẵn, hoặc thêm trong Windows Settings › Time & language › Speech; không có thì VEGA im lặng và báo trong khung chat), hoặc Piper nếu đặt `VOICE_TTS_URL` (mục M5) |
+| Đọc to | mở từ Pi: giọng **Piper** chạy offline trên Pi, máy nào cũng như nhau (M5). Trên PC dev: giọng có sẵn của máy (câu tiếng Việt cần giọng tiếng Việt: Edge có sẵn, hoặc thêm trong Windows Settings › Time & language › Speech; không có thì VEGAS im lặng và báo trong khung chat), hoặc Piper nếu đặt `VOICE_TTS_URL` (mục M5) |
 | Nói (mic) | trang **HTTPS** hoặc `localhost`, có internet. Có `STT_API_KEY`: bộ não nhận dạng (mọi trình duyệt có mic, kể cả iPhone). Không có: nhận dạng của Chrome/Edge (Google/Microsoft) |
 
-AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ chạy lệnh cục bộ. VEGA chưa nhớ hội thoại: mỗi câu được xử lý riêng.
+AI dùng nhà cung cấp trong `.env` (`LLM_ROUTER`); không có thì chỉ chạy lệnh cục bộ. VEGAS chưa nhớ hội thoại: mỗi câu được xử lý riêng.
 Cột phải của màn Idle có ô **AI budget · today**: số tiền AI đã dùng hôm nay, còn lại bao nhiêu so với trần `BUDGET_USD_DAY`, số lượt gọi
 (lấy từ sổ chi phí của bộ não). Màn hẹp hơn 900 px thì hai cột số liệu ẩn đi.
 
@@ -59,13 +63,13 @@ Bộ não hỏi GitHub mỗi 60 giây (dùng ETag: kết quả không đổi th�
 | Việc | Kết quả |
 |---|---|
 | Build vừa hỏng | màn **Alert**: repo, workflow, commit, người push; nút **Explain** và **Open on GitHub** |
-| Hỏi `sao fail` / `vì sao build lỗi` / `why did it fail` (hoặc bấm Explain) | VEGA đọc khoảng 150 dòng log quanh lỗi và giải thích ngắn gọn. Không có AI thì trả lời bằng bước bị hỏng và dòng lỗi đầu tiên |
+| Hỏi `sao fail` / `vì sao build lỗi` / `why did it fail` (hoặc bấm Explain) | VEGAS đọc khoảng 150 dòng log quanh lỗi và giải thích ngắn gọn. Không có AI thì trả lời bằng bước bị hỏng và dòng lỗi đầu tiên |
 | Hỏi `ci thế nào` / `build status` | trạng thái các workflow, chạy cục bộ, 0 đồng |
 | Gõ `/status` (hoặc `tình trạng hệ thống`) | Pi (nhiệt độ, CPU, RAM, uptime), thiết bị online, CI, AI budget hôm nay, chạy cục bộ |
 | Build xanh lại | màn **Success** |
 | GitHub không trả lời quá 5 phút | ô CI/CD ghi thêm `stale`; không bắn Alert giả |
 
-Log và thông điệp commit do người khác viết, nên VEGA coi chúng là dữ liệu ngoài: khi chúng có mặt thì không lệnh vật lý nào
+Log và thông điệp commit do người khác viết, nên VEGAS coi chúng là dữ liệu ngoài: khi chúng có mặt thì không lệnh vật lý nào
 được chạy (`docs/security.md`).
 
 ### Trợ lý cá nhân: lịch, mail, thời tiết, nhắc việc, Focus (M4)
@@ -76,11 +80,11 @@ Log và thông điệp commit do người khác viết, nên VEGA coi chúng là
 | `có mail gì mới không`, `any new mail` | thư **chưa đọc trong Hộp thư chính** 24 giờ qua: người gửi và tiêu đề |
 | `thời tiết thế nào`, `có mưa không` | Open-Meteo, theo toạ độ `WEATHER_LAT` / `WEATHER_LON` |
 | `briefing`, `tóm tắt hôm nay` | màn **Briefing**: lịch hôm nay, mail, thời tiết, phòng, CI. Tự hiện mỗi ngày lúc `BRIEFING_AT` (mặc định `07:00`) |
-| `nhắc tôi 3 giờ chiều gọi mẹ`, `nhắc tôi sau 20 phút uống nước`, `remind me at 5pm to call mom` | tới giờ: thẻ Alert có nút **Snooze 10 min**, và VEGA đọc to. Lời nhắc lưu trong SQLite, khởi động lại không mất |
+| `nhắc tôi 3 giờ chiều gọi mẹ`, `nhắc tôi sau 20 phút uống nước`, `remind me at 5pm to call mom` | tới giờ: thẻ Alert có nút **Snooze 10 min**, và VEGAS đọc to. Lời nhắc lưu trong SQLite, khởi động lại không mất |
 | `nhắc nhở của tôi`, `huỷ nhắc 2` | xem / huỷ lời nhắc |
 | `tập trung 25 phút`, `focus for 1 hour`, `dừng tập trung` | màn **Focus**: build hỏng và lời nhắc chờ tới khi hết giờ rồi mới hiện |
 
-Câu trả lời theo ngôn ngữ của câu hỏi. Briefing tự hiện thì dùng `VEGA_LANG` (mặc định `vi`). Những gì VEGA tự nói (lời nhắc,
+Câu trả lời theo ngôn ngữ của câu hỏi. Briefing tự hiện thì dùng `VEGA_LANG` (mặc định `vi`). Những gì VEGAS tự nói (lời nhắc,
 Briefing) hiện trong khung chat và được đọc to trên **mọi** màn đang mở.
 
 **Kết nối Google (một lần, chỉ quyền đọc):**
@@ -100,23 +104,23 @@ Briefing) hiện trong khung chat và được đọc to trên **mọi** màn đ
 5. Trên Pi (không có trình duyệt): đăng nhập trên PC, mở `google-token.json`, chép giá trị `refresh_token` vào `infra/pi/brain.env`
    thành `GOOGLE_REFRESH_TOKEN=...` (cùng `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`), rồi `docker compose up -d vega-brain`.
 
-VEGA chỉ lấy phần đầu thư (`format=metadata`), không bao giờ tải nội dung thư, không gửi mail, không sửa lịch. Tiêu đề lịch và mail
+VEGAS chỉ lấy phần đầu thư (`format=metadata`), không bao giờ tải nội dung thư, không gửi mail, không sửa lịch. Tiêu đề lịch và mail
 là dữ liệu ngoài: dù có ghi "tắt hết thiết bị" cũng không điều khiển được gì (`docs/security.md`).
 
 ### Nghiên cứu có nguồn (M6)
 
-Gõ hoặc nói `nghiên cứu …`, `tìm hiểu …`, `so sánh …`, `research …` (hoặc `/research …`). VEGA:
+Gõ hoặc nói `nghiên cứu …`, `tìm hiểu …`, `so sánh …`, `research …` (hoặc `/research …`). VEGAS:
 1. nhờ AI đề ra tối đa 3 câu tìm;
 2. tìm trên web bằng Tavily, giữ tối đa 8 trang (tối đa 2 trang mỗi website);
 3. nhờ AI viết câu trả lời ngắn kèm trích dẫn `[1] [2] [3]`.
 
-Màn **Research** hiện từng bước. Câu so sánh có thêm bảng. Trong khung chat, mỗi nguồn là một link mở ở tab mới. VEGA chỉ đọc to phần
+Màn **Research** hiện từng bước. Câu so sánh có thêm bảng. Trong khung chat, mỗi nguồn là một link mở ở tab mới. VEGAS chỉ đọc to phần
 tóm tắt.
 
 - **Trích dẫn kiểm tra được:** số trích dẫn không có thật bị xoá, URL do AI tự viết bị xoá, link luôn lấy từ kết quả tìm. Dưới 3
   website thì câu trả lời ghi rõ "chỉ tìm được N nguồn".
 - **Chi phí:**
-  - Mỗi lần nghiên cứu tối đa `RESEARCH_MAX_USD` (mặc định $0.01) và vẫn chịu trần ngày. VEGA bớt nguồn cho vừa trần.
+  - Mỗi lần nghiên cứu tối đa `RESEARCH_MAX_USD` (mặc định $0.01) và vẫn chịu trần ngày. VEGAS bớt nguồn cho vừa trần.
   - Tìm web tối đa `SEARCH_MAX_MONTH` lượt mỗi tháng (mặc định 900, dưới 1.000 credit miễn phí của Tavily).
   - Câu trả lời ghi số nguồn và tiền đã tốn.
 - **Tra nhanh:** trong câu hỏi thường, AI được tìm web **một lần** khi cần thông tin mới (giá, phiên bản, tin tức). Câu trả lời kèm link.
@@ -141,7 +145,7 @@ VOICE_TTS_URL=http://127.0.0.1:5002 npm run vega
 ```
 
 **Nghe** bằng Whisper trên cloud qua bộ não (Groq `whisper-large-v3-turbo`: rẻ, nhanh, có gói miễn phí). Giữ mic → trình duyệt ghi âm
-tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung cấp → chữ hiện ở ô "You" → VEGA trả lời như khi gõ.
+tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung cấp → chữ hiện ở ô "You" → VEGAS trả lời như khi gõ.
 
 1. Tạo key ở [console.groq.com](https://console.groq.com) (gói miễn phí).
 2. Thêm vào `.env` (trên Pi là `infra/pi/brain.env`):
@@ -151,12 +155,12 @@ tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung c�
    # STT_PROVIDER=groq            # hoặc openai (+ STT_MODEL=whisper-1, STT_USD_PER_HOUR=0.36), hoặc STT_BASE_URL riêng
    # STT_MAX_MIN_DAY=30           # phút ghi âm mỗi ngày, không bao giờ vượt
    # STT_LANGUAGE=vi              # ngôn ngữ bạn nói; để trống thì Whisper tự đoán (câu tiếng Việt ngắn dễ bị nghe sai)
-   # STT_PROMPT=phòng ngủ, bếp, đèn bàn   # từ cần nghe đúng (tên phòng, thiết bị); mặc định là các câu lệnh của VEGA
+   # STT_PROMPT=phòng ngủ, bếp, đèn bàn   # từ cần nghe đúng (tên phòng, thiết bị); mặc định là các câu lệnh của VEGAS
    ```
 3. Khởi động lại bộ não. Log có dòng `[voice] /voice/stt on … speech to text groq whisper-large-v3-turbo`.
 
 Mỗi lần nghe tính vào `STT_MAX_MIN_DAY` **và** trần ngày `BUDGET_USD_DAY` (ô AI budget trên màn cộng cả tiền nghe). Âm thanh chỉ được
-gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe liên tục, chưa có "Hey Vega".
+gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe liên tục, "Hey Vegas" ở mục dưới.
 
 **Mic trên điện thoại và PC khác** cần trang HTTPS. Trên Pi, `setup.sh` bật `tailscale serve`: mở
 `https://<tên-máy-pi>.<tailnet>.ts.net` (chỉ trong mạng Tailscale của bạn, không mở ra internet). Cần bật **MagicDNS** và
@@ -166,29 +170,30 @@ gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe 
 Mic gặp sự cố thì khung chat nói rõ: chưa cho quyền mic, không có mic, mic đang bị app khác dùng, trang không phải HTTPS, hết phút
 hoặc hết trần ngày, mất mạng, chưa có `STT_API_KEY`.
 
-### "Hey Vega": nói không cần bấm (M5.2)
+### "Hey Vegas": nói không cần bấm (M5.2)
 
 `pc-agent` là chương trình Python nhỏ chạy trên PC, luôn nghe mic nhưng **chỉ trên máy**: một model wake word
-([openWakeWord](https://github.com/dscripka/openWakeWord)) chờ chữ "Hey Jarvis" (model có sẵn), sau này là "Hey Vega" (tự huấn
-luyện). Nghe thấy thì kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây, gửi `/voice/stt` của bộ não (agent không giữ key nào),
+([openWakeWord](https://github.com/dscripka/openWakeWord)) chờ chữ "Hey Vegas" (model tự huấn luyện, không cần
+ghi âm; trước khi có model thì dùng "Hey Jarvis" có sẵn). Nghe thấy thì kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây, gửi `/voice/stt` của bộ não (agent không giữ key nào),
 ra lệnh qua MQTT, rồi đọc câu trả lời bằng Piper ra loa PC. Sau câu trả lời có 6 giây để nói tiếp mà không cần gọi lại.
 Màn hình chuyển sang Listen khi agent nghe thấy wake word, và hiện câu hỏi, câu trả lời trong khung chat.
 
+Agent nói chuyện với bộ não trên Pi qua Tailscale, bằng user MQTT riêng `agent` (chỉ gửi được lệnh và trạng thái mic). Cài lần đầu
+(chi tiết, kể cả lấy mật khẩu `agent` và huấn luyện model: **`pc-agent/README.md`**):
+
 ```powershell
-docker start vega-voice                                                     # Piper, để agent đọc to
-npm run vega                                                                # bộ não + broker + màn hình
-powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1       # lần đầu: cài, chạy ẩn và tự chạy khi đăng nhập
+powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1       # cài, chạy ẩn và tự chạy khi đăng nhập
 ```
 
-Nói "**Hey Jarvis**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt+M` đóng mic thật (màn hình hiện **MIC OFF**), bấm lần nữa để
-mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình, đổi
-sang "Hey Vega", và cách huấn luyện model: **`pc-agent/README.md`**.
+Nói "**Hey Vegas**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt+M` đóng mic thật (màn hình hiện **MIC OFF**), bấm lần nữa để
+mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình và cách
+huấn luyện model: **`pc-agent/README.md`**.
 
 ### Camera: "Trên bàn có gì?" (M7)
 
-Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Jarvis, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi (qua `vega-vision`), gửi
-cho model thị giác (`LLM_VISION`), rồi màn **Vision** hiện chính ảnh đó với khung và nhãn từng vật; VEGA đọc một câu tóm tắt. Câu kiểu
-"cái cốc trên bàn màu gì?" thì AI tự chụp và trả lời. Rút camera: header hiện **CAM OFF**, hỏi thì VEGA nói "Camera đang rút".
+Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Vegas, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi (qua `vega-vision`), gửi
+cho model thị giác (`LLM_VISION`), rồi màn **Vision** hiện chính ảnh đó với khung và nhãn từng vật; VEGAS đọc một câu tóm tắt. Câu kiểu
+"cái cốc trên bàn màu gì?" thì AI tự chụp và trả lời. Rút camera: header hiện **CAM OFF**, hỏi thì VEGAS nói "Camera đang rút".
 
 - **Trên PC** (`npm run vega`): camera giả lập (ảnh mặt bàn mẫu `brain/fixtures/desk.jpg`) và model giả `mock`, không tốn tiền. Muốn
   thử model thật trên PC: `LLM_VISION=<provider>` trong `.env`.
@@ -221,7 +226,7 @@ chạy video thật từ camera, khung và nhãn tiếng Việt bám theo đồ 
   (`docs/pi-setup.md`, mục "Dựng lại từ đầu").
 - **Giám sát** (`infra/pi/health.sh` mỗi phút): container chết, khởi động lại ≥ 3 lần trong 10 phút, đĩa còn < 10%, Pi ≥ 80 °C trong 2
   phút, backup quá 36 giờ: mỗi việc hiện **Alert** một lần, `/status` và Console liệt kê.
-- **Điện thoại**: mở VEGA trên điện thoại và cho phép Vị trí là đủ: trang đang mở thì gửi vị trí trình duyệt (`POST /api/location`).
+- **Điện thoại**: mở VEGAS trên điện thoại và cho phép Vị trí là đủ: trang đang mở thì gửi vị trí trình duyệt (`POST /api/location`).
   Muốn theo dõi cả khi không mở trang: app OwnTracks qua Tailscale tới Mosquitto (user `phone`). Bộ não chỉ giữ điểm mới nhất. Ra khỏi
   nhà thì header hiện **AWAY**.
 - **Cài lên màn hình chính** điện thoại: mở trang qua HTTPS (Tailscale) → *Thêm vào màn hình chính*. Mất mạng vẫn mở được, header hiện
@@ -237,7 +242,7 @@ Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). C
   tin "đã trở lại" (`infra/pi3/vega-watch.sh`, mỗi phút).
 - Bộ não đẩy Alert lên điện thoại: lỗi sức khoẻ của Pi luôn gửi; CI hỏng và lời nhắc chỉ gửi khi bạn **vắng nhà**; Briefing gửi nhẹ một
   dòng. Không cấu hình `NTFY_URL` thì tắt (PC, CI).
-- Pi 3 im quá 5 phút thì màn VEGA hiện Alert, Console › Hôm nay có ô **Pi 3 watchdog**.
+- Pi 3 im quá 5 phút thì màn VEGAS hiện Alert, Console › Hôm nay có ô **Pi 3 watchdog**.
 
 ### Trí nhớ, giữ bí mật với AI trên cloud (M9)
 
@@ -250,7 +255,7 @@ Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). C
 | `quên mục 3`; `quên chuyện …`, `quên hết` (cần xác nhận) | Xoá |
 | `bật đèn phòng khách` rồi `tắt nó đi`, `bật luôn`, `phòng đó mấy độ` | Hiểu theo câu vừa nói (10 phút), không gọi AI |
 
-- Mật khẩu, OTP, số thẻ, số tài khoản, số giấy tờ: VEGA từ chối nhớ.
+- Mật khẩu, OTP, số thẻ, số tài khoản, số giấy tờ: VEGAS từ chối nhớ.
 - Khi phải hỏi AI: chỉ kèm tối đa 5 mục *thường* liên quan; tên người và nơi chốn đã dạy đi dưới dạng `Người A`, `Nơi B`. AI có thể đề xuất
   nhớ một sở thích, bạn bấm Confirm mới lưu (`MEMORY_SUGGEST=0` để tắt).
 - Console › **Memory**: xem, đổi mức, xoá, và xem mục nào đã gửi AI bao nhiêu lần. Chi tiết: `docs/security.md` §10b, brief 0015.
@@ -365,7 +370,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - `docs/decisions/0012-roadmap-m9-m16.md`: lộ trình sau 1.0 (bản nháp)
 - `docs/decisions/0011-m7.1-live-vision.md`: brief M7.1 (camera trực tiếp, YOLO trên Pi)
 - `docs/decisions/0010-m7-vision.md`: brief M7 (camera)
-- `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vega")
+- `docs/decisions/0009-m5.2-wake-word.md`: brief M5.2 ("Hey Vegas")
 - `docs/decisions/0008-m5-voice.md`: brief M5 (giọng nói)
 - `docs/decisions/0004-m1-brain.md`: brief M1
 - `docs/decisions/0003-m0-foundation.md`: brief M0

@@ -14,7 +14,7 @@ describe('guard helpers', () => {
     expect(rl.take(61_001).ok).toBe(true); // the first hit left the window
   });
   it('reads yes / no in Vietnamese and English', () => {
-    expect(['yes', 'Có', 'ok', 'Đồng ý', 'xác nhận nhé', 'Vega ơi, có'].map(reply)).toEqual(Array(6).fill('yes'));
+    expect(['yes', 'Có', 'ok', 'Đồng ý', 'xác nhận nhé', 'Vegas ơi, có', 'Vega ơi, có'].map(reply)).toEqual(Array(7).fill('yes'));
     expect(['no', 'Không', 'huỷ', 'cancel'].map(reply)).toEqual(Array(4).fill('no'));
     expect(reply('có bật đèn không')).toBeNull();
   });

@@ -1,4 +1,4 @@
-"""pc-agent: "Hey Vega" on this PC (brief 0009).
+"""pc-agent: "Hey Vegas" on this PC (brief 0009).
 
     python pc-agent/main.py                 # listen to the microphone (settings: pc-agent/.env)
     python pc-agent/main.py --wav file.wav  # feed a 16 kHz mono WAV instead of the mic, stop after one answer (tests)
@@ -133,7 +133,7 @@ def make_speak(cfg, play_wav):
     def speak(text):
         if not text.strip():
             return
-        log(f"[agent] VEGA: {text}")
+        log(f"[agent] VEGAS: {text}")
         if not cfg.tts_url or not play_wav:
             return
         data = get_tts(cfg.tts_url, text, lang_of(text))

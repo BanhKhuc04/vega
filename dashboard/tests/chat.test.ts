@@ -26,7 +26,7 @@ describe('Chat', () => {
     vi.advanceTimersByTime(60_000);
     expect(lines()).toHaveLength(1); // no "is the brain running?": the agent tells the owner itself
     expect(c.result('VOICE-1', 'Bedroom 25.0°C')).toBe(false);
-    expect(lines()).toEqual(['msg you voice | Youphòng mấy độ', 'msg vega | VEGABedroom 25.0°C']);
+    expect(lines()).toEqual(['msg you voice | Youphòng mấy độ', 'msg vega | VEGASBedroom 25.0°C']);
   });
 
   it('is hidden until something is said; pairs the answer with its command', () => {
@@ -36,7 +36,7 @@ describe('Chat', () => {
     expect(root.hidden).toBe(false);
     expect(lines()).toEqual(['msg you wait | Youxin chào']);
     expect(c.result('UI-1', 'Xin chào! Tôi có thể giúp gì?')).toBe(true);
-    expect(lines()).toEqual(['msg you | Youxin chào', 'msg vega | VEGAXin chào! Tôi có thể giúp gì?']);
+    expect(lines()).toEqual(['msg you | Youxin chào', 'msg vega | VEGASXin chào! Tôi có thể giúp gì?']);
   });
 
   it('cited sources become links that open in a new tab; text stays text', () => {
@@ -67,16 +67,16 @@ describe('Chat', () => {
     input.value = '';
     expect(c.submit('bật đèn')).toBeNull();
     expect(input.value).toBe('bật đèn');
-    expect(lines()).toEqual(['msg you fail | Youbật đèn', 'msg sys | VEGANot sent — not connected. Try again when the header shows LIVE.']);
+    expect(lines()).toEqual(['msg you fail | Youbật đèn', 'msg sys | VEGASNot sent — not connected. Try again when the header shows LIVE.']);
   });
 
   it('says when no answer came within 30 s, and still shows a late one', () => {
     const c = make();
     c.submit('phòng mấy độ');
     vi.advanceTimersByTime(30_001);
-    expect(lines().at(-1)).toBe('msg sys | VEGANo answer — is the brain running?');
+    expect(lines().at(-1)).toBe('msg sys | VEGASNo answer — is the brain running?');
     expect(c.result('UI-1', 'Bedroom 25.0°C')).toBe(true);
-    expect(lines().at(-1)).toBe('msg vega | VEGABedroom 25.0°C');
+    expect(lines().at(-1)).toBe('msg vega | VEGASBedroom 25.0°C');
   });
 
   it('keeps the last lines only, and never renders HTML', () => {

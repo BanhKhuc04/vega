@@ -99,7 +99,7 @@ export class Locator {
   setHomeHere(lang: Lang): { ok: boolean; text: string } {
     const l = this.last;
     if (!l || this.now() - l.ts > HOME_FIX_MAX_AGE)
-      return { ok: false, text: L(lang, 'Chưa có vị trí mới từ điện thoại. Mở VEGA trên điện thoại (cho phép Vị trí) rồi nói lại.', 'No fresh position from the phone. Open VEGA on the phone (allow Location), then say it again.') };
+      return { ok: false, text: L(lang, 'Chưa có vị trí mới từ điện thoại. Mở VEGAS trên điện thoại (cho phép Vị trí) rồi nói lại.', 'No fresh position from the phone. Open VEGA on the phone (allow Location), then say it again.') };
     if (l.accM !== null && l.accM > HOME_FIX_MAX_ACC)
       return { ok: false, text: L(lang, `Vị trí điện thoại chưa đủ chính xác (±${Math.round(l.accM)} m). Ra gần cửa sổ, đợi một chút rồi nói lại.`, `The phone's position is not precise enough (±${Math.round(l.accM)} m). Move near a window, wait a moment, then say it again.`) };
     this.d.store.saveHome(l.lat, l.lon);

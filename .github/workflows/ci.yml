@@ -82,7 +82,7 @@ jobs:
         run: |
           docker run -d --name ui -p 8080:80 -e VEGA_SOURCE=mock vega-ui:ci
           for i in $(seq 1 20); do curl -fs http://localhost:8080/ >/dev/null && break || sleep 1; done
-          curl -fs http://localhost:8080/ | grep -q "VEGA Core"
+          curl -fs http://localhost:8080/ | grep -q "VEGAS Core"
           curl -fs http://localhost:8080/config.js | grep -q 'source: "mock"'
       - name: Image routes /voice/* without vega-voice or the brain (502, nginx still starts)
         run: |

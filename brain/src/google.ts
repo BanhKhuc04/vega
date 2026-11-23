@@ -177,7 +177,7 @@ export async function login(o: LoginOptions): Promise<{ scope: string }> {
     if (u.pathname !== '/callback') return void ((res.statusCode = 404), res.end());
     const ok = u.searchParams.get('state') === state && u.searchParams.get('code');
     res.setHeader('content-type', 'text/plain; charset=utf-8');
-    res.end(ok ? 'VEGA is signed in to Google. You can close this tab.' : 'Sign-in failed. Close this tab and run npm run google-login again.');
+    res.end(ok ? 'VEGAS is signed in to Google. You can close this tab.' : 'Sign-in failed. Close this tab and run npm run google-login again.');
     done(ok ? { code: u.searchParams.get('code')! } : { error: u.searchParams.get('error') ?? 'state mismatch' });
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));

@@ -37,7 +37,7 @@ timeout "$MQTT_TIMEOUT_S" mosquitto_pub "${mqtt[@]}" -r -t vega/system/watch -m 
 # 3. count failures, push once when the Pi 4 goes and once when it comes back
 fails="$(cat "$STATE_DIR/fails" 2>/dev/null || echo 0)"
 if [ "$ok" = 1 ]; then
-  if [ -f "$STATE_DIR/alerted" ] && push 3 'VEGA: Pi 4 đã trở lại' 'Pi 4 gửi báo cáo sức khoẻ bình thường trở lại.' white_check_mark; then
+  if [ -f "$STATE_DIR/alerted" ] && push 3 'VEGAS: Pi 4 đã trở lại' 'Pi 4 gửi báo cáo sức khoẻ bình thường trở lại.' white_check_mark; then
     rm -f "$STATE_DIR/alerted"
     echo "pushed: Pi 4 back"
   fi
@@ -51,9 +51,9 @@ if [ "$fails" -ge "$FAILS" ] && [ ! -f "$STATE_DIR/alerted" ]; then
   if tailscale ping -c 1 --timeout 5s "$PI4_HOST" >/dev/null 2>&1; then
     why='Pi 4 còn trả lời mạng, nhưng MQTT hoặc báo cáo sức khoẻ đã ngừng. Mở Console hoặc SSH vào Pi 4 để xem.'
   else
-    why='Pi 4 không trả lời: mất điện, treo, hoặc mất mạng. VEGA ở nhà đang không chạy.'
+    why='Pi 4 không trả lời: mất điện, treo, hoặc mất mạng. VEGAS ở nhà đang không chạy.'
   fi
-  if push 5 'VEGA: Pi 4 mất liên lạc' "$why" rotating_light; then
+  if push 5 'VEGAS: Pi 4 mất liên lạc' "$why" rotating_light; then
     touch "$STATE_DIR/alerted"
     echo "pushed: Pi 4 down"
   else

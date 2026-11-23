@@ -8,7 +8,7 @@ export const MAX_RECORD_MS = 15_000;
 export type MicProblem = 'insecure' | 'unsupported' | 'denied' | 'no_mic' | 'busy' | 'off' | 'too_big' | 'not_audio' | 'budget' | 'minutes' | 'offline' | 'provider' | 'empty' | 'failed';
 
 export const MIC_TEXT: Record<MicProblem, string> = {
-  insecure: 'The microphone only works on an HTTPS page (or localhost). Open VEGA at its https://…ts.net address (README, M5).',
+  insecure: 'The microphone only works on an HTTPS page (or localhost). Open VEGAS at its https://…ts.net address (README, M5).',
   unsupported: 'This browser cannot record audio. Type instead, or use a recent Chrome, Edge, Firefox or Safari.',
   denied: 'Microphone blocked: allow it for this page in the browser, then hold the mic again.',
   no_mic: 'No microphone found. Plug one in (or switch it on), then hold the mic again.',

@@ -19,7 +19,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     r = await fetch(path, { ...init, headers: { 'content-type': 'application/json', ...(token && { authorization: `Bearer ${token}` }) } });
   } catch {
-    throw new ApiError('VEGA is not reachable. Check that the Pi is on and you are on the tailnet.');
+    throw new ApiError('VEGAS is not reachable. Check that the Pi is on and you are on the tailnet.');
   }
   if (r.status === 401) throw new ApiError('The Console token is wrong. Run setup.sh again on the Pi, then reload.');
   if (r.status === 503) throw new ApiError('The Console is off: set CONSOLE_TOKEN in infra/pi/.env (setup.sh does it), then restart the stack.');
@@ -141,7 +141,7 @@ const R: Record<Tab, () => Promise<Node[]>> = {
           return [d.room, d.name, d.on !== undefined ? el('span', { class: d.on ? 'ok' : 'dim' }, d.on ? 'on' : 'off') : reading(d) || '—', el('span', { class: d.online ? 'ok' : 'bad' }, d.online ? 'yes' : 'no'), ago(d.updated), btn];
         }),
       ),
-      el('p', { class: 'note' }, 'High-risk devices still ask for confirmation on the VEGA screen.'),
+      el('p', { class: 'note' }, 'High-risk devices still ask for confirmation on the VEGAS screen.'),
     ];
   },
   async reminders() {
@@ -161,7 +161,7 @@ const R: Record<Tab, () => Promise<Node[]>> = {
   },
   async memory() {
     const list = await api<MemoryItem[]>('/api/memory');
-    if (!list.length) return [el('p', { class: 'note' }, 'VEGA remembers nothing yet. Say "nhớ là tôi dậy lúc 6 giờ" to teach it.')];
+    if (!list.length) return [el('p', { class: 'note' }, 'VEGAS remembers nothing yet. Say "nhớ là tôi dậy lúc 6 giờ" to teach it.')];
     return [
       table(
         ['#', 'Kind', 'Level', 'What', 'Sent to AI', '', ''],

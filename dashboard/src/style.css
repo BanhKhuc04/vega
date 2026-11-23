@@ -30,7 +30,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--hi);outline-off
 .frame i:nth-child(3){left:12px;bottom:12px;border-width:0 0 1px 1px}.frame i:nth-child(4){right:12px;bottom:12px;border-width:0 1px 1px 0}
 
 #orbLabel{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px;transform:translate(-50%,-50%);will-change:transform}
-.wm{font-family:'Michroma',sans-serif;font-size:22px;letter-spacing:.46em;margin-right:-.46em;color:#F6FBFF;text-shadow:0 0 14px var(--accent),0 0 32px var(--a55),0 0 2px #fff;white-space:nowrap}
+.wm{font-family:'Michroma',sans-serif;font-size:22px;letter-spacing:.34em;margin-right:-.34em;color:#F6FBFF;text-shadow:0 0 14px var(--accent),0 0 32px var(--a55),0 0 2px #fff;white-space:nowrap}
 .sub{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:.34em;margin-right:-.34em;color:var(--hi);text-transform:uppercase;white-space:nowrap}
 .sub::before,.sub::after{content:"";width:16px;height:1px;background:var(--a55)}
 .burst{position:absolute;left:50%;top:50%;width:0;height:0}

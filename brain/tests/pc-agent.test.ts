@@ -64,7 +64,7 @@ describe.skipIf(!PY)('pc-agent end to end (WAV in place of the mic)', () => {
     const log = out.join('');
     expect(code, log).toBe(0);
     expect(log).toContain('heard: Bật đèn phòng khách.');
-    expect(log).toContain('VEGA: Living room light on');
+    expect(log).toContain('VEGAS: Living room light on');
     // the agent never sent the wake word itself, only the command: about 2 s of audio, not the whole 5.3 s file
     expect(stt.seen).toHaveLength(1);
     expect(stt.seen[0]!.bytes).toBeLessThan(16000 * 2 * 4);

@@ -12,7 +12,7 @@ describe('parseReminder', () => {
     expect(p('nhac toi sau 2 tieng goi lai')).toEqual({ at: NOW + 2 * 3_600_000, text: 'goi lai' });
     expect(p('remind me in 10 minutes to stretch')).toEqual({ at: NOW + 10 * 60_000, text: 'stretch' });
     expect(p('remind me to stretch in an hour')).toEqual({ at: NOW + 3_600_000, text: 'stretch' });
-    expect(p('Vega ơi, nhắc mình trong nửa tiếng nữa tắt bếp nhé')).toEqual({ at: NOW + 30 * 60_000, text: 'tắt bếp' });
+    expect(p('Vegas ơi, nhắc mình trong nửa tiếng nữa tắt bếp nhé')).toEqual({ at: NOW + 30 * 60_000, text: 'tắt bếp' });
   });
 
   it('clock times, Vietnamese and English', () => {

@@ -239,7 +239,7 @@ export class Assistant {
         scene: 'alert',
         ttl: 600,
         status: missed ? 'Missed reminder' : 'Reminder',
-        data: { title: missed ? 'missed reminder' : 'reminder', ref: `#${r.id} · ${hhmm(r.at)}`, error: clip(r.text, 300), note: missed ? 'VEGA was off when this was due.' : 'Snooze for 10 minutes or dismiss.', snooze: true },
+        data: { title: missed ? 'missed reminder' : 'reminder', ref: `#${r.id} · ${hhmm(r.at)}`, error: clip(r.text, 300), note: missed ? 'VEGAS was off when this was due.' : 'Snooze for 10 minutes or dismiss.', snooze: true },
       },
       clip(`Reminder: ${r.text}`, 80),
       clip(speech, 300),

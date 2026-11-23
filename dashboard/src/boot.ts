@@ -85,7 +85,7 @@ const say = (text: string) =>
   void voice.speak(text).then((ok) => {
     if (ok || toldNoVoice) return;
     toldNoVoice = true;
-    chat.note('No Vietnamese voice on this computer, so answers are not read aloud. Open VEGA from the Pi (it speaks with its own voice), use Microsoft Edge, or add the Vietnamese voice in Windows Settings › Time & language › Speech.');
+    chat.note('No Vietnamese voice on this computer, so answers are not read aloud. Open VEGAS from the Pi (it speaks with its own voice), use Microsoft Edge, or add the Vietnamese voice in Windows Settings › Time & language › Speech.');
   });
 source.onResult((id, text, extra) => {
   // only answers to this screen's own commands are read aloud; a research answer reads its summary, not the sources

@@ -111,7 +111,7 @@ export interface SttConfig {
 }
 
 /** Whisper picks words from its prompt: the room, device and command words of VEGA. */
-export const STT_PROMPT = 'VEGA ơi, phòng ngủ mấy độ? Bật đèn phòng khách, tắt quạt. Độ ẩm, CO2. Nhắc tôi 3 giờ chiều. Lịch hôm nay, mail mới. Sao fail? Nghiên cứu, tập trung 25 phút.';
+export const STT_PROMPT = 'Vegas ơi, phòng ngủ mấy độ? Bật đèn phòng khách, tắt quạt. Độ ẩm, CO2. Nhắc tôi 3 giờ chiều. Lịch hôm nay, mail mới. Sao fail? Nghiên cứu, tập trung 25 phút.';
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const SAFE_URL = /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/;
