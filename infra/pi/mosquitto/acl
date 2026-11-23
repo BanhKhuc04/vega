@@ -34,3 +34,9 @@ topic read owntracks/vega/+/cmd
 user watch
 topic read vega/system/health
 topic write vega/system/watch
+
+# pc-agent, "Hey Vegas" on the PC through Tailscale (docs/security.md): sends commands, shows the mic state, reads the answers
+user agent
+topic write vega/system/command
+topic write vega/desk/core/state
+topic read vega/system/events/command_result

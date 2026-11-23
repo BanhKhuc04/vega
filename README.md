@@ -156,7 +156,7 @@ tối đa 15 giây → `POST /voice/stt` → bộ não gửi tới nhà cung c�
 3. Khởi động lại bộ não. Log có dòng `[voice] /voice/stt on … speech to text groq whisper-large-v3-turbo`.
 
 Mỗi lần nghe tính vào `STT_MAX_MIN_DAY` **và** trần ngày `BUDGET_USD_DAY` (ô AI budget trên màn cộng cả tiền nghe). Âm thanh chỉ được
-gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe liên tục, chưa có "Hey Vega".
+gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe liên tục, "Hey Vegas" ở mục dưới.
 
 **Mic trên điện thoại và PC khác** cần trang HTTPS. Trên Pi, `setup.sh` bật `tailscale serve`: mở
 `https://<tên-máy-pi>.<tailnet>.ts.net` (chỉ trong mạng Tailscale của bạn, không mở ra internet). Cần bật **MagicDNS** và
@@ -166,27 +166,28 @@ gửi đi khi bạn giữ (hoặc chạm) nút mic; không có chế độ nghe 
 Mic gặp sự cố thì khung chat nói rõ: chưa cho quyền mic, không có mic, mic đang bị app khác dùng, trang không phải HTTPS, hết phút
 hoặc hết trần ngày, mất mạng, chưa có `STT_API_KEY`.
 
-### "Hey Vega": nói không cần bấm (M5.2)
+### "Hey Vegas": nói không cần bấm (M5.2)
 
 `pc-agent` là chương trình Python nhỏ chạy trên PC, luôn nghe mic nhưng **chỉ trên máy**: một model wake word
-([openWakeWord](https://github.com/dscripka/openWakeWord)) chờ chữ "Hey Jarvis" (model có sẵn), sau này là "Hey Vega" (tự huấn
-luyện). Nghe thấy thì kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây, gửi `/voice/stt` của bộ não (agent không giữ key nào),
+([openWakeWord](https://github.com/dscripka/openWakeWord)) chờ chữ "Hey Vegas" (model tự huấn luyện, không cần
+ghi âm; trước khi có model thì dùng "Hey Jarvis" có sẵn). Nghe thấy thì kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây, gửi `/voice/stt` của bộ não (agent không giữ key nào),
 ra lệnh qua MQTT, rồi đọc câu trả lời bằng Piper ra loa PC. Sau câu trả lời có 6 giây để nói tiếp mà không cần gọi lại.
 Màn hình chuyển sang Listen khi agent nghe thấy wake word, và hiện câu hỏi, câu trả lời trong khung chat.
 
+Agent nói chuyện với bộ não trên Pi qua Tailscale, bằng user MQTT riêng `agent` (chỉ gửi được lệnh và trạng thái mic). Cài lần đầu
+(chi tiết, kể cả lấy mật khẩu `agent` và huấn luyện model: **`pc-agent/README.md`**):
+
 ```powershell
-docker start vega-voice                                                     # Piper, để agent đọc to
-npm run vega                                                                # bộ não + broker + màn hình
-powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1       # lần đầu: cài, chạy ẩn và tự chạy khi đăng nhập
+powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1       # cài, chạy ẩn và tự chạy khi đăng nhập
 ```
 
-Nói "**Hey Jarvis**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt+M` đóng mic thật (màn hình hiện **MIC OFF**), bấm lần nữa để
-mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình, đổi
-sang "Hey Vega", và cách huấn luyện model: **`pc-agent/README.md`**.
+Nói "**Hey Vegas**", đợi tiếng bíp, nói "phòng mấy độ". `Ctrl+Alt+M` đóng mic thật (màn hình hiện **MIC OFF**), bấm lần nữa để
+mở. Log ở `pc-agent\agent.log`. Chạy tay để xem log trực tiếp: `pc-agent\.venv\Scripts\python pc-agent\main.py`. Cấu hình và cách
+huấn luyện model: **`pc-agent/README.md`**.
 
 ### Camera: "Trên bàn có gì?" (M7)
 
-Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Jarvis, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi (qua `vega-vision`), gửi
+Hỏi "**trên bàn có gì?**" (gõ, bấm mic, hoặc "Hey Vegas, …") thì bộ não chụp **một** ảnh từ camera USB trên Pi (qua `vega-vision`), gửi
 cho model thị giác (`LLM_VISION`), rồi màn **Vision** hiện chính ảnh đó với khung và nhãn từng vật; VEGA đọc một câu tóm tắt. Câu kiểu
 "cái cốc trên bàn màu gì?" thì AI tự chụp và trả lời. Rút camera: header hiện **CAM OFF**, hỏi thì VEGA nói "Camera đang rút".
 

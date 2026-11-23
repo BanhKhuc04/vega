@@ -367,12 +367,12 @@ step_brain_env() {
 step_mosquitto_users() {
   say "Mosquitto users"
   if [ "$DRY" = 1 ]; then
-    echo "   [dry-run] would (re)build mosquitto/passwd for users brain, ui, device, health, phone, watch from .env"
+    echo "   [dry-run] would (re)build mosquitto/passwd for users brain, ui, device, health, phone, watch, agent from .env"
     return
   fi
   local pw="$HERE/mosquitto/passwd" user key
   : >"$pw"
-  for user in brain ui device health phone watch; do
+  for user in brain ui device health phone watch agent; do
     key="MQTT_$(printf '%s' "$user" | tr '[:lower:]' '[:upper:]')_PASS"
     docker run --rm -v "$HERE/mosquitto:/work" eclipse-mosquitto:2 \
       mosquitto_passwd -b /work/passwd "$user" "$(env_get "$key")"
@@ -385,7 +385,7 @@ step_mosquitto_users() {
 step_stack() {
   say "Starting the stack (the first build takes 10-20 minutes on a Pi)"
   run "${COMPOSE[@]}" up -d --build
-  # mosquitto reads passwd and acl only when it starts: new users (M8: health, phone; M10: watch) need a restart
+  # mosquitto reads passwd and acl only when it starts: new users (M8: health, phone; M10: watch; agent) need a restart
   run "${COMPOSE[@]}" restart mosquitto
 }
 
