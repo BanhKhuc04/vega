@@ -4,7 +4,14 @@
 > phần bên trong vẫn là `vega`: repo, topic MQTT `vega/…`, container, tên máy Tailscale, thư mục `~/vega`. Các brief cũ trong
 > `docs/decisions` giữ tên cũ.
 
-Trợ lý cá nhân chạy 24/7 trên Raspberry Pi 3, có màn hình FUI ở bàn và trên PC. Bản này là **M1 · Bộ não v1**
+Trợ lý cá nhân chạy 24/7 trên hai Raspberry Pi, có màn hình FUI ở bàn và trên PC. Dự án chia hai phần (brief 0016):
+
+| Phần | Máy | Làm gì | Hiện tại |
+|---|---|---|---|
+| **Bộ não** | Pi 4 | MQTT, `vega-brain`, giọng nói, camera, dashboard, trí nhớ | Tạm để yên, chỉ sửa lỗi (mốc M) |
+| **Hạ tầng** | Pi 3 | Gác Pi 4, ntfy; sắp tới: trạm điều hành, DNS, cổng Zigbee và Bluetooth, tai vệ tinh | Đang phát triển (mốc P3.x) |
+
+Phần dưới đây là ghi chú gốc của M1. Bản này là **M1 · Bộ não v1**
 (trên nền **M0 · Nền móng**): `vega-brain` nhận lệnh từ thanh lệnh, hiểu lệnh (cục bộ trước, AI sau), gọi tool thiết bị và điều
 khiển màn hình qua `vega/ui/scene`. Chưa có giọng nói, Telegram, Google, GitHub, phần cứng thật
 (xem `docs/decisions/0002-vega-product-plan-1.0.md`, `0004-m1-brain.md`).
@@ -364,6 +371,7 @@ npm run compare                                # ảnh cạnh nhau với templat
 - `docs/security.md`: bảo mật lệnh (ai được ra lệnh, xác nhận, giới hạn tần suất, prompt injection)
 - `docs/pi-setup.md`: cài Pi
 - `docs/decisions/0002-vega-product-plan-1.0.md`: phương án sản phẩm 1.0 (9 mốc)
+- `docs/decisions/0016-two-tracks-pi3-pi4.md`: chia hai phần, Pi 4 (bộ não) và Pi 3 (hạ tầng), các mốc P3.x (bản nháp)
 - `docs/decisions/0015-m9-memory-private.md`: brief M9 (trí nhớ, mức bí mật, bí danh khi gửi AI)
 - `docs/decisions/0014-pi3-watch-m10.md`: brief M10 (Pi 3 làm người gác, thông báo điện thoại qua ntfy)
 - `docs/decisions/0013-m8-phone-console-ops.md`: brief M8 (backup, giám sát, Console, Locate, PWA)

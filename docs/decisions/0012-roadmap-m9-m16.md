@@ -6,7 +6,7 @@
 | **Trạng thái** | Bản nháp, chờ duyệt (bản 2: viết lại sau khi tra benchmark và bài báo cho Pi 4) |
 | **Dựa trên** | 0002 (D4 cổng LLM trung lập, D5 định tuyến cục bộ trước, D6 trần chi phí, D7 giọng nói theo tầng, mục 8 bảo mật), 0004 (bench 50 lệnh), 0008 (V4: Whisper trên Pi 4 quá chậm), 0009 (pc-agent viết để chạy được trên Pi), 0011 (Pi 4, onnxruntime, `vega-vision` giữ 2 lõi) |
 | **Sửa** | 0002 mục 3.1–3.2 (phần cứng), mốc M2 (cách nối thiết bị), mốc M8 (tách thông báo điện thoại ra M10) |
-| **Bị sửa bởi** | 0014 (đã duyệt 2026-11-22): M10 làm trước M9 và chạy trên Pi 3; phần nghe 24/7 của M12, M13 chạy trên Pi 3 |
+| **Bị sửa bởi** | 0014 (đã duyệt 2026-11-22): M10 làm trước M9 và chạy trên Pi 3; phần nghe 24/7 của M12, M13 chạy trên Pi 3. 0016 (bản nháp): chia hai phần Pi 4 và Pi 3, Zigbee2MQTT (R3) và dò Bluetooth (M16) chuyển sang Pi 3 |
 
 ## 1. Vấn đề
 
