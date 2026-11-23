@@ -27,7 +27,7 @@ describe('routeLocal', () => {
 
   it.each([
     ['tắt đèn', [{ name: 'set_device', args: { device: 'livingroom/light', on: false } }]],
-    ['Vega ơi, mở đèn phòng khách nhé', [{ name: 'set_device', args: { device: 'livingroom/light', on: true } }]],
+    ['Vegas ơi, mở đèn phòng khách nhé', [{ name: 'set_device', args: { device: 'livingroom/light', on: true } }]],
     ['turn on the light', [{ name: 'set_device', args: { device: 'livingroom/light', on: true } }]],
     ['làm ơn bật đèn', [{ name: 'set_device', args: { device: 'livingroom/light', on: true } }]],
     ['bật đèn và ổ cắm', [{ name: 'set_device', args: { device: 'livingroom/light', on: true } }, { name: 'set_device', args: { device: 'kitchen/plug', on: true } }]],

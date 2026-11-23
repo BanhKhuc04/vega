@@ -59,7 +59,7 @@ export class Chat {
     const id = this.deps.send(clean);
     if (id === null) {
       line.classList.add('fail');
-      this.add('sys', 'VEGA', 'Not sent — not connected. Try again when the header shows LIVE.');
+      this.add('sys', 'VEGAS', 'Not sent — not connected. Try again when the header shows LIVE.');
       this.deps.input.value = clean;
       return null;
     }
@@ -69,7 +69,7 @@ export class Chat {
       if (!p) return;
       p.timer = null;
       p.line.classList.remove('wait');
-      this.add('sys', 'VEGA', 'No answer — is the brain running?');
+      this.add('sys', 'VEGAS', 'No answer — is the brain running?');
     }, this.timeoutMs);
     this.pending.set(id, { line, timer });
     return id;
@@ -90,7 +90,7 @@ export class Chat {
     this.pending.delete(id);
     if (p.timer) clearTimeout(p.timer);
     p.line.classList.remove('wait');
-    const line = this.add('vega', 'VEGA', text);
+    const line = this.add('vega', 'VEGAS', text);
     if (sources.length) line.querySelector('span')!.append(sourceList(sources));
     this.deps.root.scrollTop = this.deps.root.scrollHeight;
     return !p.quiet;
@@ -98,12 +98,12 @@ export class Chat {
 
   /** Something the brain says on its own (a reminder, the briefing). */
   announce(text: string): void {
-    this.add('vega', 'VEGA', text);
+    this.add('vega', 'VEGAS', text);
   }
 
   /** A line from VEGA itself (a problem with voice, for instance). */
   note(text: string): void {
-    this.add('sys', 'VEGA', text);
+    this.add('sys', 'VEGAS', text);
   }
 
   private add(kind: 'you' | 'vega' | 'sys', who: string, text: string): HTMLElement {

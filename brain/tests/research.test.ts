@@ -25,7 +25,7 @@ function scripted(queries: string[], write: Record<string, unknown>) {
 describe('research helpers', () => {
   it.each([
     ['nghiên cứu cảm biến CO2 rẻ cho ESP8266', true],
-    ['Vega ơi, tìm hiểu về Whisper trên Pi 4', true],
+    ['Vegas ơi, tìm hiểu về Whisper trên Pi 4', true],
     ['so sánh SCD40 và MH-Z19B', true],
     ['research cheap CO2 sensors', true],
     ['/research home assistant vs openhab', true],

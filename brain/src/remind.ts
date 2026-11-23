@@ -4,7 +4,7 @@
  */
 
 const PREFIX =
-  /^\s*(?:(?:hey\s+)?vega\s*(?:ơi|oi)?\s*[,.]?\s*)?(?:(?:hãy|hay|làm ơn|lam on|please)\s+)?(?:(?:nhắc|nhac)(?:\s+(?:nhở|nho))?(?:\s+(?:tôi|toi|mình|minh|em|anh|tớ))?|remind\s+me)(?=\s|$)\s*/i;
+  /^\s*(?:(?:hey\s+)?vegas?\s*(?:ơi|oi)?\s*[,.]?\s*)?(?:(?:hãy|hay|làm ơn|lam on|please)\s+)?(?:(?:nhắc|nhac)(?:\s+(?:nhở|nho))?(?:\s+(?:tôi|toi|mình|minh|em|anh|tớ))?|remind\s+me)(?=\s|$)\s*/i;
 const END = String.raw`(?=$|[\s,.!?])`;
 const UNIT = String.raw`(phút|phut|ph|p|giờ|gio|tiếng|tieng|h|minutes?|mins?|hours?|hrs?)`;
 const REL = new RegExp(String.raw`(?:^|\s)(?:sau|trong|in|after)\s+(\d{1,4}|một|mot|an?|nửa|nua|half an?)\s*${UNIT}${END}(?:\s+(?:nữa|nua))?`, 'i');

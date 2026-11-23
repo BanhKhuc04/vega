@@ -22,6 +22,6 @@ const NO = new Set(['no', 'n', 'cancel', 'stop', 'khong', 'huy', 'thoi', 'dung',
 
 /** The owner's reply to a confirmation prompt. */
 export function reply(text: string): 'yes' | 'no' | null {
-  const t = fold(text).replace(/\b(vega|oi|nhe|nha|a)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  const t = fold(text).replace(/\b(vegas?|oi|nhe|nha|a)\b/g, ' ').replace(/\s+/g, ' ').trim();
   return YES.has(t) ? 'yes' : NO.has(t) ? 'no' : null;
 }

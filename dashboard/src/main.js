@@ -690,7 +690,7 @@ export function start() {
   gsap.from('.top', { opacity: 0, y: -14, duration: 1, ease: 'expo.out', delay: .4, clearProps: 'transform' }); // no leftover transform: the .sys cluster inside is position:fixed
   gsap.from('.frame i', { opacity: 0, scale: .4, duration: .8, stagger: .08, ease: 'expo.out' });
   gsap.from('.cmd', { opacity: 0, y: 20, duration: 1, ease: 'expo.out', delay: .9 });
-  scramble(wm, 'VEGA', 1.4);
+  scramble(wm, 'VEGAS', 1.4);
   window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (MODES[h]) setMode(h); });
   if (reduced) gsap.globalTimeline.timeScale(4);
   frame();

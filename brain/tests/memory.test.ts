@@ -58,7 +58,7 @@ describe('privacy: level of an item (T3–T4)', () => {
 describe('parseMemoryCommand', () => {
   it('remember, secret, forever', () => {
     expect(parseMemoryCommand('Nhớ là tôi dậy lúc 6 giờ')).toEqual({ name: 'remember', args: { text: 'tôi dậy lúc 6 giờ' } });
-    expect(parseMemoryCommand('Vega ơi, nhớ bí mật là mẹ tôi tên Lan')).toEqual({ name: 'remember', args: { text: 'mẹ tôi tên Lan', secret: true } });
+    expect(parseMemoryCommand('Vegas ơi, nhớ bí mật là mẹ tôi tên Lan')).toEqual({ name: 'remember', args: { text: 'mẹ tôi tên Lan', secret: true } });
     expect(parseMemoryCommand('ghi nhớ: bí mật, tôi bị dị ứng')).toEqual({ name: 'remember', args: { text: 'tôi bị dị ứng', secret: true } });
     expect(parseMemoryCommand('nhớ mãi là hôm nay tôi tốt nghiệp')).toEqual({ name: 'remember', args: { text: 'hôm nay tôi tốt nghiệp', pinned: true } });
     expect(parseMemoryCommand('remember that I like warm light')).toEqual({ name: 'remember', args: { text: 'I like warm light' } });

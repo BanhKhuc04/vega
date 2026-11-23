@@ -1,6 +1,6 @@
-# Cài VEGA lên Raspberry Pi 3
+# Cài VEGAS lên Raspberry Pi 3
 
-Mục tiêu: trên Pi, kiosk Chromium mở màn VEGA ở mức `css`, dữ liệu đi qua Mosquitto có mật khẩu, `vega-brain` (M1) trả lời
+Mục tiêu: trên Pi, kiosk Chromium mở màn VEGAS ở mức `css`, dữ liệu đi qua Mosquitto có mật khẩu, `vega-brain` (M1) trả lời
 lệnh từ thanh lệnh.
 Script `infra/pi/setup.sh` và `infra/pi/docker-compose.yml` được viết và kiểm tra cú pháp (`bash -n`, `shellcheck`,
 `docker compose config`) **ngoài Pi**; lần chạy thật đầu tiên là của chủ dự án.
@@ -75,7 +75,7 @@ Mở dashboard trên PC bằng `http://<ip-tailscale-của-pi>:8080/` (mức `fu
 `phòng mấy độ, bật đèn giúp` trên thanh lệnh để thử bộ não (cần thiết bị thật, hoặc chạy `npm run sim` trỏ vào broker của Pi).
 
 Thử giọng nói (M5): trên PC hoặc điện thoại trong tailnet, mở `https://<tên-máy-pi>.<tailnet>.ts.net`, giữ nút mic nói "phòng mấy
-độ", thả ra: VEGA hiện câu bạn nói, trả lời và đọc to bằng giọng tiếng Việt.
+độ", thả ra: VEGAS hiện câu bạn nói, trả lời và đọc to bằng giọng tiếng Việt.
 
 Thử camera (M7, M7.1): cắm camera USB, kiểm tra `ls /dev/video0` và `v4l2-ctl --list-formats-ext` (cần MJPEG). Gõ "xem camera":
 màn Vision chạy video trực tiếp (log `vega-vision` ghi `[vision] camera on`). Đặt `LLM_VISION` trong `brain.env` (README, mục M7),
@@ -123,12 +123,12 @@ rồi nối lại, so vân tay với dòng `ssh-keygen -lf /etc/ssh/ssh_host_ed2
 
 ## Điện thoại: vị trí
 
-**Cách đơn giản (không cài app):** mở VEGA trên điện thoại (`https://<tên-máy-pi>.<tailnet>.ts.net`, hoặc bản đã cài lên màn hình
+**Cách đơn giản (không cài app):** mở VEGAS trên điện thoại (`https://<tên-máy-pi>.<tailnet>.ts.net`, hoặc bản đã cài lên màn hình
 chính), cho phép **Vị trí** khi iPhone hay Android hỏi. Trang đang mở thì cứ 2 phút gửi vị trí của trình duyệt cho bộ não
 (`POST /api/location`). Máy tính và kiosk trên Pi không bao giờ gửi. Giới hạn: trang web không lấy được vị trí khi đã đóng, nên chip
-**AWAY** chỉ đổi khi bạn mở VEGA trên điện thoại. Muốn theo dõi cả lúc không mở trang thì dùng OwnTracks bên dưới.
+**AWAY** chỉ đổi khi bạn mở VEGAS trên điện thoại. Muốn theo dõi cả lúc không mở trang thì dùng OwnTracks bên dưới.
 
-**Đặt nhà:** khi đang ở nhà, mở VEGA trên điện thoại rồi nói hoặc gõ **"đây là nhà"**: vị trí điện thoại vừa gửi (mới hơn 10 phút,
+**Đặt nhà:** khi đang ở nhà, mở VEGAS trên điện thoại rồi nói hoặc gõ **"đây là nhà"**: vị trí điện thoại vừa gửi (mới hơn 10 phút,
 sai số dưới 150 m) thành tâm vòng tròn nhà, lưu trong SQLite. Chưa đặt thì dùng `HOME_LAT` / `HOME_LON` trong `brain.env`, rồi tới toạ
 độ thời tiết. Bán kính: `HOME_RADIUS_M` (mặc định 150 m).
 
@@ -147,7 +147,7 @@ sai số dưới 150 m) thành tâm vòng tròn nhà, lưu trong SQLite. Chưa �
 
 Pi 3 đứng ngoài trông Pi 4 và giữ máy chủ thông báo **ntfy** (brief 0014). Pi 4 mất điện, treo hay rớt mạng quá 3 phút thì iPhone nhận
 một tin khẩn; Pi 4 lên lại thì có tin "đã trở lại". Bộ não trên Pi 4 cũng đẩy Alert qua đây: lỗi sức khoẻ của Pi luôn gửi, CI hỏng và lời
-nhắc chỉ gửi khi bạn **vắng nhà** (chip AWAY), Briefing 7:00 gửi nhẹ một dòng. Pi 3 im quá 5 phút thì màn VEGA hiện Alert.
+nhắc chỉ gửi khi bạn **vắng nhà** (chip AWAY), Briefing 7:00 gửi nhẹ một dòng. Pi 3 im quá 5 phút thì màn VEGAS hiện Alert.
 
 1. **Pi 4 trước:** `cd ~/vega && git pull && sudo ./infra/pi/setup.sh` (tạo user MQTT `watch`). Lấy mật khẩu của nó:
    `grep MQTT_WATCH_PASS ~/vega/infra/pi/.env`.

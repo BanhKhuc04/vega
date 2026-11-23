@@ -1,4 +1,4 @@
-# VEGA contract, revision 9
+# VEGAS contract, revision 9
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.

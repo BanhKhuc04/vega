@@ -76,7 +76,7 @@ export function toolSpecs(reg: Registry, opts: { physical?: boolean; ciRepos?: s
   const switches = reg.switches();
   const specs: ToolSpec[] = [
     fn('list_devices', 'List the devices in the home with their room, state and whether they are online.'),
-    fn('system_status', 'Overall status of VEGA: the Pi (temperature, CPU, RAM, uptime), devices online, CI, AI budget today.'),
+    fn('system_status', 'Overall status of VEGAS: the Pi (temperature, CPU, RAM, uptime), devices online, CI, AI budget today.'),
     fn('get_sensor', 'Read a sensor: temperature (°C), relative humidity (%) or CO2 (ppm). Without a room, the main room is used.', {
       metric: { type: 'string', enum: [...METRICS] },
       ...(sensorRooms.length && { room: { type: 'string', enum: sensorRooms } }),

@@ -48,7 +48,7 @@ const LIST = ['danh sach thiet bi', 'nhung thiet bi nao', 'thiet bi nao', 'thiet
 /** Multi-word fillers go first so "làm ơn" never reads as the English verb "on". */
 const FILLER_PHRASES = ['lam on', 'giup minh', 'giup toi', 'giup em', 'cho minh', 'cho toi', 'cho em', 'can you', 'could you', 'bay gio', 'hien tai', 'the nao', 'what is', 'is it'];
 const FILLERS = new Set(
-  'vega oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu gi'.split(' '),
+  'vega vegas oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu gi'.split(' '),
 );
 const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
 /** "tắt nó đi", "bật cái đó lên": the device(s) just talked about (M9). Folded, so "nó" is "no". */
@@ -200,7 +200,7 @@ export function routeLocal(text: string, reg: Registry, opts: LocalOptions): Too
 
     if (info && !calls.some((x) => x.name === 'set_device')) while (c.take(INFO_TAIL));
     if (c.rest().length > 0) return null;
-    if (!understood) continue; // only filler ("Vega ơi,")
+    if (!understood) continue; // only filler ("Vegas ơi,")
   }
   return calls.length > 0 ? calls : null;
 }

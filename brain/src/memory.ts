@@ -18,7 +18,7 @@ const RELEVANT_CHARS = 1600;
 
 /** Words that carry no topic: a question and a memory sharing only these are not related. */
 const STOP = new Set(
-  'toi minh ban la gi may nao dau khi bao ai co khong the nhe a oi vega cua va voi o trong luc da se dang thi ma nhu nay do vay roi cho de duoc mot cac nhung i my me you your is are was the a an of to in at on for and or what when where who how which do does did have has it that this'.split(' '),
+  'toi minh ban la gi may nao dau khi bao ai co khong the nhe a oi vega vegas cua va voi o trong luc da se dang thi ma nhu nay do vay roi cho de duoc mot cac nhung i my me you your is are was the a an of to in at on for and or what when where who how which do does did have has it that this'.split(' '),
 );
 const words = (s: string) => new Set(fold(s).split(' ').filter((w) => w.length > 1 && !STOP.has(w)));
 const overlap = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w)).length;
@@ -28,7 +28,7 @@ const QUESTION = /\?|(?:^|\s)(?:gì|mấy|nào|đâu|bao giờ|khi nào|ai|bao n
 
 /** Memory commands of the owner, read before the device router. null = not one. */
 export function parseMemoryCommand(text: string): ToolCall | null {
-  const t = text.trim().replace(/^(?:vega ơi|hey vega|vega)[,\s]+/iu, '');
+  const t = text.trim().replace(/^(?:vegas? ơi|hey vegas?|vegas?)[,\s]+/iu, '');
   let m = /^(?:hãy\s+|làm ơn\s+)?(?:quên|xoá|xóa)\s+(?:hết|tất cả)(?:\s+(?:trí nhớ|những gì (?:bạn )?nhớ))?\s*[.!]?$|^forget everything\s*[.!]?$/iu.exec(t);
   if (m) return { name: 'forget_all', args: {} };
   m = /^(?:quên|forget)\s+(?:mục|item)\s*#?(\d{1,6})\s*[.!]?$/iu.exec(t);
@@ -38,7 +38,7 @@ export function parseMemoryCommand(text: string): ToolCall | null {
   // "quên mất tắt đèn", "quên tắt đèn rồi": the owner forgot something, VEGA must not; a forget by words is confirmed anyway
   m = /^(?:hãy\s+)?(?:quên|forget)\s+(?!mất\s|to\s)(?:đi\s+)?(?:là\s+|rằng\s+|that\s+|about\s+|chuyện\s+|điều\s+)?(.{2,200})$/iu.exec(t);
   if (m && !/\s(?:rồi|mất rồi)\s*[.!]?$/iu.test(t)) return { name: 'forget', args: { query: m[1]!.replace(/[.!]+$/, '').trim() } };
-  if (/^(?:bạn|vega|em)?\s*(?:nhớ|biết)\s+(?:được\s+)?(?:gì|những gì)\s+về\s+(?:tôi|mình|tao|anh|chị)\s*\??$|^what do you (?:remember|know) about me\??$|^(?:bạn nhớ những gì|what do you remember)\??$/iu.test(t)) {
+  if (/^(?:bạn|vegas?|em)?\s*(?:nhớ|biết)\s+(?:được\s+)?(?:gì|những gì)\s+về\s+(?:tôi|mình|tao|anh|chị)\s*\??$|^what do you (?:remember|know) about me\??$|^(?:bạn nhớ những gì|what do you remember)\??$/iu.test(t)) {
     return { name: 'memory_list', args: {} };
   }
   m = /^(?:hãy\s+|làm ơn\s+)?(ghi nhớ|nhớ giúp (?:tôi|mình)|nhớ bí mật(?: là| rằng)?|nhớ mãi(?: là| rằng)?|nhớ (?:là|rằng)|remember (?:that|this)|remember)\s*:?\s*(.{2,300})$/iu.exec(t);

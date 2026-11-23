@@ -14,7 +14,7 @@ for (const [w, h, tag] of [[1440, 900, '1440'], [390, 844, '390']] as const) {
     const wt = await watch(page);
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/?quality=full');
-    await expect(page).toHaveTitle('VEGA Core');
+    await expect(page).toHaveTitle('VEGAS Core');
     await expect(page.locator('#conn')).toHaveAttribute('data-state', 'sim');
     await expect(page.locator('#connTxt')).toHaveText('SIM');
     await expect(page.locator('#sampleTag')).toBeVisible();
@@ -111,7 +111,7 @@ test('the room readings are visible even when the Idle intro is restarted right 
 
 test('accessibility basics', async ({ page }) => {
   await page.goto('/?quality=css');
-  await expect(page.getByLabel('Ask VEGA')).toBeVisible();
+  await expect(page.getByLabel('Ask VEGAS')).toBeVisible();
   const names = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>('button')].filter((b) => !(b.textContent ?? '').trim() && !b.getAttribute('aria-label')).length,
   );

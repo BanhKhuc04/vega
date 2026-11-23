@@ -2,13 +2,13 @@
 
 Brief: `docs/decisions/0009-m5.2-wake-word.md`.
 
-Chương trình Python nhỏ, luôn nghe mic của PC nhưng **chỉ trên máy**: một model wake word chờ chữ gọi VEGA. Nghe thấy thì:
+Chương trình Python nhỏ, luôn nghe mic của PC nhưng **chỉ trên máy**: một model wake word chờ chữ gọi VEGAS. Nghe thấy thì:
 
 1. kêu "bíp", ghi câu lệnh tới khi bạn im lặng 0,7 giây (tối đa 10 giây; không nói gì trong 3 giây thì bỏ, không gửi gì);
 2. gửi âm thanh tới `/voice/stt` của bộ não (agent **không giữ key nào**, mọi trần chi phí vẫn áp dụng);
 3. publish lệnh lên `vega/system/command` với `via: "voice"`, chờ câu trả lời;
 4. đọc câu trả lời bằng Piper (`vega-voice`) ra loa PC; màn hình hiện câu hỏi và câu trả lời trong khung chat;
-5. nghe tiếp 6 giây: câu tiếp theo không cần gọi lại. Trong lúc VEGA đang đọc, agent không nghe.
+5. nghe tiếp 6 giây: câu tiếp theo không cần gọi lại. Trong lúc VEGAS đang đọc, agent không nghe.
 
 `Ctrl+Alt+M` đóng mic thật sự (màn hình hiện **MIC OFF**), bấm lần nữa để mở. Rút mic thì màn hình hiện **NO MIC**, agent thử mở
 lại mỗi 5 giây.
@@ -26,13 +26,13 @@ Cần: Python 3.10+ (`py -3`), PC đang bật Tailscale (bộ não, broker và P
 powershell -ExecutionPolicy Bypass -File pc-agent\install-windows.ps1
 ```
 
-Script tạo `pc-agent\.venv`, cài thư viện, chép `.env.example` thành `.env`, rồi đăng ký task **VEGA pc-agent** chạy ẩn mỗi lần
+Script tạo `pc-agent\.venv`, cài thư viện, chép `.env.example` thành `.env`, rồi đăng ký task **VEGAS pc-agent** chạy ẩn mỗi lần
 đăng nhập Windows và chạy luôn. Log: `pc-agent\agent.log`. Gỡ: thêm `-Uninstall`.
 
 Chạy tay (thấy log ngay, Ctrl+C để dừng). Dừng task trước để hai bản không cùng nghe mic:
 
 ```powershell
-Stop-ScheduledTask -TaskName 'VEGA pc-agent'
+Stop-ScheduledTask -TaskName 'VEGAS pc-agent'
 pc-agent\.venv\Scripts\python pc-agent\main.py
 ```
 
@@ -65,7 +65,7 @@ openWakeWord có notebook huấn luyện tự động chạy trên Google Colab 
 7. Thử: mở YouTube hoặc TV 1 giờ cạnh mic. Thức nhầm quá 1 lần thì tăng `WAKE_THRESHOLD` (0.6, 0.7…). Chữ "Vegas" hay có trên
    TV (Las Vegas), nên bước này quan trọng.
 
-"VEGA ơi" chưa chắc nhận đúng vì notebook dùng giọng tổng hợp tiếng Anh (brief 0009, câu hỏi mở 2).
+"VEGAS ơi" chưa chắc nhận đúng vì notebook dùng giọng tổng hợp tiếng Anh (brief 0009, câu hỏi mở 2).
 
 ## Test
 
