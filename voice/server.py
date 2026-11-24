@@ -10,6 +10,7 @@ Standard library only, besides Piper itself.
 import io
 import json
 import os
+import re
 import threading
 import wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,6 +22,14 @@ VOICES = {
     "en": os.environ.get("VOICE_EN", "en_US-lessac-medium"),
 }
 VOICE_DIR = os.environ.get("VOICE_DIR", "/voices")
+CLOCK = re.compile(r"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])")
+
+
+def spoken(text, lang):
+    """Piper's Vietnamese voice reads "22:23" as "22 323": say the time in words ("22 giờ 23", "7 giờ")."""
+    if lang != "vi":
+        return text
+    return CLOCK.sub(lambda m: f"{int(m[1])} giờ" + (f" {int(m[2])}" if m[2] != "00" else ""), text)
 
 
 def piper_loader(lang):
@@ -43,7 +52,7 @@ class Speaker:
                 self.voices[lang] = self.loader(lang)
             buf = io.BytesIO()
             with wave.open(buf, "wb") as w:
-                self.voices[lang].synthesize_wav(text, w)
+                self.voices[lang].synthesize_wav(spoken(text, lang), w)
             return buf.getvalue()
 
 
