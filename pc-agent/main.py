@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 
 import numpy as np
 
-from agent import FRAME, RATE, Agent, Config, get_tts, lang_of, load_env_file, post_stt
+from agent import FRAME, RATE, Agent, Config, Robot, get_tts, lang_of, load_env_file, post_stt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMMAND = "vega/system/command"
@@ -127,14 +127,82 @@ def player():
     return beep, play_wav
 
 
-def make_speak(cfg, play_wav):
+def local_voice(cfg):
+    """VieNeu-TTS on this PC (VOICE_LOCAL), loaded in the background (~40 s): {"say": say(text) -> bool} once ready.
+    say() streams the voice to the speakers as it is generated; False when nothing could be played (then Piper speaks)."""
+    ready = {}
+    if not cfg.voice_local:
+        return ready
+
+    def load():
+        try:
+            import sounddevice as sd
+            from vieneu import Vieneu
+
+            t = time.time()
+            tts = Vieneu(precision="int8")  # int8 needs AVX-VNNI (12th-gen Intel has it); fp32 is ~1.6x slower
+            rate = tts.sample_rate
+
+            def say(text):
+                # generated in its own thread, ahead of playback: out.write() returns once the chunk fits the sound card's
+                # small buffer, so generating the next chunk between writes would leave the speaker empty (stutter)
+                fx = Robot(rate, cfg.voice_robot)
+                q, failed = queue.Queue(), []
+
+                def produce():
+                    try:
+                        for chunk in tts.infer_stream(text, voice=cfg.voice_local):
+                            q.put(fx(chunk))
+                    except Exception as e:  # noqa: BLE001
+                        failed.append(e)
+                    finally:
+                        q.put(None)
+
+                threading.Thread(target=produce, daemon=True).start()
+                head, have, chunk = [], 0, None
+                while have < rate * 0.4 and (chunk := q.get()) is not None:  # 0.4 s ahead before the speaker starts
+                    head.append(chunk)
+                    have += len(chunk)
+                if not head:
+                    if failed:
+                        raise failed[0]
+                    return False
+                gaps = 0
+                with sd.OutputStream(samplerate=rate, channels=1, dtype="float32", latency="high") as out:
+                    for c in head:
+                        gaps += out.write(c)
+                    while chunk is not None and (chunk := q.get()) is not None:
+                        gaps += out.write(chunk)
+                if gaps:
+                    log(f"[agent] voice stuttered {gaps} times (CPU busy?)")
+                return True
+
+            ready["say"] = say
+            log(f"[agent] voice {cfg.voice_local} (VieNeu-TTS, robot {cfg.voice_robot:g}) ready in {time.time() - t:.0f} s")
+        except Exception as e:  # noqa: BLE001 - not installed, no model download, bad voice name: Piper keeps speaking
+            log(f"[agent] no local voice ({e}): answers are read by Piper on the Pi")
+
+    threading.Thread(target=load, daemon=True).start()
+    return ready
+
+
+def make_speak(cfg, play_wav, local=None):
     told = []
+    local = {} if local is None else local
 
     def speak(text):
         if not text.strip():
             return
         log(f"[agent] VEGAS: {text}")
-        if not cfg.tts_url or not play_wav:
+        if not play_wav:
+            return
+        if "say" in local:
+            try:
+                if local["say"](text):
+                    return
+            except Exception as e:  # noqa: BLE001
+                log(f"[agent] local voice failed ({e}): Piper reads it")
+        if not cfg.tts_url:
             return
         data = get_tts(cfg.tts_url, text, lang_of(text))
         if data:
@@ -218,7 +286,7 @@ def main():
         vad=lambda f: float(vad_model.predict(f)),
         stt=lambda wav: post_stt(cfg.stt_url, wav),
         ask=bus.ask,
-        speak=make_speak(cfg, play_wav),
+        speak=make_speak(cfg, play_wav, None if args.wav else local_voice(cfg)),
         beep=beep,
         state=lambda s: bus.publish_core(s),
         log=log,

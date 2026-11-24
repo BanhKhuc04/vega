@@ -10,3 +10,4 @@ scikit-learn>=1.0
 sounddevice>=0.4.6
 paho-mqtt>=2.0
 keyboard>=0.13.5; sys_platform == "win32"
+# optional, for VOICE_LOCAL (a VieNeu-TTS voice read on this PC instead of Piper on the Pi):  pip install vieneu

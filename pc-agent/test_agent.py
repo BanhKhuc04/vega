@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
 
-from agent import FRAME, PROBLEM, Agent, Config, SttError, get_tts, lang_of, load_env_file, post_stt, to_wav
+from agent import FRAME, PROBLEM, Agent, Config, Robot, SttError, get_tts, lang_of, load_env_file, post_stt, to_wav
 
 QUIET, WAKE, SPEECH = 0, 1, 2
 
@@ -114,6 +114,20 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(r.sent, [])
         self.assertEqual(r.agent.mode, "idle")
 
+    def test_follow_up_counts_the_speech_that_started_it(self):
+        r = Rig()
+        r.feed(frames(WAKE, 0.1), frames(SPEECH, 1), frames(QUIET, 0.8))
+        r.feed(frames(SPEECH, 0.48), frames(QUIET, 0.8))  # 0.48 s >= min_speech_s 0.4: a command, not noise
+        self.assertEqual(len(r.sent), 2)
+
+    def test_goodbye_ends_the_conversation(self):
+        r = Rig(text="Tạm biệt.", answer={"result": "Tạm biệt nhé!"})
+        r.feed(frames(WAKE, 0.1), frames(SPEECH, 1), frames(QUIET, 0.8))
+        self.assertEqual(r.spoken, ["Tạm biệt nhé!"])
+        self.assertEqual(r.agent.mode, "idle")
+        r.feed(frames(SPEECH, 1), frames(QUIET, 1))
+        self.assertEqual(len(r.sent), 1)  # the wake word is needed again
+
     def test_follow_up_window_is_configurable(self):
         r = Rig(follow_up_s=1)
         r.feed(frames(WAKE, 0.1), frames(SPEECH, 1), frames(QUIET, 0.8), frames(QUIET, 1.2))
@@ -170,6 +184,23 @@ class ConfigTest(unittest.TestCase):
         load_env_file(f.name, env)
         os.unlink(f.name)
         self.assertEqual(env, {"FOLLOW_UP_S": "8", "WAKE_MODEL": "models/hey_vega.onnx"})
+
+    def test_robot_streamed_equals_whole(self):
+        x = np.random.default_rng(1).uniform(-0.5, 0.5, 48000).astype(np.float32)
+        whole = Robot(48000)(x)
+        r = Robot(48000)
+        parts = np.concatenate([r(c) for c in np.split(x, [100, 2000, 2100, 30000])])  # chunks shorter than the delays too
+        np.testing.assert_allclose(parts, whole, atol=1e-6)
+        self.assertLessEqual(np.abs(whole).max(), 1.0)
+
+    def test_local_voice_env(self):
+        c = Config.from_env({"VOICE_LOCAL": " Hải Đăng ", "VOICE_ROBOT": "0.3"})
+        self.assertEqual((c.voice_local, c.voice_robot), ("Hải Đăng", 0.3))
+        self.assertEqual((Config.from_env({}).voice_local, Config.from_env({}).voice_robot), ("", 0.6))
+
+    def test_robot_zero_is_the_plain_voice(self):
+        x = np.linspace(-0.5, 0.5, 1000, dtype=np.float32)
+        np.testing.assert_array_equal(Robot(48000, 0)(x), x)
 
     def test_lang(self):
         self.assertEqual((lang_of("Phòng ngủ 25 độ"), lang_of("Bedroom 25.0°C")), ("vi", "en"))
