@@ -44,12 +44,16 @@ Lần chạy đầu tải model của openWakeWord (vài MB, từ GitHub của d
 |---|---|---|
 | `WAKE_MODEL` | `hey_jarvis` | File của bạn (`.env.example`: `models/hey_vegas.onnx`) hoặc tên model có sẵn (`hey_jarvis`, `alexa`, `hey_mycroft`, `hey_rhasspy`) |
 | `WAKE_THRESHOLD` | `0.5` | 0–1. Cao hơn: ít thức nhầm hơn nhưng phải nói rõ hơn |
-| `FOLLOW_UP_S` | `6` | Số giây nói tiếp không cần gọi lại |
+| `FOLLOW_UP_S` | `6` | Số giây nói tiếp không cần gọi lại (đặt 30 để trò chuyện liên tục). Nói "tạm biệt", "bye" thì phải gọi lại |
 | `HOTKEY` | `ctrl+alt+m` | Phím đóng/mở mic. Để trống để tắt |
 | `MQTT_URL` | `mqtt://127.0.0.1:1883` | Broker. Với Pi qua Tailscale: `wss://vega.<tailnet>.ts.net/mqtt` |
 | `MQTT_USER`, `MQTT_PASS` | trống | Với Pi: `agent` và `MQTT_AGENT_PASS` của Pi. User này chỉ gửi được lệnh và trạng thái mic |
 | `VEGA_STT_URL` | `http://127.0.0.1:8091/voice/stt` | `/voice/stt` của bộ não |
 | `VEGA_TTS_URL` | `http://127.0.0.1:5002/voice/tts` | `vega-voice`. Để trống: chỉ hiện chữ, không đọc |
+| `VOICE_LOCAL` | trống | Giọng VieNeu-TTS đọc ngay trên PC (`pip install vieneu`), ví dụ `Hải Đăng`. Nói ngay sau ~0.2 s, đọc được câu lẫn Anh–Việt. Khi đang nạp (~7 s lúc khởi động) hoặc lỗi thì `vega-voice` đọc |
+| `VOICE_ROBOT` | `0.6` | Màu robot của `VOICE_LOCAL` (vang kim loại + rè): 0 = giọng gốc, 1 = rất robot |
+
+`mic_check.py` hiện mức mic và điểm của từng model trong `models/` sau mỗi câu nói. `record_wake.py` thu giọng bạn ("Hey Vegas" và câu khác) vào `voice_clips/` để train lại model. Các file này là giọng của bạn: đừng commit.
 
 ## Huấn luyện "Hey Vegas"
 

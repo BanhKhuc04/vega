@@ -8,6 +8,7 @@ over MQTT, and the answer is read aloud. For FOLLOW_UP_S after an answer the nex
 import io
 import json
 import os
+import re
 import threading
 import wave
 from collections import deque
@@ -15,6 +16,8 @@ from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+import numpy as np
 
 RATE = 16000
 FRAME = 1280  # 80 ms
@@ -30,6 +33,8 @@ class Config:
     mqtt_pass: str = ""
     stt_url: str = "http://127.0.0.1:8091/voice/stt"
     tts_url: str = "http://127.0.0.1:5002/voice/tts"
+    voice_local: str = ""  # a VieNeu-TTS preset voice on this PC ("Hải Đăng"); empty = Piper on the Pi only
+    voice_robot: float = 0.6  # 0 = plain voice .. 1 = strong robot
     wake_model: str = "hey_jarvis"
     wake_threshold: float = 0.5
     vad_threshold: float = 0.5
@@ -53,6 +58,8 @@ class Config:
             mqtt_pass=env.get("MQTT_PASS", ""),
             stt_url=env.get("VEGA_STT_URL") or c.stt_url,
             tts_url=env["VEGA_TTS_URL"] if "VEGA_TTS_URL" in env else c.tts_url,  # empty = do not read aloud
+            voice_local=env.get("VOICE_LOCAL", "").strip(),
+            voice_robot=num("VOICE_ROBOT", c.voice_robot),
             wake_model=env.get("WAKE_MODEL") or c.wake_model,
             wake_threshold=num("WAKE_THRESHOLD", c.wake_threshold),
             follow_up_s=num("FOLLOW_UP_S", c.follow_up_s),
@@ -126,7 +133,42 @@ def get_tts(url, text, lang, timeout=30):
         return None
 
 
+class Robot:
+    """Robot colour, chunk by chunk (streamed audio): metallic comb echoes, a low ring-modulation buzz ("rè rè") and a
+    little saturation for grit. amount 0 = the plain voice, 1 = strong."""
+
+    TAPS = ((0.007, 0.35), (0.013, 0.25), (0.045, 0.12))  # (delay s, gain): short = metallic, 45 ms = room, never an echo
+    BUZZ_HZ = 70
+
+    def __init__(self, rate, amount=0.6):
+        self.rate, self.a = rate, min(1.0, max(0.0, float(amount)))
+        self.taps = [(int(rate * s), g * self.a) for s, g in self.TAPS]
+        self.hist = np.zeros(max(d for d, _ in self.taps), np.float32)
+        self.done = 0  # samples so far: the buzz keeps its phase across chunks
+
+    def __call__(self, x):
+        x = x.astype(np.float32)
+        if not self.a:
+            return x
+        buf = np.concatenate([self.hist, x])
+        n, y = len(self.hist), x.copy()
+        for d, g in self.taps:
+            y += g * buf[n - d : len(buf) - d]
+        self.hist = buf[-n:]
+        t = (self.done + np.arange(len(x))) / self.rate
+        self.done += len(x)
+        m = 0.5 * self.a
+        y *= (1 - m) + m * np.sin(2 * np.pi * self.BUZZ_HZ * t)
+        drive = 1 + 1.5 * self.a
+        y /= 1 + sum(g for _, g in self.taps)  # a fixed level: a streamed peak is not known in advance
+        return (np.tanh(drive * y) / np.tanh(drive)).astype(np.float32)
+
+
 VI = set("àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ")
+
+
+# ends the conversation: back to needing the wake word right after the answer
+BYE = re.compile(r"\b(tạm biệt|bye|goodbye|good night|chúc ngủ ngon|thôi nhé|dừng lại|stop listening)\b", re.I)
 
 
 def lang_of(text):
@@ -178,9 +220,9 @@ class Agent:
             self.run_len = self.run_len + 1 if speech else 0
             if self.run_len >= self.frames_for(self.cfg.follow_start_s):
                 self.log("[agent] follow-up speech")
-                self.frames = list(self.pre)
-                self.start(heard=True, keep=True)
-                self.speech = self.run_len
+                self.frames, ran = list(self.pre), self.run_len
+                self.start(heard=True, keep=True)  # resets run_len
+                self.speech = ran
             elif self.count >= self.frames_for(self.cfg.follow_up_s):
                 self.to_idle()
             return
@@ -230,7 +272,7 @@ class Agent:
                 return self.say_problem("no_answer")
             self.publish("speaking")
             self.speak(r.get("speak") or r.get("result") or "")
-            answered = True
+            answered = not BYE.search(text)
             self.answered += 1
         except SttError as e:
             self.say_problem(e.code)

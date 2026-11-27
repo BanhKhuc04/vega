@@ -19,3 +19,6 @@ google-token.json
 __pycache__/
 pc-agent/.venv/
 pc-agent/*.log
+# the owner's voice, and wake models trained on it: never in a public repository
+pc-agent/voice_clips/
+pc-agent/models/*.onnx
