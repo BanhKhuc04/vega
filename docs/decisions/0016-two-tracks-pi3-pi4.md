@@ -6,7 +6,7 @@
 | **Trạng thái** | Bản nháp, chờ duyệt. Chủ dự án đồng ý chia hai phần; thứ tự các mốc Pi 3 còn chờ chọn (mục 7) |
 | **Dựa trên** | 0012 (R3 Zigbee, R5 ngân sách CPU, M12, M13, M16), 0014 (P1 vai trò Pi 3, P2 cài không Docker, P6 ntfy trên Pi 3, P10 tai vệ tinh) |
 | **Sửa** | 0012 R3 (Zigbee2MQTT chạy trên Pi 3, không chạy trong container trên Pi 4); 0012 M16 (dò điện thoại bằng Bluetooth của Pi 3); 0014 P1 (Pi 3 nhận thêm vai trò trạm điều hành và cổng thiết bị) |
-| **Bị sửa bởi** | 0017 (bản nháp): P3.1, Uptime Kuma đọc trạng thái service qua MQTT và không báo trùng với người gác M10 |
+| **Bị sửa bởi** | 0017 (đã duyệt 2026-11-27): P3.1, Uptime Kuma đọc trạng thái service qua MQTT và không báo trùng với người gác M10 |
 
 ## 1. Vấn đề
 

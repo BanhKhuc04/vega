@@ -355,6 +355,38 @@ step_tailscale_serve() {
   fi
 }
 
+# The Pi 3 log book (brief 0017 O9): the whole journal, containers included (docker-compose.yml logs there), copied to
+# LOG_HOST over TCP so the last minutes before a crash survive this Pi. Forward only: the journal keeps the local copy.
+step_log_forward() {
+  say "Logs to the Pi 3 log book (LOG_HOST in .env)"
+  local host tmp
+  host="$( [ -f "$ENV_FILE" ] && env_get LOG_HOST || true )"
+  if [ -z "$host" ]; then
+    echo "   LOG_HOST is empty: logs stay on this Pi only"
+    return
+  fi
+  run apt-get install -y --no-install-recommends rsyslog
+  tmp="$(mktemp)"
+  cat >"$tmp" <<EOF
+# managed by VEGA infra/pi/setup.sh (brief 0017 O9): forwards the journal to the Pi 3, writes nothing here
+global(workDirectory="/var/lib/rsyslog")
+module(load="imjournal" StateFile="imjournal.state" IgnorePreviousMessages="on")
+# a queue in RAM: while the Pi 3 is away, up to 20000 lines wait here, then the oldest are dropped; nothing blocks
+action(type="omfwd" target="$host" port="514" protocol="tcp" template="RSYSLOG_ForwardFormat"
+       queue.type="LinkedList" queue.size="20000" queue.discardMark="18000"
+       action.resumeRetryCount="-1" action.resumeInterval="10")
+EOF
+  if [ "$DRY" = 1 ] || rsyslogd -N1 -f "$tmp" >/dev/null 2>&1; then
+    if write_if_changed /etc/rsyslog.conf 0644 <"$tmp"; then run systemctl restart rsyslog; fi
+  else
+    echo "   rsyslog refused the new config, keeping the old one:" >&2
+    rsyslogd -N1 -f "$tmp" >&2 || true
+  fi
+  rm -f "$tmp"
+  run systemctl enable --now rsyslog
+  echo "   forwarding to $host:514 (TCP)"
+}
+
 step_brain_env() {
   say "Brain settings (brain.env: AI providers, budget; never committed)"
   if [ -f "$HERE/brain.env" ]; then
@@ -438,6 +470,7 @@ step_tailscale_ip
 step_brain_env
 step_mosquitto_users
 step_restore_db
+step_log_forward
 step_stack
 step_timers
 step_tailscale_serve
