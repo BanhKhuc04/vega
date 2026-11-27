@@ -1,0 +1,55 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * VEGA mini screen (docs/mini-screen.md): a 2.8" ILI9341 SPI module (red board, 320x240, no touch) on SPI0 CE0,
+ * driven as a DRM display by the kernel's tiny mi0283qt driver (an ILI9341 panel).
+ * DC = GPIO25, RESET = GPIO24, backlight = GPIO18. Built and enabled by `infra/pi/setup.sh --mini-screen`.
+ * Upside down? Change rotation to 270 (or 90 <-> 270), rebuild with the setup script, reboot.
+ */
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			display@0 {
+				compatible = "multi-inno,mi0283qt";
+				reg = <0>;
+				spi-max-frequency = <32000000>;
+				rotation = <90>;
+				dc-gpios = <&gpio 25 0>;
+				reset-gpios = <&gpio 24 0>;
+				backlight = <&vega_backlight>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			vega_backlight: vega-backlight {
+				compatible = "gpio-backlight";
+				gpios = <&gpio 18 0>;
+				default-on;
+			};
+		};
+	};
+};

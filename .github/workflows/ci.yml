@@ -134,6 +134,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash -n infra/pi/setup.sh dashboard/docker/40-vega-config.sh
-      - run: shellcheck -x infra/pi/setup.sh dashboard/docker/40-vega-config.sh infra/pi3/setup.sh infra/pi3/vega-watch.sh infra/pi3/tests/watch-test.sh
+      - run: shellcheck -x infra/pi/setup.sh infra/pi/mini-screen/kiosk-mini.sh dashboard/docker/40-vega-config.sh infra/pi3/setup.sh infra/pi3/vega-watch.sh infra/pi3/tests/watch-test.sh
+      - name: Mini screen overlay and knob service compile
+        run: |
+          sudo apt-get install -y -qq device-tree-compiler
+          dtc -@ -q -I dts -O dtb -o /tmp/vega-ili9341.dtbo infra/pi/mini-screen/vega-ili9341.dts
+          python3 -m py_compile infra/pi/mini-screen/knob.py
       - name: Pi 3 watchdog (M10, fake MQTT, ping and ntfy)
         run: bash infra/pi3/tests/watch-test.sh

@@ -39,7 +39,8 @@ Các bước và nơi chỉnh:
 | Kiosk | `cage` + Chromium, unit `vega-kiosk.service`, mở `http://localhost:8080/?quality=css` |
 
 Biến môi trường tùy chọn của script: `KIOSK_URL`, `KIOSK_USER` (mặc định user đang chạy `sudo`, hoặc `pi`).
-`--no-kiosk` bỏ qua phần kiosk.
+`--no-kiosk` bỏ qua phần kiosk. `--mini-screen` thay màn HDMI bằng màn SPI 2.8" và nút xoay của hộp homeserver
+(trang `/mini`, nối dây và sửa lỗi: `docs/mini-screen.md`).
 
 ## MQTT: người dùng và quyền
 
