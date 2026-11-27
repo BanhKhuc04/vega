@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import urlopen
 
-from server import Speaker, make_handler
+from server import Speaker, make_handler, spoken
 
 
 class FakeVoice:
@@ -86,6 +86,16 @@ class TtsTest(unittest.TestCase):
 
     def test_unknown_path(self):
         self.assertEqual(self.get("/voice/other")[0], 404)
+
+
+class SpokenTest(unittest.TestCase):
+    def test_vietnamese_clock_in_words(self):
+        self.assertEqual(spoken("Bây giờ là 22:23, thứ Ba.", "vi"), "Bây giờ là 22 giờ 23, thứ Ba.")
+        self.assertEqual(spoken("Hẹn lúc 07:00 và 9:05", "vi"), "Hẹn lúc 7 giờ và 9 giờ 5")
+        self.assertEqual(spoken("tỉ số 3:45:10 và 25:00", "vi"), "tỉ số 3:45:10 và 25:00")  # not a clock: unchanged
+
+    def test_english_unchanged(self):
+        self.assertEqual(spoken("It is 22:23.", "en"), "It is 22:23.")
 
 
 if __name__ == "__main__":
