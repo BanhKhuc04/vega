@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEGAS Mini</title>
+<meta name="theme-color" content="#010207">
+<link rel="icon" href="/icon-192.png">
+<script src="/config.js"></script>
+<style>
+  /* Small front screen of the homeserver box: 2.8" 320×240, no touch, one rotary knob (dashboard/src/mini). */
+  :root { --bg: #010207; --line: #16253d; --ink: #ddebff; --dim: #7f93b6; --accent: #4fc3ff; --ok: #5ef0a0; --warn: #ffc266; --bad: #ff5c77;
+          --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 500 14px/1.25 var(--mono); overflow: hidden; cursor: none; }
+  #app { position: relative; width: 100vw; height: 100vh; max-width: 320px; max-height: 240px; margin: 0 auto; display: grid; grid-template-rows: 22px auto 1fr 12px; padding: 4px 8px; gap: 2px; }
+  header { display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 12px; letter-spacing: .2em; }
+  header b { color: var(--accent); font-weight: 700; }
+  #conn { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); margin-left: 6px; vertical-align: middle; }
+  #conn[data-state="live"] { background: var(--ok); } #conn[data-state="reconnecting"] { background: var(--warn); } #conn[data-state="offline"] { background: var(--bad); }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+  #title { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #big { font: 700 26px/1.1 var(--mono); color: var(--accent); white-space: nowrap; }
+  #big.warn { color: var(--warn); }
+  #body { list-style: none; margin: 0; padding: 0; overflow: hidden; }
+  #body li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid #0b1626; white-space: nowrap; overflow: hidden; }
+  #body li span { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+  #body li b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+  #body li.sel { color: var(--bg); background: var(--accent); padding-left: 4px; }
+  #body li.hint { color: var(--dim); font-size: 11px; border: 0; }
+  #dots { display: flex; justify-content: center; gap: 6px; align-items: center; }
+  #dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  #dots i.on { background: var(--accent); }
+  .over { position: absolute; inset: 0; background: rgba(1, 2, 7, .96); display: grid; align-content: center; gap: 10px; padding: 14px; text-align: center; }
+  .over[hidden] { display: none; }
+  #sLabel, #pTitle { font: 700 20px/1.2 var(--mono); color: var(--accent); }
+  #scene[data-scene="alert"] #sLabel { color: var(--bad); } #scene[data-scene="success"] #sLabel { color: var(--ok); }
+  #sLine { font-size: 15px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+  #pChoices { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  #pChoices li { border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 16px; }
+  #pChoices li.sel { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+  #toast { position: absolute; left: 6px; right: 6px; bottom: 16px; background: #07101e; border: 1px solid var(--accent); border-radius: 4px; padding: 6px 8px; font-size: 13px;
+           max-height: 120px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
+  #toast[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header><span><b>VEGAS</b><i id="conn" aria-hidden="true"></i></span><span id="clock">--:--</span></header>
+  <div class="top"><span id="title"></span><span id="big"></span></div>
+  <ul id="body"></ul>
+  <div id="dots" aria-hidden="true"></div>
+  <section id="scene" class="over" hidden aria-live="polite"><div id="sLabel"></div><div id="sLine"></div></section>
+  <section id="prompt" class="over" hidden aria-live="assertive"><div id="pTitle"></div><ul id="pChoices"></ul></section>
+  <div id="toast" hidden role="status"></div>
+</div>
+<script type="module" src="/src/mini/main.ts"></script>
+</body>
+</html>

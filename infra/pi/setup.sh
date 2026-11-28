@@ -3,6 +3,7 @@
 #
 #   sudo ./infra/pi/setup.sh               # Docker, zram, secrets, stack, Chromium kiosk
 #   sudo ./infra/pi/setup.sh --no-kiosk    # everything except the kiosk
+#   sudo ./infra/pi/setup.sh --mini-screen # kiosk on the 2.8" SPI screen with the rotary knob (docs/mini-screen.md)
 #   ./infra/pi/setup.sh --dry-run          # print what would be done, change nothing
 #   sudo ./infra/pi/setup.sh --restore vega-YYYYMMDD-HHMMSS.tar.gz.age   # rebuild from a backup (M8, docs/pi-setup.md)
 #
@@ -11,6 +12,7 @@ set -euo pipefail
 
 DRY=0
 KIOSK=1
+MINI=0
 RESTORE=""
 want_restore=0
 for arg in "$@"; do
@@ -22,9 +24,10 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     --no-kiosk) KIOSK=0 ;;
+    --mini-screen) MINI=1 ;;
     --restore) want_restore=1 ;;
     -h | --help)
-      sed -n '2,9p' "$0"
+      sed -n '2,10p' "$0"
       exit 0
       ;;
     *)
@@ -42,7 +45,11 @@ if [ -n "$RESTORE" ]; then RESTORE="$(cd "$(dirname "$RESTORE")" && pwd)/$(basen
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$HERE/.env"
 COMPOSE=(docker compose -f "$HERE/docker-compose.yml" --env-file "$ENV_FILE")
-KIOSK_URL="${KIOSK_URL:-http://localhost:8080/?quality=css}"
+if [ "$MINI" = 1 ]; then
+  KIOSK_URL="${KIOSK_URL:-http://localhost:8080/mini}"
+else
+  KIOSK_URL="${KIOSK_URL:-http://localhost:8080/?quality=css}"
+fi
 KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-pi}}"
 
 say() { printf '\n==> %s\n' "$*"; }
@@ -397,6 +404,10 @@ step_kiosk() {
   fi
   run apt-get install -y --no-install-recommends cage "$chromium" seatd
   run usermod -aG video,render,input,seat "$KIOSK_USER" || true
+  local browser="/usr/bin/$chromium --kiosk --ozone-platform=wayland --noerrdialogs --disable-infobars --incognito --no-first-run --disable-session-crashed-bubble --overscroll-history-navigation=0 --autoplay-policy=no-user-gesture-required"
+  local start="/usr/bin/cage -s -- $browser"
+  # the SPI screen: software drawing at 320x240, on that panel only (mini-screen/kiosk-mini.sh)
+  if [ "$MINI" = 1 ]; then start="/usr/local/bin/vega-kiosk-mini $browser --disable-gpu --force-device-scale-factor=1"; fi
   if write_if_changed /etc/systemd/system/vega-kiosk.service 0644 <<UNIT; then
 # managed by VEGA infra/pi/setup.sh
 [Unit]
@@ -412,7 +423,7 @@ StandardInput=tty
 StandardOutput=journal
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 ExecStartPre=/bin/sh -c 'until curl -fs ${KIOSK_URL%%\?*} >/dev/null; do sleep 2; done'
-ExecStart=/usr/bin/cage -s -- /usr/bin/$chromium --kiosk --ozone-platform=wayland --noerrdialogs --disable-infobars --incognito --no-first-run --disable-session-crashed-bubble --overscroll-history-navigation=0 --autoplay-policy=no-user-gesture-required "$KIOSK_URL"
+ExecStart=$start "$KIOSK_URL"
 Restart=always
 RestartSec=5
 
@@ -424,6 +435,43 @@ UNIT
   run systemctl enable vega-kiosk.service
   run systemctl set-default graphical.target
   echo "   reboot to start the kiosk:  sudo reboot"
+}
+
+# The 2.8" ILI9341 SPI screen and the EC11 knob of the homeserver box (docs/mini-screen.md, files in mini-screen/)
+step_mini_screen() {
+  say "Mini screen: 2.8\" SPI display + rotary knob"
+  run apt-get install -y --no-install-recommends device-tree-compiler python3-gpiozero python3-lgpio python3-evdev
+  local boot=/boot/firmware
+  [ -d "$boot" ] || boot=/boot
+  run dtc -@ -q -I dts -O dtb -o "$boot/overlays/vega-ili9341.dtbo" "$HERE/mini-screen/vega-ili9341.dts"
+  if ! grep -qx 'dtoverlay=vega-ili9341' "$boot/config.txt"; then
+    if [ "$DRY" = 1 ]; then
+      printf '   [dry-run] would add dtparam=spi=on and dtoverlay=vega-ili9341 to %s\n' "$boot/config.txt"
+    else
+      printf '\n# VEGA mini screen (infra/pi/setup.sh --mini-screen)\n[all]\ndtparam=spi=on\ndtoverlay=vega-ili9341\n' >>"$boot/config.txt"
+    fi
+  fi
+  run install -m 0755 "$HERE/mini-screen/knob.py" /usr/local/bin/vega-knob
+  run install -m 0755 "$HERE/mini-screen/kiosk-mini.sh" /usr/local/bin/vega-kiosk-mini
+  if write_if_changed /etc/systemd/system/vega-knob.service 0644 <<'UNIT'; then
+# managed by VEGA infra/pi/setup.sh
+[Unit]
+Description=VEGA knob (rotary encoder -> keys for the mini screen)
+After=multi-user.target
+
+[Service]
+ExecStartPre=/sbin/modprobe uinput
+ExecStart=/usr/bin/python3 /usr/local/bin/vega-knob
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    run systemctl daemon-reload
+  fi
+  run systemctl enable vega-knob.service
+  echo "   reboot to load the display overlay:  sudo reboot"
 }
 
 need_root "$@"
@@ -441,5 +489,6 @@ step_restore_db
 step_stack
 step_timers
 step_tailscale_serve
+if [ "$MINI" = 1 ]; then step_mini_screen; fi
 if [ "$KIOSK" = 1 ]; then step_kiosk; fi
 say "Done. Dashboard: http://$( [ -f "$ENV_FILE" ] && [ -n "$(env_get TAILSCALE_IP)" ] && env_get TAILSCALE_IP || echo localhost ):$( [ -f "$ENV_FILE" ] && env_get UI_PORT || echo 8080 )/"
