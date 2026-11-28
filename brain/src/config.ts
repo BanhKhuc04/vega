@@ -35,6 +35,8 @@ export interface Config {
   providers: Record<string, Provider>;
   /** Provider per kind of work. `router` picks the tools; `chat` writes the answer after tools ran; `research` plans and writes research (M6); `vision` looks at photos (M7, only when LLM_VISION is set). null = no LLM. */
   tasks: Record<Task, string | null>;
+  /** The model on the owner's PC (M15, LLM_LOCAL): writes the answers while the PC is on, and does all AI work the cloud cannot (none set, budget spent, offline). null = none. */
+  localAi: string | null;
   /** GitHub Actions watching (M3). null = off (no token or no repos). */
   github: GithubConfig | null;
   /** Publish this machine's stats on vega/system/pi (the brain on the Pi). */
@@ -206,6 +208,8 @@ export const PRESETS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
   mistral: 'https://api.mistral.ai/v1',
+  // the brain running on the PC itself (npm run vega); from the Pi, LLM_OLLAMA_BASE_URL is the PC's Tailscale address
+  ollama: 'http://localhost:11434/v1',
 };
 
 /** Fixed, offline provider for tests, CI and the bench. Its prices are made up so cost accounting is exercised. */
@@ -237,7 +241,8 @@ function providers(env: Env, warnings: string[]): Record<string, Provider> {
     const maxOut = num(get('MAX_OUTPUT_TOKENS'), 512, 16);
     const skip = (why: string) => warnings.push(`provider ${name} ignored: ${why}`);
     if (!baseUrl) skip(`set LLM_${N}_BASE_URL`);
-    else if (!/^https:\/\//.test(baseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(baseUrl)) skip('base URL must be https (or http on localhost)');
+    // plain http only where nothing crosses the wire unencrypted: this machine, or a Tailscale address (100.64.0.0/10, WireGuard)
+    else if (!/^https:\/\//.test(baseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\]|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3})(:\d+)?(\/|$)/.test(baseUrl)) skip('base URL must be https (or http on localhost or a Tailscale 100.x address)');
     else if (!model) skip(`set LLM_${N}_MODEL`);
     else if (api !== 'chat' && api !== 'responses') skip(`LLM_${N}_API must be chat or responses`);
     // without prices the daily budget could not be enforced
@@ -278,6 +283,7 @@ export function loadConfig(env: Env = process.env): Config {
     llmTimeoutMs: num(env.LLM_TIMEOUT_MS, 20_000, 1000),
     providers: provs,
     tasks: { router, chat: chatTask, research: env.LLM_RESEARCH ? pick(env.LLM_RESEARCH, 'research') : chatTask, vision: pick(env.LLM_VISION, 'vision') },
+    localAi: pick(env.LLM_LOCAL, 'local'),
     search: searchKey && SAFE_URL.test(searchUrl) ? { apiKey: searchKey, apiUrl: searchUrl, maxMonth: num(env.SEARCH_MAX_MONTH, 900, 1) } : null,
     research: { maxUsd: num(env.RESEARCH_MAX_USD, 0.01), maxOut: num(env.RESEARCH_MAX_OUTPUT_TOKENS, 800, 100) },
     github: github(env, warnings),

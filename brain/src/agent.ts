@@ -6,7 +6,7 @@ import type { CiWatcher } from './github';
 import type { HealthWatch } from './health';
 import type { Locator } from './locate';
 import { RateLimiter, reply } from './guard';
-import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
+import { LlmUnavailable, Reachability, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
 import { routeLocal } from './local';
 import { parseMemoryCommand } from './memory';
@@ -70,6 +70,8 @@ interface Run {
   /** Web results the LLM saw this run (quick search, M6): at most one search per command. */
   sources: SourceRef[];
   searched: boolean;
+  /** The last AI call of this run went to the PC model (M15): the screen shows LOCAL AI. */
+  localAi: boolean;
 }
 interface Chip {
   label: string;
@@ -101,6 +103,8 @@ export interface AgentDeps {
 }
 
 const MAX_TURNS = 4;
+/** After the cloud was unreachable while the PC was on, the PC answers straight away for this long (M15, L6). */
+const CLOUD_DOWN_MS = 60_000;
 /** The conversation (M9, T7): 6 turns, in RAM only, gone after 10 minutes of silence. */
 const CONVO_TURNS = 6;
 const CONVO_IDLE_MS = 10 * 60_000;
@@ -169,6 +173,9 @@ export class Agent {
   private readonly limiter: RateLimiter;
   private pending: { calls: ToolCall[]; expires: number } | null = null;
   private readonly search: WebSearch | null;
+  /** The PC model (M15), when LLM_LOCAL is set. */
+  private readonly pc: Reachability | null;
+  private cloudDownUntil = 0;
   /** The conversation so far (T7): turns for the AI, and the devices and room just talked about, for "nó", "phòng đó". */
   private convo: { turns: { user: string; answer: string }[]; devices: string[]; room: string | null; at: number; suggested: boolean } = { turns: [], devices: [], room: null, at: 0, suggested: false };
   constructor(private readonly deps: AgentDeps) {
@@ -177,12 +184,13 @@ export class Agent {
     this.now = deps.now ?? Date.now;
     this.limiter = new RateLimiter(deps.config.ratePerMin);
     this.search = deps.config.search ? new WebSearch(deps.config.search, deps.store, this.now) : null;
+    this.pc = deps.config.localAi ? new Reachability(deps.config.providers[deps.config.localAi]!, this.now) : null;
   }
 
   async handle(cmd: Command): Promise<Outcome> {
     const { config } = this.deps;
     const now = this.now();
-    const run: Run = { screen: null, pending: [], trusted: cmd.origin === 'owner' && !cmd.external?.length, confirmed: false, lang: commandLang(cmd.text, config.lang), cmdId: cmd.id, sources: [], searched: false };
+    const run: Run = { screen: null, pending: [], trusted: cmd.origin === 'owner' && !cmd.external?.length, confirmed: false, lang: commandLang(cmd.text, config.lang), cmdId: cmd.id, sources: [], searched: false, localAi: false };
     const done = (out: Outcome) => (this.answer(cmd, out, run), this.track(cmd, out, run), out);
     if (now - this.convo.at > CONVO_IDLE_MS) this.convo = { turns: [], devices: [], room: null, at: now, suggested: false };
 
@@ -316,7 +324,6 @@ export class Agent {
     const { config, registry, store } = this.deps;
     const calls: ToolCall[] = [];
     let llmCalls = 0;
-    if (!config.tasks.router) return { answer: 'I only understand device commands right now (no AI configured).', path: 'no_llm', calls, llmCalls };
     const overBudget = () => store.spentUsd(dayOf(this.now())) >= config.budgetUsdDay;
     // memory and conversation only for the owner's own commands; normal items only, at most 5 (T6); names hidden by withAliases
     const memo = run.trusted ? (this.deps.memory?.relevant(cmd.text) ?? []) : [];
@@ -338,10 +345,15 @@ export class Agent {
     if (a) messages.splice(1, 0, { role: 'system', content: `Local time now: ${new Date(this.now()).toString()}.` });
     let lastTexts: string[] = [];
     const memoSentTo = new Set<string>();
+    void this.pc?.up(); // M15: probe the PC now, while the cloud picks the tools
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const task = turn === 0 ? 'router' : 'chat';
-      const provider = config.providers[(config.tasks[task] ?? config.tasks.router)!]!;
-      if (overBudget()) {
+      const cloud = config.tasks[task] ?? config.tasks.router;
+      // M15 (L3): the PC model writes the answers while the PC is on, and does all the work the cloud cannot
+      const local = (task === 'chat' || !cloud || overBudget() || this.now() < this.cloudDownUntil) && !!(await this.pc?.up());
+      if (!local && !cloud) return { answer: lastTexts.join(' · ') || 'I only understand device commands right now (no AI configured).', path: 'no_llm', calls, llmCalls };
+      const provider = config.providers[local ? config.localAi! : cloud!]!;
+      if (!local && overBudget()) {
         const day = dayOf(this.now());
         if (this.budgetShown !== day) {
           this.budgetShown = day;
@@ -366,11 +378,19 @@ export class Agent {
         this.log(`[brain] LLM ${offline ? 'offline' : 'error'}: ${(e as Error).message}`);
         chips.at(-1)!.state = 'wait';
         this.think(chips);
+        // M15 (L6): the PC went off (today's behaviour from here), or no internet while the PC is on: this turn again
+        if (local || (offline && (await this.pc?.up()))) {
+          if (local) this.pc!.down();
+          else this.cloudDownUntil = this.now() + CLOUD_DOWN_MS;
+          turn--;
+          continue;
+        }
         return offline
           ? { answer: 'Offline: AI is unreachable. Device commands still work.', path: 'offline', calls, llmCalls }
           : { answer: 'AI error, please try again later.', path: 'error', calls, llmCalls };
       }
       llmCalls++;
+      run.localAi = local;
       store.logUsage({ ts: this.now(), commandId: cmd.id, task, provider: provider.name, model: provider.model, tokensIn: res.usage.in, tokensOut: res.usage.out, usd: costUsd(provider, res.usage) });
       this.publishUsage();
       chips.at(-1)!.state = 'done';
@@ -697,7 +717,7 @@ export class Agent {
   private answer(cmd: Command, out: Outcome, run: Run): void {
     // during Focus an answer goes to the chat and the Focus screen comes back
     this.deps.bus.scene(run.screen ?? this.deps.assistant?.focusScene() ?? { scene: 'idle', data: { caption: clip(out.answer, 80) } });
-    this.deps.bus.result(cmd.id, out.answer, { ...(out.speak && { speak: out.speak }), ...(out.sources?.length && { sources: out.sources }) });
+    this.deps.bus.result(cmd.id, out.answer, { ...(out.speak && { speak: out.speak }), ...(out.sources?.length && { sources: out.sources }), ...(run.localAi && { localAi: true }) });
     this.deps.store.logCommand({ id: cmd.id, ts: this.now(), text: cmd.text, origin: cmd.origin, path: out.path, answer: out.answer, tools: out.calls.map(chipLabel), llmCalls: out.llmCalls });
     this.log(`[brain] ${cmd.id} ${out.path} (${out.llmCalls} LLM) "${cmd.text}" -> ${out.answer}`);
   }

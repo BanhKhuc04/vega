@@ -14,7 +14,7 @@ export type Update =
   | { type: 'ci'; repo: string; failed: number; ts: number }
   | { type: 'nextEvent'; title: string; detail: string | null; at: number }
   | { type: 'co2Series'; room: string; values: number[]; thresholdPpm: number; maxPpm: number }
-  | { type: 'commandResult'; id: string; result: string; speak: string | null; sources: SourceRef[] }
+  | { type: 'commandResult'; id: string; result: string; speak: string | null; sources: SourceRef[]; localAi: boolean }
   | { type: 'announce'; text: string; ts: number }
   | { type: 'llmUsage'; day: string; spentUsd: number; budgetUsd: number; calls: number; tokensIn: number; tokensOut: number }
   | { type: 'core'; state: CoreStateMsg['state']; mic: NonNullable<CoreStateMsg['mic']> | null }
@@ -68,7 +68,7 @@ export function parseMessage(topic: string, payload: string, now: number = Date.
         case 'co2_series':
           return { type: 'co2Series', room: e.room, values: e.values, thresholdPpm: e.threshold_ppm ?? 1000, maxPpm: e.max_ppm ?? 1500 };
         case 'command_result':
-          return { type: 'commandResult', id: e.id, result: e.result, speak: e.speak ?? null, sources: e.sources ?? [] };
+          return { type: 'commandResult', id: e.id, result: e.result, speak: e.speak ?? null, sources: e.sources ?? [], localAi: e.local_ai === true };
         case 'announce':
           return { type: 'announce', text: e.text, ts: t(e.ts, now) };
         case 'llm_usage':

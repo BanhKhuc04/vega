@@ -27,7 +27,7 @@ import { Voice } from './ui/speech';
 import { SceneController } from './scene/controller';
 import { capturePristine } from './scene/render';
 import { startGeoShare } from './ui/geo';
-import { bindQualityButton, renderCam, renderConn, renderHome, renderMic } from './ui/chrome';
+import { bindQualityButton, renderCam, renderConn, renderHome, renderLocalAi, renderMic } from './ui/chrome';
 import { LiveBinder } from './ui/live';
 
 const source = createDataSource();
@@ -50,6 +50,7 @@ const paint = () => {
   renderMic(latest);
   renderCam(latest);
   renderHome(latest);
+  renderLocalAi(latest);
 };
 capturePristine(document, { setLog: () => {}, setVision: () => {} }); // remember the template's own text before any animation touches it
 paint(); // first values go in before the intro animations read them (countUp targets)

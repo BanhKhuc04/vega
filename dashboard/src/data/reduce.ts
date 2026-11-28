@@ -61,6 +61,7 @@ export function applyUpdate(s: Snapshot, u: Update): Snapshot {
     case 'llmUsage':
       return { ...s, ai: { day: u.day, spentUsd: u.spentUsd, budgetUsd: u.budgetUsd, calls: u.calls } };
     case 'commandResult':
+      return u.localAi === s.localAi ? s : { ...s, localAi: u.localAi };
     case 'voiceCommand':
     case 'announce':
     case 'scene':

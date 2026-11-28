@@ -53,6 +53,8 @@ export interface Snapshot {
   camera: boolean | null;
   /** The owner home or away, from the phone (M8); null = no phone reports. */
   home: boolean | null;
+  /** The last answer was written by the AI on the owner's PC (M15): the LOCAL AI chip. */
+  localAi: boolean;
 }
 
 export interface VegaDataSource {

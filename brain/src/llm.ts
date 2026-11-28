@@ -48,6 +48,38 @@ export interface ChatOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Is the PC model up (M15)? `GET /models` with a short timeout, at most one probe per `ttlMs`: the PC is off most of the
+ * time, so an off PC costs one short wait a minute. Only ever asks, never wakes the PC.
+ */
+export class Reachability {
+  private at = -Infinity;
+  private last = Promise.resolve(false);
+  constructor(
+    private readonly p: Provider,
+    private readonly now: () => number,
+    private readonly opts: { ttlMs?: number; timeoutMs?: number; fetchImpl?: typeof fetch } = {},
+  ) {}
+
+  up(): Promise<boolean> {
+    if (this.now() - this.at < (this.opts.ttlMs ?? 60_000)) return this.last;
+    this.at = this.now();
+    const f = this.opts.fetchImpl ?? fetch;
+    const headers = this.p.apiKey ? { authorization: `Bearer ${this.p.apiKey}` } : undefined;
+    this.last = f(`${this.p.baseUrl}/models`, { headers, signal: AbortSignal.timeout(this.opts.timeoutMs ?? 1500) }).then(
+      (r) => (void r.body?.cancel().catch(() => {}), r.ok),
+      () => false,
+    );
+    return this.last;
+  }
+
+  /** A call to it failed: off until the next probe. */
+  down(): void {
+    this.at = this.now();
+    this.last = Promise.resolve(false);
+  }
+}
+
 /** Request body for the OpenAI Responses API (`/responses`), built from the same chat messages and tools. */
 function responsesBody(p: Provider, req: ChatRequest): Record<string, unknown> {
   const input = req.messages.flatMap((m): unknown[] => {

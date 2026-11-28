@@ -298,6 +298,7 @@ svg text.zap{animation:zapsvg .5s steps(1) 1}
 .conn[data-state=offline]{color:var(--bad);border-color:rgba(255,92,119,.6)}.conn[data-state=offline] i{background:var(--bad);box-shadow:0 0 8px var(--bad)}
 .conn[data-state=sim]{color:var(--dim)}.conn[data-state=sim] i{background:var(--dim);box-shadow:none}
 .conn.mic{color:var(--warn);border-color:rgba(255,194,102,.6)}.conn.mic i{background:var(--warn);box-shadow:none}.conn.mic[hidden]{display:none}
+.conn.ai[hidden]{display:none}
 @keyframes cpulse{50%{opacity:.25}}
 .qbtn{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--a20);background:rgba(3,6,14,.6);color:var(--dim);font-size:10px;letter-spacing:.14em}
 .qbtn b{font-weight:500;color:var(--hi)}.qbtn:hover{color:#fff;border-color:var(--a55)}

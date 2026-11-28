@@ -223,6 +223,21 @@ rõ là không huấn luyện trên dữ liệu API. Vì vậy VEGAS coi **mọi
 - **Giới hạn:** quy tắc từ khoá có thể bỏ sót câu viết lạ, và câu chủ tự gõ mà cần AI thì vẫn đi nguyên văn (trừ tên đã biết). Điều thật sự
   không muốn ai biết thì đừng nói với VEGAS.
 
+## 10c. AI cục bộ trên PC (M15)
+
+Model trên PC (Ollama, brief 0019) nhận cùng nội dung như AI trên cloud: câu lệnh, lịch sử ngắn, kết quả tool, mục nhớ *thường*. Dữ liệu
+không ra khỏi nhà, nhưng **Ollama không có mật khẩu**: ai gọi tới được cổng 11434 là dùng được model, và đọc được câu hỏi nếu nghe
+lén được đường truyền.
+
+- **Ollama nghe ở địa chỉ Tailscale của PC** (`OLLAMA_HOST=100.x.y.z:11434`), không nghe `0.0.0.0`. Như vậy máy trong Wi-Fi nhà
+  (khách, thiết bị IoT) không gọi được, chỉ máy trong tailnet của chủ.
+- **Bộ não chỉ chấp nhận `http://` tới localhost hoặc địa chỉ Tailscale `100.64.0.0/10`**: Tailscale mã hoá bằng WireGuard. `http://`
+  tới địa chỉ LAN (`192.168.x.x`) bị bỏ qua kèm cảnh báo, vì câu hỏi sẽ đi qua Wi-Fi không mã hoá.
+- Muốn chặt hơn: ACL Tailscale chỉ cho Pi 4 (và chính PC) vào cổng 11434 của PC.
+- Bí danh, mức riêng tư và sổ `memory_sent` của M9 áp dụng y như với cloud (sổ ghi provider `ollama`).
+- Model nhỏ dễ gọi nhầm tool hơn. Các lớp chặn cũ không đổi: lệnh vật lý chỉ chạy với lệnh trực tiếp của chủ, thiết bị rủi ro cao vẫn
+  phải Confirm, nội dung ngoài vẫn không gọi được tool vật lý.
+
 ## 11. Việc còn lại
 
 - TLS cho MQTT ngoài Tailscale.

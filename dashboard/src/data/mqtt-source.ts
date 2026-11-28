@@ -151,6 +151,7 @@ export class MqttSource implements VegaDataSource {
     }
     if (u.type === 'commandResult') {
       for (const l of this.resultListeners) l(u.id, u.result, { speak: u.speak, sources: u.sources });
+      if (u.localAi !== this.snap.localAi) this.update(applyUpdate(this.snap, u)); // the LOCAL AI chip (M15)
       return;
     }
     if (u.type === 'voiceCommand') {

@@ -37,6 +37,12 @@ export function renderHome(s: Pick<Snapshot, 'home'>, root: ParentNode = documen
   if (chip) chip.hidden = s.home !== false;
 }
 
+/** Header chip of the AI on the owner's PC (M15): while the last answer came from it. */
+export function renderLocalAi(s: Pick<Snapshot, 'localAi'>, root: ParentNode = document): void {
+  const chip = root.querySelector<HTMLElement>('#aiChip');
+  if (chip) chip.hidden = !s.localAi;
+}
+
 /** Header chip of the voice agent's microphone: hidden while it listens normally (or no agent runs). */
 export function renderMic(s: Pick<Snapshot, 'mic'>, root: ParentNode = document): void {
   const chip = root.querySelector<HTMLElement>('#micChip');

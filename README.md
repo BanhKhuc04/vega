@@ -267,6 +267,21 @@ Một Pi 3 rảnh đứng ngoài trông Pi 4 và chạy **ntfy** (brief 0014). C
   nhớ một sở thích, bạn bấm Confirm mới lưu (`MEMORY_SUGGEST=0` để tắt).
 - Console › **Memory**: xem, đổi mức, xoá, và xem mục nào đã gửi AI bao nhiêu lần. Chi tiết: `docs/security.md` §10b, brief 0015.
 
+### AI cục bộ trên PC (M15)
+
+PC bật thì model trên PC (Ollama) viết câu trả lời, 0 đồng. Hết `BUDGET_USD_DAY`, mất internet, hoặc không có AI cloud nào thì PC làm
+hết, thay vì chỉ còn lệnh cục bộ. PC tắt thì như cũ; VEGAS không bao giờ bật PC. Câu trả lời do PC viết thì header hiện chip
+**LOCAL AI**. Chi tiết: brief 0019.
+
+1. Trên PC: cài [Ollama](https://ollama.com/download/windows), rồi `ollama pull qwen3:4b-instruct-2507-q4_K_M` (2,5 GB).
+2. Bộ não chạy ngay trên PC (`npm run vega`): thêm vào `.env`
+   `LLM_LOCAL=ollama`, `LLM_OLLAMA_MODEL=qwen3:4b-instruct-2507-q4_K_M`, `LLM_OLLAMA_PRICE_IN=0`, `LLM_OLLAMA_PRICE_OUT=0`
+   (preset `ollama` đã trỏ `http://localhost:11434/v1`).
+3. Bộ não trên Pi: Ollama phải nghe ở **địa chỉ Tailscale của PC** (`tailscale ip -4` trên PC). Thoát Ollama, đặt biến môi trường
+   người dùng `OLLAMA_HOST=100.x.y.z:11434` và `OLLAMA_KEEP_ALIVE=30m`, mở lại Ollama. Trong `infra/pi/brain.env` thêm như bước 2 và
+   `LLM_OLLAMA_BASE_URL=http://100.x.y.z:11434/v1`. Không đặt `OLLAMA_HOST=0.0.0.0` (Ollama không có mật khẩu, `docs/security.md` §10c).
+4. Đo trước khi tin: `npm run bench -- --provider ollama` (cần ≥ 85% để model PC được chọn tool).
+
 ### Chỉ màn hình, không broker
 
 ```bash

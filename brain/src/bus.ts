@@ -9,8 +9,8 @@ export type SceneOut = SceneMessage extends infer S ? (S extends SceneMessage ? 
 /** Everything the brain sends. Every payload is built and validated with @vega/contract before it leaves. */
 export interface Bus {
   scene(s: SceneOut): void;
-  /** The answer to a command; `speak` is read aloud instead of the text, `sources` are the links it cites. */
-  result(id: string, text: string, extra?: { speak?: string; sources?: SourceRef[] }): void;
+  /** The answer to a command; `speak` is read aloud instead of the text, `sources` are the links it cites, `localAi`: written by the PC model (M15). */
+  result(id: string, text: string, extra?: { speak?: string; sources?: SourceRef[]; localAi?: boolean }): void;
   setDevice(room: string, id: string, on: boolean): void;
   /** Stats of the machine the brain runs on (the Pi). */
   pi(s: { cpuPct: number; memPct: number; tempC: number | null; uptimeS: number }): void;
@@ -46,6 +46,7 @@ export function mqttBus(client: MqttClient, now: () => number = Date.now): Bus {
         result: text.slice(0, 2000),
         ...(extra.speak && { speak: extra.speak.slice(0, 300) }),
         ...(extra.sources?.length && { sources: extra.sources.slice(0, 8) }),
+        ...(extra.localAi && { local_ai: true }),
       });
       client.publish(eventTopic('command_result'), JSON.stringify(msg), { retain: true });
     },

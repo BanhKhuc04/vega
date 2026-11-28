@@ -175,6 +175,14 @@ describe('MqttSource', () => {
     expect(extras).toEqual([{ speak: null, sources: [] }, { speak: 'A.', sources: [{ n: 1, title: 'T', url: 'https://x.example.com/' }] }]);
   });
 
+  it('an answer from the PC model turns LOCAL AI on, the next answer without it turns it off (M15)', async () => {
+    const { client, src } = await setup();
+    msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-1', result: 'Chào', local_ai: true }));
+    expect(src.getSnapshot().localAi).toBe(true);
+    msg(client, 'vega/system/events/command_result', JSON.stringify({ v: 1, type: 'command_result', id: 'UI-2', result: 'Living room light on' }));
+    expect(src.getSnapshot().localAi).toBe(false);
+  });
+
   it('passes on what the brain says on its own (announce)', async () => {
     const { client, src } = await setup();
     const got: string[] = [];

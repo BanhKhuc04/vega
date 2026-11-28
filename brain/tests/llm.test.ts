@@ -52,6 +52,20 @@ describe('loadConfig', () => {
     expect(c.warnings.join('\n')).toMatch(/odd ignored: set LLM_ODD_BASE_URL/);
     expect(c.warnings.join('\n')).toMatch(/LLM_ROUTER=openai: no such provider/);
   });
+
+  it('the PC model (M15): LLM_LOCAL names it, the ollama preset or plain http to a Tailscale 100.x address, nothing else', () => {
+    const ollama = { LLM_OLLAMA_MODEL: 'qwen3:4b-instruct-2507-q4_K_M', LLM_OLLAMA_PRICE_IN: '0', LLM_OLLAMA_PRICE_OUT: '0' };
+    const c = loadConfig({ LLM_LOCAL: 'ollama', ...ollama });
+    expect(c.localAi).toBe('ollama');
+    expect(c.providers.ollama!.baseUrl).toBe('http://localhost:11434/v1');
+    expect(loadConfig({}).localAi).toBeNull();
+    const at = (url: string) => loadConfig({ LLM_LOCAL: 'ollama', ...ollama, LLM_OLLAMA_BASE_URL: url }).localAi;
+    expect(at('http://100.101.12.7:11434/v1')).toBe('ollama');
+    expect(at('http://100.63.0.1:11434/v1')).toBeNull(); // just below the Tailscale range
+    expect(at('http://100.128.0.1:11434/v1')).toBeNull(); // just above
+    expect(at('http://192.168.1.20:11434/v1')).toBeNull(); // plain LAN: prompts would cross the Wi-Fi unencrypted
+    expect(at('http://100.101.12.7.evil.com/v1')).toBeNull();
+  });
 });
 
 describe('chat over HTTP (OpenAI-compatible)', () => {

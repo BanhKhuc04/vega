@@ -40,6 +40,7 @@ export function emptySnapshot(kind: 'mock' | 'mqtt', primaryRoom = 'bedroom'): S
     mic: null,
     camera: null,
     home: null,
+    localAi: false,
   };
 }
 

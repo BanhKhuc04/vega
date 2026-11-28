@@ -1,4 +1,4 @@
-# VEGAS contract, revision 9
+# VEGAS contract, revision 10
 
 Source of truth: `packages/contract` (TypeScript + zod). This page is its human-readable form. If the two ever
 disagree, the code wins and this page is a bug.
@@ -17,7 +17,7 @@ disagree, the code wins and this page is a bug.
   Additive.
 - Revision **9** (M10) = new retained topic `vega/system/watch`, the heartbeat of the Pi 3 watchdog. Additive.
 - Every JSON payload carries `"v": 1`, the *payload version*. A message with another `v` is ignored.
-  (`CONTRACT_VERSION = 9` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
+  (`CONTRACT_VERSION = 10` is the revision of this document, `PAYLOAD_VERSION = 1` is the `v` field.)
 - Prefix is `vega/` (the old `jarvis/` is retired).
 
 ## Conventions
@@ -114,7 +114,9 @@ screen that sent the command.
 
 `command_result` (contract v4, M6): `result` up to 2000 characters. Optional `speak` (≤ 300) is read aloud instead of `result`
 (a research summary without its citations). Optional `sources` (≤ 8, `{ n, title, url }`, `url` https only) are the pages the
-answer cites as `[n]`; the chat shows them as links that open in a new tab.
+answer cites as `[n]`; the chat shows them as links that open in a new tab. Optional `local_ai: true` (v10, M15): the answer
+was written by the AI on the owner's PC (Ollama), not a cloud provider; the header shows a `LOCAL AI` chip until the next answer
+without it.
 
 `llm_usage` (retained, published by the brain when it connects and after every LLM call) is today's total from its cost
 ledger; `day` is the brain's local day. The Idle screen shows it as "AI budget · today" (used, left, calls); a `day` that

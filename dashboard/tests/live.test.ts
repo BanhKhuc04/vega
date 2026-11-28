@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiveBinder, fmtAgo, fmtIn, liveText } from '../src/ui/live';
-import { CONN_LABEL, nextTier, renderCam, renderConn, renderMic, renderQuality } from '../src/ui/chrome';
+import { CONN_LABEL, nextTier, renderCam, renderConn, renderLocalAi, renderMic, renderQuality } from '../src/ui/chrome';
 import { emptySnapshot, sampleSnapshot } from '../src/data/sample';
 import type { Snapshot } from '../src/data/types';
 import { loadTemplate } from './dom';
@@ -163,6 +163,14 @@ describe('header chrome', () => {
     renderCam({ camera: true });
     expect(chip.hidden).toBe(true);
     renderCam({ camera: null });
+    expect(chip.hidden).toBe(true);
+  });
+  it('LOCAL AI chip: only while the last answer came from the PC model (M15)', () => {
+    const chip = document.querySelector<HTMLElement>('#aiChip')!;
+    expect(chip.hidden).toBe(true);
+    renderLocalAi({ localAi: true });
+    expect([chip.hidden, chip.textContent]).toEqual([false, 'LOCAL AI']);
+    renderLocalAi({ localAi: false });
     expect(chip.hidden).toBe(true);
   });
   it('quality button shows the running tier and says when it was lowered automatically', () => {

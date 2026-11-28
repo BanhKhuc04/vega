@@ -24,7 +24,8 @@ describe('parseMessage: valid input', () => {
     expect(p('vega/system/events', { v: 1, type: 'ci', repo: 'r', failed: 2, ts: '2026-11-18T09:00:00Z' })).toMatchObject({ type: 'ci', failed: 2 });
     expect(p('vega/system/events', { v: 1, type: 'next_event', title: 't', at: '2026-11-18T12:00:00Z' })).toMatchObject({ type: 'nextEvent', detail: null });
     expect(p('vega/system/events', { v: 1, type: 'co2_series', room: 'b', values: [1, 2] })).toEqual({ type: 'co2Series', room: 'b', values: [1, 2], thresholdPpm: 1000, maxPpm: 1500 });
-    expect(p('vega/system/events', { v: 1, type: 'command_result', id: 'a', result: 'ok' })).toEqual({ type: 'commandResult', id: 'a', result: 'ok', speak: null, sources: [] });
+    expect(p('vega/system/events', { v: 1, type: 'command_result', id: 'a', result: 'ok' })).toEqual({ type: 'commandResult', id: 'a', result: 'ok', speak: null, sources: [], localAi: false });
+    expect(p('vega/system/events', { v: 1, type: 'command_result', id: 'b', result: 'ok', local_ai: true })).toMatchObject({ type: 'commandResult', localAi: true });
     expect(p('vega/system/events/llm_usage', { v: 1, type: 'llm_usage', day: '2026-11-19', spent_usd: 0.0012, budget_usd: 0.05, calls: 4, tokens_in: 2800, tokens_out: 200 })).toEqual({
       type: 'llmUsage', day: '2026-11-19', spentUsd: 0.0012, budgetUsd: 0.05, calls: 4, tokensIn: 2800, tokensOut: 200,
     });

@@ -43,6 +43,8 @@ const commandResult = z.object({
   /** What to read aloud when it differs from `result` (a research summary without the citations). */
   speak: z.string().min(1).max(300).optional(),
   sources: z.array(sourceRef).min(1).max(8).optional(),
+  /** The answer was written by the AI on the owner's PC (v10, M15): the header shows LOCAL AI. */
+  local_ai: z.literal(true).optional(),
 });
 
 /** AI spending of the brain on one local day, from its cost ledger (published after every LLM call). */
