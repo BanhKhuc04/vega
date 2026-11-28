@@ -2,6 +2,7 @@
 # Sets up a Raspberry Pi 3 as VEGA's watchdog and phone-alert server (brief 0014). Safe to run again.
 #
 #   sudo ./infra/pi3/setup.sh
+#   sudo ./infra/pi3/setup.sh --ops    # also the ops station (brief 0017): Uptime Kuma, Tailscale gateway, log book
 #
 # Before: Raspberry Pi OS Lite 64-bit, Tailscale installed and logged in (`sudo tailscale up --hostname=vega-watch`), and
 # MQTT_WATCH_PASS from the Pi 4 (`grep MQTT_WATCH_PASS ~/vega/infra/pi/.env` there, after its setup.sh has run).
@@ -10,14 +11,34 @@
 # brain.env and what to type in the ntfy app on the phone. docs/pi-setup.md, section "Pi 3".
 set -euo pipefail
 
+OPS=0
+for arg in "$@"; do
+  case "$arg" in
+    --ops) OPS=1 ;;
+    -h | --help)
+      sed -n '2,10p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $arg (try --help)" >&2
+      exit 1
+      ;;
+  esac
+done
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF=/etc/vega-watch.env
 NTFY_CONF=/etc/ntfy/server.yml
 NTFY_PORT=2586
 UNITS=/etc/systemd/system
+KUMA_VERSION=2.5.12
+KUMA_DIR=/opt/uptime-kuma
+KUMA_DATA=/var/lib/uptime-kuma
+KUMA_PORT=3001
+KUMA_HTTPS=8443
 
 if [ "$(id -u)" != 0 ]; then
-  echo "run with sudo: sudo $0" >&2
+  echo "run with sudo: sudo $0 $*" >&2
   exit 1
 fi
 say() { printf '\n==> %s\n' "$*"; }
@@ -152,6 +173,114 @@ EOF
 if [ "$changed" = 1 ]; then systemctl daemon-reload; fi
 systemctl enable --now vega-watch.timer
 
+if [ "$OPS" = 1 ]; then
+  say "Ops station packages (brief 0017)"
+  apt-get install -y --no-install-recommends git nodejs npm iputils-ping rsyslog logrotate
+
+  say "Uptime Kuma $KUMA_VERSION (no Docker: about 100-150 MB instead of 200+)"
+  id -u kuma >/dev/null 2>&1 || useradd --system --home-dir "$KUMA_DATA" --create-home --shell /usr/sbin/nologin kuma
+  if [ "$(cat "$KUMA_DIR/.vega-version" 2>/dev/null || true)" != "$KUMA_VERSION" ]; then
+    systemctl stop uptime-kuma 2>/dev/null || true
+    # code only: the monitors and their history live in $KUMA_DATA and survive this
+    rm -rf "$KUMA_DIR"
+    git clone -q --depth 1 --branch "$KUMA_VERSION" https://github.com/louislam/uptime-kuma.git "$KUMA_DIR"
+    chown -R kuma:kuma "$KUMA_DIR"
+    echo "   npm install: 5-15 minutes on a Pi 3"
+    (cd "$KUMA_DIR" && runuser -u kuma -- env HOME="$KUMA_DATA" npm ci --omit dev --no-audit --no-fund &&
+      runuser -u kuma -- env HOME="$KUMA_DATA" npm run download-dist)
+    rm -rf "$KUMA_DATA/.npm"
+    echo "$KUMA_VERSION" >"$KUMA_DIR/.vega-version"
+  fi
+  if write_if_changed "$UNITS/uptime-kuma.service" 0644 <<EOF; then systemctl daemon-reload; systemctl restart uptime-kuma 2>/dev/null || true; fi
+# managed by VEGA infra/pi3/setup.sh (brief 0017)
+[Unit]
+Description=Uptime Kuma: which part of the house is down
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+User=kuma
+Group=kuma
+WorkingDirectory=$KUMA_DIR
+Environment=NODE_ENV=production UPTIME_KUMA_HOST=127.0.0.1 UPTIME_KUMA_PORT=$KUMA_PORT DATA_DIR=$KUMA_DATA/ NODE_OPTIONS=--max-old-space-size=128
+ExecStart=/usr/bin/node server/server.js
+Restart=on-failure
+RestartSec=10
+# the Pi 3 RAM budget (brief 0016 T4): the watchdog and ntfy must keep running whatever Kuma does
+MemoryHigh=200M
+MemoryMax=300M
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl enable --now uptime-kuma
+  tailscale serve --bg --https="$KUMA_HTTPS" "http://127.0.0.1:$KUMA_PORT" >/dev/null || echo "   tailscale serve for Uptime Kuma failed" >&2
+  if ! has_user kuma; then NTFY_PASSWORD="$(openssl rand -hex 24)" ntfy user add kuma; fi
+  ntfy access kuma "$topic" write-only >/dev/null
+  if [ -z "$(conf_get KUMA_NTFY_TOKEN)" ]; then
+    token="$(ntfy token add --label=kuma kuma 2>&1 | grep -o 'tk_[A-Za-z0-9]*' | head -n1 || true)"
+    [ -n "$token" ] && conf_set KUMA_NTFY_TOKEN "$token"
+  fi
+
+  say "Tailscale gateway: the home LAN from anywhere (subnet router) and an exit node"
+  dev="$(ip -4 route show default | awk '{print $5; exit}')"
+  lan="$(python3 -c 'import ipaddress,sys; print(ipaddress.ip_interface(sys.argv[1]).network)' "$(ip -4 -o addr show dev "$dev" | awk '{print $4; exit}')")"
+  if write_if_changed /etc/sysctl.d/99-vega-tailscale.conf 0644 <<'EOF'; then systemctl restart systemd-sysctl; fi
+# managed by VEGA infra/pi3/setup.sh: Tailscale subnet router and exit node (brief 0017 O7)
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+EOF
+  tailscale set --advertise-routes="$lan" --advertise-exit-node
+  echo "   advertising $lan and an exit node: approve both in the Tailscale admin console (Machines > vega-watch > Edit route settings)"
+
+  say "Log book: the Pi 4 (Tailscale, TCP) and the router (LAN, UDP) into /var/log/remote"
+  # replaces Debian's rsyslog.conf: this Pi's own logs stay in the RAM journal, so nothing local is written to the SD card
+  tmp="$(mktemp)"
+  cat >"$tmp" <<EOF
+# managed by VEGA infra/pi3/setup.sh (brief 0017 O8): receives other machines' logs, writes nothing of this Pi's own
+global(workDirectory="/var/lib/rsyslog")
+module(load="imtcp" MaxSessions="20")
+module(load="imudp")
+\$AllowedSender TCP, 127.0.0.1, 100.64.0.0/10
+\$AllowedSender UDP, 127.0.0.1, $lan
+input(type="imtcp" port="514" ruleset="remote")
+input(type="imudp" port="514" ruleset="remote")
+# the sender names the file: secpath-replace keeps a forged hostname inside /var/log/remote
+template(name="vegaRemoteFile" type="string" string="/var/log/remote/%HOSTNAME:::secpath-replace%.log")
+ruleset(name="remote") {
+  action(type="omfile" dynaFile="vegaRemoteFile" dynaFileCacheSize="10" dirCreateMode="0700" fileCreateMode="0600")
+}
+EOF
+  if rsyslogd -N1 -f "$tmp" >/dev/null 2>&1; then
+    if write_if_changed /etc/rsyslog.conf 0644 <"$tmp"; then systemctl restart rsyslog; fi
+  else
+    echo "   rsyslog refused the new config, keeping the old one:" >&2
+    rsyslogd -N1 -f "$tmp" >&2 || true
+  fi
+  rm -f "$tmp"
+  systemctl enable --now rsyslog
+  write_if_changed /etc/logrotate.d/vega-remote 0644 <<'EOF' || true
+# managed by VEGA infra/pi3/setup.sh: at most 3 files of 20 MB per machine (brief 0016 T5)
+/var/log/remote/*.log {
+  size 20M
+  rotate 2
+  compress
+  delaycompress
+  missingok
+  notifempty
+  postrotate
+    /usr/lib/rsyslog/rsyslog-rotate
+  endscript
+}
+EOF
+  # the size cap needs a check more often than once a day
+  if write_if_changed /etc/systemd/system/logrotate.timer.d/vega.conf 0644 <<'EOF'; then systemctl daemon-reload; systemctl restart logrotate.timer; fi
+[Timer]
+OnCalendar=
+OnCalendar=hourly
+EOF
+fi
+
 say "Test push"
 if curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(conf_get NTFY_TOKEN)" -H 'Content-Type: application/json' \
   -d "{\"topic\":\"$topic\",\"priority\":3,\"tags\":[\"wave\"],\"title\":\"VEGA: Pi 3 sẵn sàng\",\"message\":\"Người gác đang trông Pi 4.\"}" "http://127.0.0.1:$NTFY_PORT"; then
@@ -174,3 +303,18 @@ NTFY_TOPIC=$topic
 2. On the iPhone (Tailscale on): App Store › ntfy › Settings › Default server: https://$NAME
    Users › add: server https://$NAME, user phone, the password you chose. Then subscribe to the topic: $topic
 EOF
+
+if [ "$OPS" = 1 ]; then
+  cat <<EOF2
+
+==> Ops station (brief 0017). In a browser with Tailscale on:
+
+3. https://$NAME:$KUMA_HTTPS  create the Uptime Kuma account, then Settings > Notifications > Setup Notification:
+   type ntfy, server URL http://127.0.0.1:$NTFY_PORT, topic $topic, priority 4, access token $(conf_get KUMA_NTFY_TOKEN)
+   Settings > Monitor History: 30 days. Monitors: docs/pi-setup.md, section "Pi 3: trạm điều hành (P3.1)".
+
+4. Tailscale admin console > Machines > vega-watch > Edit route settings: approve the subnet route and "Use as exit node".
+
+5. On the Pi 4: LOG_HOST=$(tailscale ip -4 | head -n1) in ~/vega/infra/pi/.env, then sudo ./infra/pi/setup.sh --no-kiosk
+EOF2
+fi

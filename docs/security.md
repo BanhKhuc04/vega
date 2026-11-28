@@ -185,6 +185,18 @@ ngoài), nên test chứng minh chính quy tắc của bộ não chặn được
   (che việc Pi 3 chết) và đọc được tên container.
 - Pi 3 không giữ bí mật nào khác của VEGAS: không key AI, không token Google, không khoá backup.
 
+### Trạm điều hành trên Pi 3 (P3.1, brief 0017)
+
+- **Uptime Kuma chỉ nghe `127.0.0.1:3001`**, ra ngoài qua `tailscale serve` cổng 8443 (tailnet, không funnel), có tài khoản riêng. Nó giữ
+  mật khẩu MQTT `watch` (chỉ đọc báo cáo sức khoẻ) và token ntfy của user `kuma` (chỉ ghi topic của VEGAS) trong SQLite tại
+  `/var/lib/uptime-kuma`, chỉ user `kuma` và root đọc được. Chạy bằng user `kuma`, không phải root, trần RAM 300 MB.
+- **Cổng Tailscale:** Pi 3 quảng bá mạng LAN nhà và làm exit node; cả hai chỉ có tác dụng sau khi chủ duyệt trong trang quản trị Tailscale,
+  và chỉ máy trong tailnet dùng được. Exit node chỉ bật tay trên điện thoại khi cần.
+- **Sổ log:** rsyslog trên Pi 3 nhận TCP 514 chỉ từ dải Tailscale `100.64.0.0/10` và UDP 514 chỉ từ LAN nhà (`$AllowedSender`). Log có
+  thể chứa câu lệnh, tên thiết bị hay vị trí, nên `/var/log/remote` chỉ root đọc (thư mục `0700`, file `0600`), tối đa 3 file × 20 MB
+  mỗi máy. Tên file lấy từ hostname người gửi, đã lọc (`secpath-replace`) để không ghi ra ngoài thư mục đó. Log đi qua Tailscale (mã hoá);
+  log router đi trong LAN, không mã hoá.
+
 ## 10b. Trí nhớ và AI trên cloud (M9)
 
 AI chính có thể là DeepSeek: theo chính sách công bố, dữ liệu được xử lý ở Trung Quốc, không có chế độ "không lưu", và không có cam kết

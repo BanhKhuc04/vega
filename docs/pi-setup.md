@@ -171,6 +171,45 @@ Pi 4, đợi khoảng 4 phút, iPhone phải báo; cắm lại, có tin "đã tr
 Giới hạn: **mất điện hay mất internet cả nhà** thì Pi 3 cũng tắt hoặc không gửi được. iPhone báo tức thì nhờ ntfy chuyển một mã tin qua
 máy chủ ntfy.sh tới Apple; nội dung tin vẫn đi thẳng từ Pi 3 sang iPhone qua Tailscale.
 
+## Pi 3: trạm điều hành (P3.1)
+
+Thêm ba thứ lên Pi 3 (brief 0017): **Uptime Kuma** cho biết *service nào* hỏng, **cổng Tailscale** để ở ngoài vẫn vào được router và mạng
+nhà, **sổ log** giữ log của Pi 4 và router để đọc lại sau khi Pi 4 sập.
+
+1. **Pi 3:** `cd ~/vega && git pull && sudo ./infra/pi3/setup.sh --ops`. Lần đầu mất 5–15 phút để cài Uptime Kuma. Cuối script in các bước
+   còn lại.
+2. **Uptime Kuma:** mở `https://vega-watch.<tailnet>.ts.net:8443` (Tailscale đang bật), tạo tài khoản. Settings › Notifications: thêm
+   loại **ntfy**, server `http://127.0.0.1:2586`, topic và access token script đã in, priority 4, bật "Default enabled". Settings ›
+   Monitor History: **30 ngày**.
+3. **Tailscale admin console** › Machines › `vega-watch` › Edit route settings: duyệt subnet route và "Use as exit node".
+4. **Pi 4:** ghi `LOG_HOST=<Tailscale IPv4 của Pi 3>` (script đã in) vào `~/vega/infra/pi/.env`, rồi `sudo ./infra/pi/setup.sh --no-kiosk`.
+   Script chuyển log container sang journald, tạo lại container, và chuyển tiếp log sang Pi 3.
+5. **Router:** nếu trang quản trị có mục "Remote syslog" thì trỏ về IP LAN của Pi 3, cổng 514 UDP.
+
+**Monitor** (Add New Monitor, khoảng kiểm tra 60 giây). Monitor MQTT dùng host là tên Pi 4 trong tailnet (`vega`), cổng 1883, user
+`watch` và mật khẩu `MQTT_WATCH_PASS` (Pi 4: `grep MQTT_WATCH_PASS ~/vega/infra/pi/.env`), topic `vega/system/health`, kiểu kiểm tra
+Keyword:
+
+| Tên | Kiểu | Đích | Keyword | Báo điện thoại |
+|---|---|---|---|---|
+| mosquitto | MQTT | như trên | `"name":"mosquitto","state":"running","health":"healthy"` | Có |
+| vega-brain | MQTT | như trên | `"name":"vega-brain","state":"running","health":"healthy"` | Có |
+| vega-voice | MQTT | như trên | `"name":"vega-voice","state":"running","health":"healthy"` | Có |
+| vega-vision | MQTT | như trên | `"name":"vega-vision","state":"running","health":"healthy"` | Có |
+| vega-ui | MQTT | như trên | `"name":"vega-ui","state":"running"` | Có |
+| Dashboard | HTTP(s) - Keyword | `http://<Tailscale IP Pi 4>:8080/` | `VEGAS` | Có |
+| Router | Ping | `192.168.1.1` | | Có |
+| Pi 4 | Ping | Tailscale IP Pi 4 | | **Không**: người gác M10 đã báo |
+| Internet | Ping | `1.1.1.1` | | Không |
+| PC | Ping | Tailscale IP của PC | | Không |
+| ntfy | HTTP(s) | `http://127.0.0.1:2586/v1/health` | | Không |
+
+Với monitor "Không", bỏ chọn thông báo ntfy trong phần Notifications của monitor đó.
+
+Kiểm tra: trên Pi 4 chạy `cd ~/vega/infra/pi && sudo docker compose stop vega-voice`. Trong 3 phút monitor `vega-voice` phải đỏ và iPhone
+nhận tin; `sudo docker compose start vega-voice` thì xanh lại. Log của Pi 4: `sudo tail -f /var/log/remote/<tên Pi 4>.log` trên Pi 3. RAM:
+`systemctl status uptime-kuma` (dòng Memory), `free -m`.
+
 ## Mất điện, rút điện cắm lại
 
 Docker tự bật lại các container (`restart: unless-stopped`) và `vega-kiosk.service` tự mở trình duyệt. Kiosk chờ nginx
