@@ -23,7 +23,7 @@
 {"text":"đi ngủ thôi","expect":[{"tool":"run_scene","args":{"name":"sleep"}}]}
 {"text":"chúc ngủ ngon vega","expect":[{"tool":"run_scene","args":{"name":"sleep"}}]}
 {"text":"bật chế độ tập trung","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
-{"text":"mình cần học bài 25 phút","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
+{"text":"mình cần học bài 25 phút","expect":[{"tool":"run_scene","args":{"name":"focus","minutes":25}}]}
 {"text":"bắt đầu pomodoro","expect":[{"tool":"run_scene","args":{"name":"focus"}}]}
 {"text":"nhà có những thiết bị nào","expect":[{"tool":"list_devices","args":{}}]}
 {"text":"thiết bị nào đang bật","expect":[{"tool":"list_devices","args":{}}]}

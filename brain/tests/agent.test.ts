@@ -26,6 +26,15 @@ describe('Agent · local path', () => {
     expect(t.sets).toEqual([]);
   });
 
+  it('said differently (M11): understood by meaning, no LLM; a high-risk plug still asks first', async () => {
+    const t = makeAgent();
+    expect(await t.agent.handle(owner('cho đèn sáng lên'))).toMatchObject({ path: 'local', llmCalls: 0 });
+    expect(t.sets).toEqual([{ device: 'livingroom/light', on: true }]);
+    expect(await t.agent.handle(owner('tắt ổ cắm bếp giúp, sợ cháy', 'UI-2'))).toMatchObject({ path: 'confirm', llmCalls: 0 });
+    expect(t.llm.calls).toBe(0);
+    expect(t.sets).toHaveLength(1);
+  });
+
   it('the sleep scene turns low-risk lights off and takes the screen', async () => {
     const t = makeAgent();
     const out = await t.agent.handle(owner('đi ngủ'));
@@ -38,7 +47,7 @@ describe('Agent · local path', () => {
 describe('Agent · LLM path (mock)', () => {
   it('a sentence the local router does not know goes to the LLM, which calls the right tool; chips match the tools', async () => {
     const t = makeAgent({ temp: 27.2 });
-    const out = await t.agent.handle(owner('trong phòng có oi bức nóng nực lắm không'));
+    const out = await t.agent.handle(owner('với cái nóng thế này mình có nên mặc áo khoác không'));
     expect(out.path).toBe('llm');
     expect(out.calls).toEqual([{ name: 'get_sensor', args: { metric: 'temp' } }]);
     expect(out.answer).toBe('Bedroom 27.2°C');

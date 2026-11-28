@@ -2,6 +2,7 @@
  * `npm run bench [-- --provider mock] [--cases file] [--verbose]`: runs the sample Vietnamese commands straight
  * through each LLM provider (the local router is bypassed, that is the point) and prints accuracy, p50 latency
  * and USD per 100 commands. Without --provider it runs every provider that has an API key in the environment.
+ * `npm run bench -- --local` instead runs the no-AI tiers (exact router, then the meaning tier of M11) on the same cases.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -12,6 +13,9 @@ import type { Provider } from '../src/config';
 import { chat, costUsd } from '../src/llm';
 import type { ChatMessage, ChatResponse } from '../src/llm';
 import { toolSpecs } from '../src/tools';
+import type { ToolCall } from '../src/tools';
+import { routeLocal } from '../src/local';
+import { routeIntent } from '../src/intent';
 import { simRegistry } from './registry';
 
 export interface Expected {
@@ -108,6 +112,51 @@ export async function benchProvider(p: Provider, cases: Case[], opts: { timeoutM
   return row;
 }
 
+export interface LocalRow {
+  tier: string;
+  /** Commands (cases that expect a tool) done right with no AI. */
+  correct: number;
+  commands: number;
+  /** Tools called that the case did not expect: must stay 0. */
+  wrong: number;
+  /** Left to the LLM. */
+  toLlm: number;
+  maxMs: number;
+  misses: { text: string; got: Expected[] | null }[];
+}
+
+/** The no-AI tiers over the same cases (M11): the exact router alone, then with the meaning tier behind it. */
+export function benchLocal(cases: Case[]): LocalRow[] {
+  const reg = simRegistry();
+  const opts = { defaultRoom: DEFAULT_ROOM };
+  const tiers: [string, (t: string) => ToolCall[] | null][] = [
+    ['exact (local.ts)', (t) => routeLocal(t, reg, opts)],
+    ['exact + meaning (intent.ts)', (t) => routeLocal(t, reg, opts) ?? routeIntent(t, reg, opts)],
+  ];
+  return tiers.map(([tier, route]) => {
+    const row: LocalRow = { tier, correct: 0, commands: cases.filter((c) => c.expect.length).length, wrong: 0, toLlm: 0, maxMs: 0, misses: [] };
+    for (const c of cases) {
+      const t0 = performance.now();
+      const calls = route(c.text);
+      row.maxMs = Math.max(row.maxMs, performance.now() - t0);
+      const got = calls?.map((x): Expected => ({ tool: x.name, args: x.args as Record<string, unknown> })) ?? null;
+      if (!got) row.toLlm++;
+      else if (matches(c.expect, got)) row.correct++;
+      else row.wrong++;
+      if (c.expect.length && !(got && matches(c.expect, got))) row.misses.push({ text: c.text, got });
+    }
+    return row;
+  });
+}
+
+export function localTable(rows: LocalRow[]): string {
+  return [
+    '| tier | right with no AI | wrong tool | to the LLM | slowest |',
+    '|---|---|---|---|---|',
+    ...rows.map((r) => `| ${r.tier} | ${r.correct}/${r.commands} (${Math.round((100 * r.correct) / r.commands)}%) | ${r.wrong} | ${r.toLlm} | ${r.maxMs.toFixed(1)} ms |`),
+  ].join('\n');
+}
+
 export function table(rows: Row[]): string {
   const lines = [
     '| provider | model | accuracy | p50 latency | USD / 100 commands | errors |',
@@ -128,6 +177,12 @@ async function main(argv: string[]): Promise<number> {
     const i = argv.indexOf(name);
     return i >= 0 ? argv[i + 1] : undefined;
   };
+  if (argv.includes('--local')) {
+    const rows = benchLocal(loadCases(arg('--cases') ?? fileURLToPath(new URL('./cases.jsonl', import.meta.url))));
+    console.log(localTable(rows));
+    if (argv.includes('--verbose')) for (const r of rows) for (const m of r.misses) console.log(`miss [${r.tier}] "${m.text}" -> ${JSON.stringify(m.got)}`);
+    return 0;
+  }
   const wanted = argv.flatMap((a, i) => (argv[i - 1] === '--provider' ? a.split(',') : [])).map((s) => s.trim().toLowerCase());
   const names = wanted.length ? wanted : Object.values(cfg.providers).filter((p) => p.apiKey).map((p) => p.name);
   for (const w of cfg.warnings) console.error(`config: ${w}`);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { benchProvider, loadCases, matches, table } from '../bench/bench';
+import { benchLocal, benchProvider, loadCases, localTable, matches, table } from '../bench/bench';
 import { MOCK } from '../src/config';
 
 const cases = loadCases(fileURLToPath(new URL('../bench/cases.jsonl', import.meta.url)));
@@ -20,6 +20,15 @@ describe('bench', () => {
     expect(matches([light], [{ ...light, args: { ...light.args, on: false } }])).toBe(false);
     expect(matches([], [light])).toBe(false);
     expect(matches([], [])).toBe(true);
+  });
+
+  it('M11: with the meaning tier, at least 80% of the commands need no AI and no tool is ever wrong', () => {
+    const [exact, meaning] = benchLocal(cases);
+    expect(exact!.wrong).toBe(0);
+    expect(meaning!.wrong).toBe(0); // the questions that need no tool and "đừng bật đèn" all go to the LLM
+    expect(meaning!.correct).toBeGreaterThanOrEqual(Math.ceil(0.8 * meaning!.commands));
+    expect(meaning!.correct).toBeGreaterThan(exact!.correct);
+    expect(localTable([exact!, meaning!])).toMatch(/^\| tier \| right with no AI \|/);
   });
 
   it('runs the mock provider and prints the table', async () => {

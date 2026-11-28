@@ -59,7 +59,7 @@ P3.2 với router) trước khi thêm P3.4.
 | M0, M1, M3 đến M10 | Đã xong | Giọng nói, camera, trí nhớ, backup, Console, người gác |
 | "Hey Vegas" trên PC | Đang train model wake word | Chạy trên PC, không đụng tới Pi 4 |
 | M2 · Thiết bị thật | Chờ P3.3 | Phần Pi 4 chỉ còn bộ não dịch `zigbee2mqtt/*` sang `vega/*` và sổ thiết bị |
-| M11 · Hiểu lệnh bằng embedding | Tạm dừng | Sửa lỗi "đúng chữ, sai việc" (ví dụ "tập trung 25 phút") |
+| M11 · Hiểu lệnh bằng embedding | Xong (0018, 2026-11-28) | Làm bằng bộ phân loại n-gram ký tự thay cho embedding; 40/41 lệnh của bench không tốn AI |
 | M12 · STT offline | Tạm dừng | Phần nghe chuyển sang P3.4. Pi 4 chỉ còn STT |
 | M14 · Hành động ghi | Tạm dừng | |
 | M15 · AI cục bộ trên PC | Tạm dừng | |
