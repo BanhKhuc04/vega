@@ -31,7 +31,7 @@ describe('cost ledger and daily budget', () => {
   it('every LLM call is one ledger row with tokens and USD; local commands have none', async () => {
     const t = makeAgent();
     await t.agent.handle(owner('phòng mấy độ, bật đèn giúp', 'L-1'));
-    await t.agent.handle(owner('ngoài ban công không khí có trong lành không', 'Q-1'));
+    await t.agent.handle(owner('với cái nóng thế này mình có nên mặc áo khoác không', 'Q-1'));
     expect(t.store.llmCallsFor('L-1')).toBe(0);
     expect(t.store.llmCallsFor('Q-1')).toBe(2);
     expect(t.store.spentUsd(dayOf(Date.now()))).toBeGreaterThan(0);

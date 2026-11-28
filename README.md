@@ -300,7 +300,8 @@ Idle, đèn ảo trong sim bật. Lệnh này do **bộ định tuyến cục b�
 | Lệnh | Đi đường nào |
 |---|---|
 | bật/tắt thiết bị, mấy độ, độ ẩm, CO₂, đi ngủ, tập trung, có thiết bị nào (Việt/Anh) | cục bộ, 0 đồng |
-| câu khác (`ngoài ban công không khí có trong lành không`) | LLM có tool calling (`LLM_ROUTER`) |
+| cùng những việc đó nhưng nói khác hoặc STT nghe sai (`cho đèn sáng lên`, `phòng mỹ độ`, `trời tối rồi, bật đèn lên`) | cục bộ theo nghĩa (M11, `brain/src/intent.ts`), 0 đồng |
+| câu khác (`có nên mặc áo khoác không`, `kể chuyện cười`) | LLM có tool calling (`LLM_ROUTER`) |
 | thiết bị khai `risk: high` (ổ cắm bếp trong sim) | màn `alert` hỏi xác nhận, gõ `yes` trong 30 giây |
 
 Cấu hình (biến môi trường hoặc `.env` ở thư mục chạy): `MQTT_URL`, `VEGA_ROOM`, `BRAIN_DB`, `LLM_ROUTER`/`LLM_CHAT`, khối
@@ -309,7 +310,8 @@ Bảo mật lệnh: `docs/security.md`.
 
 **Chọn nhà cung cấp AI**: điền 2–3 khối `LLM_<NAME>_*` (key, model, giá) vào `.env` rồi chạy `npm run bench`. Bench gửi 50 lệnh
 tiếng Việt mẫu (`brain/bench/cases.jsonl`) thẳng tới từng nhà cung cấp và in bảng độ đúng, độ trễ p50, USD/100 lệnh.
-`npm run bench -- --provider mock --verbose` chạy không cần key (CI dùng cách này).
+`npm run bench -- --provider mock --verbose` chạy không cần key (CI dùng cách này). `npm run bench -- --local` đo hai tầng không
+tốn AI trên cùng 50 lệnh: bao nhiêu lệnh làm đúng, bao nhiêu lệnh sai (phải là 0), bao nhiêu để lại cho LLM.
 
 ### Bắn cảnh bằng tay
 

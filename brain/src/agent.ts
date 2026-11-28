@@ -9,6 +9,7 @@ import { RateLimiter, reply } from './guard';
 import { LlmUnavailable, costUsd, chat as httpChat } from './llm';
 import type { ChatMessage, ChatOptions, ChatRequest, ChatResponse } from './llm';
 import { routeLocal } from './local';
+import { routeIntent } from './intent';
 import { parseMemoryCommand } from './memory';
 import type { Aliases, Memory } from './memory';
 import { research } from './research';
@@ -218,8 +219,10 @@ export class Agent {
       const hit = this.deps.memory.recall(cmd.text);
       if (hit) local = [{ name: 'recall', args: { id: hit.id } }];
     }
-    chips[0]!.state = 'done';
     const question = !local && run.trusted ? researchQuestion(cmd.text) : null;
+    // said differently or misheard ("cho đèn sáng lên", "phòng mỹ độ"): understood by meaning, still no AI (M11)
+    if (!local && !question && run.trusted) local = routeIntent(cmd.text, this.deps.registry, { defaultRoom: config.defaultRoom, recent: { devices: this.convo.devices, room: this.convo.room } });
+    chips[0]!.state = 'done';
     if (question) return done(await this.runResearch(question, cmd, run));
     const explain = local?.find((c) => c.name === 'ci_explain');
     let out = local ? await this.runLocal(local.filter((c) => c !== explain), chips, run) : await this.runLlm(cmd, chips, run);

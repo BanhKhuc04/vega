@@ -46,13 +46,13 @@ const ON = ['turn on', 'switch on', 'bat', 'mo', 'on'];
 const OFF = ['turn off', 'switch off', 'tat', 'off'];
 const LIST = ['danh sach thiet bi', 'nhung thiet bi nao', 'thiet bi nao', 'thiet bi', 'list devices', 'list the devices', 'devices'];
 /** Multi-word fillers go first so "làm ơn" never reads as the English verb "on". */
-const FILLER_PHRASES = ['lam on', 'giup minh', 'giup toi', 'giup em', 'cho minh', 'cho toi', 'cho em', 'can you', 'could you', 'bay gio', 'hien tai', 'the nao', 'what is', 'is it'];
-const FILLERS = new Set(
+export const FILLER_PHRASES = ['lam on', 'giup minh', 'giup toi', 'giup em', 'cho minh', 'cho toi', 'cho em', 'can you', 'could you', 'bay gio', 'hien tai', 'the nao', 'what is', 'is it'];
+export const FILLERS = new Set(
   'vega vegas oi hey hi ok please pls giup cho minh toi em anh nhe nha ne voi vay a ah hay xin di thoi luon ngay nao the la co dang duoc cai chiec phong room what whats s it is in of an now right o trong cua bao nhieu gi'.split(' '),
 );
-const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
+export const SPLIT = / (?:va|roi|sau do|xong|and|then) /;
 /** "tắt nó đi", "bật cái đó lên": the device(s) just talked about (M9). Folded, so "nó" is "no". */
-const IT = ['thiet bi do', 'cai do', 'cai nay', 'chung no', 'chung', 'no', 'them', 'that', 'it'];
+export const IT = ['thiet bi do', 'cai do', 'cai nay', 'chung no', 'chung', 'no', 'them', 'that', 'it'];
 /** "phòng đó mấy độ": the room just talked about. */
 const THAT_ROOM = ['phong do', 'phong nay', 'trong do', 'o do', 'that room', 'in there', 'there'];
 
